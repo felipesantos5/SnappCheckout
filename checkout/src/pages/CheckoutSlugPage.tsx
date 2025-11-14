@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import CheckoutPage from "./CheckoutPage"; // O seu layout antigo
 import { getContrast } from "polished";
+import { API_URL } from "../config/BackendUrl";
 
-// URL da sua API
-const API_URL = "http://localhost:4242/api";
+// URL da sua AP
 
 // Tipagem para os dados da oferta (deve bater com o backend)
 export interface OfferData {
