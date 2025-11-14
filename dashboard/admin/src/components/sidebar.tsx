@@ -1,18 +1,27 @@
-import { Inbox, Package2, ChartNoAxesCombined, Flag, ShoppingBasket, ChevronDown, Gavel, Users, ListChecks } from "lucide-react";
+import { Inbox, ChartNoAxesCombined, ShoppingBasket, User } from "lucide-react";
 import logo from "../assets/logo.png";
 
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  // SidebarMenuSub,
-  // SidebarMenuSubButton,
-  // SidebarMenuSubItem,
 } from "./ui/sidebar";
+import { useAuth } from "@/context/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import { Button } from "./ui/button";
+import { Avatar, AvatarFallback } from "./ui/avatar";
 
 // Menu items.
 const items = [
@@ -46,12 +55,51 @@ const items = [
 //   },
 // ];
 
+function UserMenu() {
+  const { user, logout } = useAuth();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="relative h-8 rounded-full p-0 justify-start">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback>
+              <User className="h-4 w-4" />
+            </AvatarFallback>
+          </Avatar>
+          <p className="text-sm font-medium leading-none">{user?.name}</p>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">{user?.name}</p>
+            <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+
+        {/* 3. O Botão de Logout */}
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault();
+            logout(); // 4. Chame a função de logout do contexto
+          }}
+          className="cursor-pointer"
+        >
+          Sair
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function AppSidebar() {
   // const [isApprovalOpen, setIsApprovalOpen] = useState(false);
 
   return (
     <Sidebar>
-      <SidebarContent>
+      <SidebarContent className="justify-between">
         <SidebarGroup>
           <img src={logo} alt="logo" className="mt-12 mb-10 w-[40%]" />
           <SidebarGroupContent>
@@ -92,6 +140,9 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        <SidebarFooter>
+          <UserMenu />
+        </SidebarFooter>
       </SidebarContent>
     </Sidebar>
   );

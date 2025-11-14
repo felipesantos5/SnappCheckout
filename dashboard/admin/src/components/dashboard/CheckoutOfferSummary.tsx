@@ -4,13 +4,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Link2, Image as ImageIcon } from "lucide-react";
-
-// Importe o tipo de dados do formulário (que é similar ao da API)
-// Importe o tipo de dados do formulário (que é similar ao da API)
 import type { OfferFormData } from "../forms/OfferForm";
 
-// Helper para formatar o preço
-// (O formulário usa R$ (ex: 19.90), então formatamos assim)
 const formatCurrency = (amount: number, currency: string = "BRL") => {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -19,13 +14,15 @@ const formatCurrency = (amount: number, currency: string = "BRL") => {
 };
 
 interface CheckoutOfferSummaryProps {
-  offer: OfferFormData; // Recebe os dados da oferta
-  slug?: string; // Recebe o slug gerado (pois ele não está no formulário)
+  offer: OfferFormData;
+  slug?: string;
 }
 
 export function CheckoutOfferSummary({ offer, slug }: CheckoutOfferSummaryProps) {
-  // Agrupa o produto principal e os bumps
-  const allProducts = [{ ...offer.mainProduct, type: "Principal" }, ...offer.orderBumps.map((bump) => ({ ...bump, type: "Order Bump" }))];
+  const allProducts = [
+    { ...(offer.mainProduct as any), type: "Principal" },
+    ...(offer.orderBumps || []).map((bump) => ({ ...(bump as any), type: "Order Bump" })),
+  ];
 
   return (
     <Card className="w-full">

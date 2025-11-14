@@ -4,13 +4,9 @@ import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { OfferForm } from "@/components/forms/OfferForm"; // O formulário de criação
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
-
-// URL da sua API
-const API_URL = "http://localhost:4242/api";
+import { API_URL } from "@/config/BackendUrl";
 
 // Tipo para os dados da oferta (simplificado para a lista)
 interface Offer {
@@ -23,7 +19,6 @@ interface Offer {
 export function OffersPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isFormOpen, setIsFormOpen] = useState(false);
 
   // Função para buscar os dados
   const fetchOffers = async () => {

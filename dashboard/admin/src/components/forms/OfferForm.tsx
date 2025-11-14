@@ -21,12 +21,13 @@ import { API_URL } from "@/config/BackendUrl";
 // --- Schema de Validação (Zod) ---
 const optionalUrl = z.string().url({ message: "URL inválida." }).optional().or(z.literal(""));
 
+// Schema do Produto (com coerce para o preço do formulário)
 const productSchema = z.object({
-  _id: z.string().optional(), // _id pode existir em sub-documentos
+  _id: z.string().optional(),
   name: z.string().min(3, { message: "Nome do produto é obrigatório." }),
   description: z.string().optional(),
   imageUrl: optionalUrl,
-  priceInCents: z.coerce.number().min(0.5, { message: "Preço deve ser ao menos R$ 0,50." }),
+  priceInCents: z.coerce.number().min(0.5, { message: "Preço deve ser ao menos R$ 0,50." }), // Mantemos o coerce
 });
 
 const colorSchema = z
@@ -35,37 +36,45 @@ const colorSchema = z
   .optional()
   .or(z.literal(""));
 
-// O 'slug' não faz parte do formulário de criação/edição
 const offerFormSchema = z.object({
   name: z.string().min(3, { message: "Nome do link é obrigatório." }),
   bannerImageUrl: optionalUrl,
-  currency: z.string().default("BRL"),
-
+  currency: z.string().default("BRL"), // Input: string | undefined, Output: string
   primaryColor: colorSchema,
   buttonColor: colorSchema,
-
-  mainProduct: productSchema,
+  mainProduct: productSchema, // Input: priceInCents: unknown, Output: number
   orderBumps: z.array(productSchema).optional(),
 });
 
-// Exportamos o tipo para a página de edição usar
-export type OfferFormData = z.infer<typeof offerFormSchema> & { _id?: string };
+// --- INÍCIO DA CORREÇÃO ---
+
+// 1. Definir e EXPORTAR os tipos de Input e Output
+export type OfferFormInput = z.input<typeof offerFormSchema>;
+export type OfferFormOutput = z.infer<typeof offerFormSchema>;
+
+// 2. O tipo de dados do formulário (FormData) DEVE ser o INPUT
+//    Ele será usado pelo useForm e pela página de Edição (initialData)
+export type OfferFormData = OfferFormInput & { _id?: string };
+
+// --- FIM DA CORREÇÃO ---
 
 // Props do componente
 interface OfferFormProps {
   onSuccess: () => void;
-  initialData?: OfferFormData; // Dados para preencher (modo edição)
-  offerId?: string; // ID da oferta (modo edição)
+  initialData?: OfferFormData; // initialData agora é do tipo Input
+  offerId?: string;
 }
 
 export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const isEditMode = !!offerId; // Define se estamos em modo de edição
+  const isEditMode = !!offerId;
 
+  // 3. Tipar o useForm com OfferFormData (o tipo Input)
   const form = useForm<OfferFormData>({
-    resolver: zodResolver(offerFormSchema),
-    // 1. Usa 'initialData' se for fornecido (edição)
-    //    ou os valores padrão (criação)
+    resolver: zodResolver(offerFormSchema), // Esta linha agora funciona
+    // defaultValues são compatíveis com o tipo Input:
+    // number (0) é assignável a unknown (priceInCents)
+    // string ("BRL") é assignável a string | undefined (currency)
     defaultValues: initialData || {
       name: "",
       bannerImageUrl: "",
@@ -87,14 +96,14 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
     name: "orderBumps",
   });
 
-  // Função de Submissão
+  // 4. Tipar a submissão com o tipo Output (dados validados)
   async function onSubmit(values: OfferFormData) {
     setIsLoading(true);
 
-    // Converte os preços (que estão em R$) para centavos
-    const transformPrices = (data: OfferFormData) => {
-      // Remove o _id dos sub-documentos, se houver
-      const cleanSubDoc = (doc: any) => {
+    // Esta função interna ainda espera o tipo Output (correto)
+    const transformPrices = (data: OfferFormOutput) => {
+      // O 'doc' aqui terá 'priceInCents' como 'number'
+      const cleanSubDoc = (doc: { priceInCents: number; _id?: string; [key: string]: any }) => {
         const { _id, ...rest } = doc;
         return {
           ...rest,
@@ -109,19 +118,18 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
       };
     };
 
-    const dataToSubmit = transformPrices(values);
+    // 2. FAÇA O CAST aqui.
+    // Nós sabemos que 'values' (que o TS acha que é Input)
+    // é, na verdade, o Output, pois o Zod já validou.
+    const dataToSubmit = transformPrices(values as OfferFormOutput);
 
     try {
-      // 2. Lógica condicional: PUT (atualizar) ou POST (criar)
       if (isEditMode) {
-        // --- Modo Edição ---
         await axios.put(`${API_URL}/offers/${offerId}`, dataToSubmit);
       } else {
-        // --- Modo Criação ---
         await axios.post(`${API_URL}/offers`, dataToSubmit);
       }
-
-      onSuccess(); // Chama o callback (redireciona e dispara o toast)
+      onSuccess();
     } catch (error) {
       toast.error(isEditMode ? "Falha ao atualizar link." : "Falha ao criar link.", {
         description: (error as any).response?.data?.error?.message || (error as Error).message,
@@ -246,9 +254,9 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
             name="mainProduct.priceInCents"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Preço (Ex: 19.90)</FormLabel>
+                <FormLabel>Preço (Ex: 19``.90)</FormLabel>
                 <FormControl>
-                  <Input type="number" step="0.01" {...field} />
+                  <Input type="number" step="0.01" {...field} value={typeof field.value === "number" ? field.value : String(field.value ?? "")} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -313,7 +321,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   <FormItem>
                     <FormLabel>Preço (Ex: 9.90)</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" {...field} />
+                      <Input type="number" step="0.01" {...field} value={typeof field.value === "number" ? field.value : String(field.value ?? "")} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -341,7 +349,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
             onClick={() =>
               append({
                 name: "",
-                priceInCents: 9.9,
+                priceInCents: 9.9, // Este 'number' é assignável a 'unknown'
                 description: "",
                 imageUrl: "",
               })

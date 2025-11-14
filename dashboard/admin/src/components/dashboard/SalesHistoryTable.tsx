@@ -6,9 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
-
-// 1. CORREÇÃO DA URL (http://)
-const API_URL = "http://localhost:4242/api";
+import { API_URL } from "@/config/BackendUrl";
 
 // Interface para os dados da Venda (do backend)
 interface Sale {

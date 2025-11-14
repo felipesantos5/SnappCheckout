@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Upload, X, Loader2 } from "lucide-react";
-
-const API_URL = "http://localhost:4242/api";
+import { API_URL } from "@/config/BackendUrl";
 
 // Props que o FormField (shadcn) espera: value e onChange
 interface ImageUploadProps {

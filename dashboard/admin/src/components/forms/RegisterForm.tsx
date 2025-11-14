@@ -11,8 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
-
-const API_URL = "http://localhost:4242/api";
+import { API_URL } from "@/config/BackendUrl";
 
 // 1. Definição do Schema de validação com Zod
 const formSchema = z.object({

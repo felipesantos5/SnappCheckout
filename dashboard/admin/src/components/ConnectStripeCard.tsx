@@ -6,8 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-
-const API_URL = "http://localhost:4242/api";
+import { API_URL } from "@/config/BackendUrl";
 
 export function ConnectStripeCard() {
   const { user } = useAuth();
