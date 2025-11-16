@@ -11,8 +11,7 @@ import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { CheckoutOfferSummary } from "@/components/dashboard/CheckoutOfferSummary";
 import { SalesHistoryTable } from "@/components/dashboard/SalesHistoryTable";
-
-const API_URL = "http://localhost:4242/api";
+import { API_URL } from "@/config/BackendUrl";
 
 // --- INÍCIO DA CORREÇÃO ---
 // 1. Tipo para o produto vindo da API (preço em CENTAVOS)

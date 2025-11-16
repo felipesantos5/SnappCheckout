@@ -10,8 +10,8 @@ export function DashboardLayout() {
       <SidebarProvider className="">
         <AppSidebar />
         {/* 2. Conteúdo da Página */}
+        <SidebarTrigger />
         <main className="flex-1 p-4 md:p-6">
-          <SidebarTrigger />
           <Outlet />
         </main>
       </SidebarProvider>

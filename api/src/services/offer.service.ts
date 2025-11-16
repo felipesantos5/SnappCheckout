@@ -54,8 +54,11 @@ export const createOffer = async (payload: CreateOfferPayload, ownerId: string):
 export const getOfferBySlug = async (slug: string): Promise<IOffer | null> => {
   try {
     // --- MUDANÇA PRINCIPAL ---
-    // Removemos os .populate(), pois os dados já estão embutidos
-    const offer = await Offer.findOne({ slug });
+    // Adicione .populate() para buscar o stripeAccountId do dono
+    const offer = await Offer.findOne({ slug }).populate({
+      path: "ownerId",
+      select: "stripeAccountId", // Selecione APENAS o campo que precisamos
+    });
 
     return offer;
   } catch (error) {

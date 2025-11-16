@@ -9,17 +9,18 @@ import type { OfferData } from "./CheckoutSlugPage";
 import { parseToRgb, getContrast } from "polished";
 
 // Leitura da Chave do .env
-const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-if (!stripeKey) {
-  throw new Error("VITE_STRIPE_PUBLISHABLE_KEY não está definida no .env");
-}
-const stripePromise = loadStripe(stripeKey);
+// const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+// if (!stripeKey) {
+//   throw new Error("VITE_STRIPE_PUBLISHABLE_KEY não está definida no .env");
+// }
 
 interface CheckoutPageProps {
   offerData: OfferData;
 }
 
 const CheckoutPage: React.FC<CheckoutPageProps> = ({ offerData }) => {
+  const stripePromise = loadStripe(offerData.ownerId.stripeAccountId);
+
   // 2. Converta as cores HEX para objetos RGB
   //    (Use cores padrão caso a oferta não tenha cor definida)
   const primaryRgb = parseToRgb(offerData.primaryColor || "#374151");

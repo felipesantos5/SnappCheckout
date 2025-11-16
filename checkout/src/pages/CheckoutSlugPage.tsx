@@ -30,6 +30,9 @@ export interface OfferData {
     imageUrl?: string;
     priceInCents: number;
   }[];
+  ownerId: {
+    stripeAccountId: string;
+  };
 }
 
 export function CheckoutSlugPage() {
