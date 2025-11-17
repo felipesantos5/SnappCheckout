@@ -1,4 +1,4 @@
-import { Inbox, ChartNoAxesCombined, ShoppingBasket, User, ChartColumnIncreasing } from "lucide-react";
+import { ChartNoAxesCombined, ShoppingBasket, User, ChartColumnIncreasing } from "lucide-react";
 import logo from "../assets/logo.png";
 
 import {

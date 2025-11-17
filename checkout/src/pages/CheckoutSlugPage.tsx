@@ -1,14 +1,10 @@
-// src/pages/CheckoutSlugPage.tsx
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import CheckoutPage from "./CheckoutPage"; // O seu layout antigo
+import CheckoutPage from "./CheckoutPage";
 import { getContrast } from "polished";
 import { API_URL } from "../config/BackendUrl";
 import { ThemeContext, type ThemeColors } from "../context/ThemeContext";
 
-// URL da sua AP
-
-// Tipagem para os dados da oferta (deve bater com o backend)
 export interface OfferData {
   _id: string;
   slug: string;
@@ -23,6 +19,8 @@ export interface OfferData {
     description?: string;
     imageUrl?: string;
     priceInCents: number;
+    originalPriceInCents?: number; // Preço original antes do desconto
+    discountPercentage?: number; // Porcentagem de desconto
   };
   orderBumps: {
     _id: string;

@@ -2,7 +2,6 @@ import React from "react";
 import { CardNumberElement, CardExpiryElement, CardCvcElement } from "@stripe/react-stripe-js";
 import { Input } from "../ui/Input"; // Ainda usamos para o "Nome"
 import type { StripeElementStyle } from "@stripe/stripe-js";
-import { useTheme } from "../../context/ThemeContext";
 
 // ESTILO DOS ELEMENTOS STRIPE
 // Isso é crucial para o white-label.
@@ -32,8 +31,6 @@ const ELEMENT_OPTIONS = {
 
 // Wrapper customizado para aplicar o estilo do Tailwind
 const StripeElementWrapper: React.FC<{ children: React.ReactNode; label: string; id: string }> = ({ children, label, id }) => {
-  const { primary } = useTheme();
-
   return (
     <div>
       <label htmlFor={id} className="block text-sm font-medium text-gray-700">

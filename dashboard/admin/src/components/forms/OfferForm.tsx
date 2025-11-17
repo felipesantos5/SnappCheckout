@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Trash2 } from "lucide-react";
@@ -271,7 +270,12 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
               <FormItem>
                 <FormLabel>Preço de Comparação (em centavos)</FormLabel>
                 <FormControl>
-                  <Input type="number" placeholder="Ex: 9900 (para R$ 99,00)" {...field} value={field.value || ""} />
+                  <Input
+                    type="number"
+                    placeholder="Ex: 9900 (para R$ 99,00)"
+                    {...field}
+                    value={typeof field.value === "number" ? field.value : String(field.value ?? "")}
+                  />
                 </FormControl>
                 <FormDescription>Opcional: O preço "antigo" (Ex: De R$ 99,00).</FormDescription>
                 <FormMessage />
