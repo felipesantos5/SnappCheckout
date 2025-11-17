@@ -101,7 +101,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent className="justify-between">
         <SidebarGroup>
-          <img src={logo} alt="logo" className="mt-12 mb-10 w-[50%]" />
+          <img src={logo} alt="logo" className="mt-12 mb-10 w-36" />
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (

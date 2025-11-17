@@ -1,6 +1,6 @@
 // src/pages/dashboard/OfferEditPage.tsx
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 // --- INÍCIO DA CORREÇÃO ---
@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { CheckoutOfferSummary } from "@/components/dashboard/CheckoutOfferSummary";
 import { SalesHistoryTable } from "@/components/dashboard/SalesHistoryTable";
 import { API_URL } from "@/config/BackendUrl";
+import { ChevronLeft } from "lucide-react";
 
 // --- INÍCIO DA CORREÇÃO ---
 // 1. Tipo para o produto vindo da API (preço em CENTAVOS)
@@ -103,11 +104,13 @@ export function OfferEditPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      <Link to="/offers" className="hover:underline mb-4 font-semibold flex gap-1 items-center">
+        <ChevronLeft size={20} />
+        Voltar para ofertas
+      </Link>
       {/* 6. Passar o 'formData' (tipo Input) para o Resumo */}
       <CheckoutOfferSummary offer={formData} slug={offerData.slug} />
-
       <Separator />
-
       <Card>
         <CardHeader>
           <CardTitle>Editar Oferta</CardTitle>
@@ -125,9 +128,7 @@ export function OfferEditPage() {
           />
         </CardContent>
       </Card>
-
       <Separator />
-
       <SalesHistoryTable offerId={offerId!} />
     </div>
   );
