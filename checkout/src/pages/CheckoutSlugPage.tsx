@@ -28,6 +28,8 @@ export interface OfferData {
     description?: string;
     imageUrl?: string;
     priceInCents: number;
+    originalPriceInCents?: number;
+    discountPercentage?: number;
   }[];
   ownerId: {
     stripeAccountId: string;
