@@ -3,6 +3,7 @@ import { Stripe } from "stripe";
 import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
 import { sendSaleToExternalAPI } from "../../../services/external-api.service";
+import { sendPurchaseToUTMfyWebhook } from "../../../services/utmfy.service";
 
 /**
  * Handler para quando um pagamento é aprovado
@@ -79,14 +80,14 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     }
 
     // 4. Verifica se a venda já foi registrada (idempotência)
-    const existingSale = await Sale.findOne({ stripePaymentIntentId: paymentIntent.id });
-    if (existingSale) {
-      console.log(`\n⚠️  VENDA DUPLICADA DETECTADA!`);
-      console.log(`   Esta venda já foi processada anteriormente.`);
-      console.log(`   ID da venda existente: ${existingSale._id}`);
-      console.log(`${"=".repeat(80)}\n`);
-      return;
-    }
+    // const existingSale = await Sale.findOne({ stripePaymentIntentId: paymentIntent.id });
+    // if (existingSale) {
+    //   console.log(`\n⚠️  VENDA DUPLICADA DETECTADA!`);
+    //   console.log(`   Esta venda já foi processada anteriormente.`);
+    //   console.log(`   ID da venda existente: ${existingSale._id}`);
+    //   console.log(`${"=".repeat(80)}\n`);
+    //   return;
+    // }
 
     // 5. Calcula a taxa da plataforma (já vem do application_fee_amount)
     const platformFeeInCents = paymentIntent.application_fee_amount || 0;
@@ -115,14 +116,93 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
 
     // 7. Dispara para API externa
     console.log(`\n📡 ENVIANDO PARA API EXTERNA...`);
-    try {
-      await sendSaleToExternalAPI(sale, offer);
-      console.log(`✅ Enviado para API externa com sucesso!`);
-    } catch (apiError: any) {
-      console.error(`❌ Erro ao enviar para API externa: ${apiError.message}`);
-      console.log(`⚠️  A venda foi salva no banco, mas não foi enviada para API externa`);
-      // Não falha o webhook se a API externa falhar
-      // A venda já foi salva no banco
+    if (offer.utmfyWebhookUrl && offer.utmfyWebhookUrl.startsWith("http")) {
+      console.log(`\n📤 ENVIANDO PARA WEBHOOK UTMFY (V2)...`);
+
+      // Mapeia os produtos (usando a variável 'items' que já foi construída)
+      const utmfyProducts = items.map((item) => {
+        let id;
+        if (item.isOrderBump) {
+          // Tenta achar o ID do bump no array de order bumps
+          // O '.find(b => b.name === item.name)' assume nomes únicos.
+          const bump = offer.orderBumps.find((b) => b.name === item.name);
+          id = (bump as any)?._id?.toString() || crypto.randomUUID(); // Usa o ID do bump ou gera um
+        } else {
+          // Para o produto principal, podemos usar o ID da própria oferta
+          id = (offer._id as any)?.toString() || crypto.randomUUID();
+        }
+        return {
+          Id: id,
+          Name: item.name,
+        };
+      });
+
+      // Constrói o payload
+      const utmfyPayload = {
+        Id: crypto.randomUUID(),
+        IsTest: !paymentIntent.livemode,
+        Event: "Purchase_Order_Confirmed",
+        CreatedAt: new Date().toISOString(),
+        Data: {
+          Products: utmfyProducts,
+          Buyer: {
+            Id: paymentIntent.customer?.toString() || crypto.randomUUID(),
+            Email: sale.customerEmail,
+            Name: sale.customerName,
+            // PhoneNumber e Document não estão disponíveis no seu fluxo atual
+          },
+          Seller: {
+            Id: owner._id.toString(),
+            Email: owner.email,
+          },
+          Commissions: [
+            {
+              Value: sale.platformFeeInCents / 100,
+              Source: "MARKETPLACE",
+            },
+            {
+              Value: (sale.totalAmountInCents - sale.platformFeeInCents) / 100,
+              Source: "PRODUCER",
+            },
+            // 'AFFILIATE' não está disponível no seu fluxo atual
+          ],
+          Purchase: {
+            PaymentId: sale.stripePaymentIntentId,
+            Recurrency: 1, // Assumindo compra única
+            PaymentDate: new Date(paymentIntent.created * 1000).toISOString(),
+            OriginalPrice: {
+              Value: sale.totalAmountInCents / 100,
+            },
+            Price: {
+              Value: sale.totalAmountInCents / 100,
+            },
+            Payment: {
+              NumberOfInstallments: 1, // Default. Obter isso do Stripe é complexo.
+              PaymentMethod: paymentIntent.payment_method_types[0] || "unknown",
+            },
+          },
+          Offer: {
+            Id: (offer._id as any)?.toString() || crypto.randomUUID(),
+            Name: offer.name,
+            // Certifique-se de ter FRONTEND_URL no seu .env
+            Url: `${process.env.FRONTEND_URL || "https://sua-url.com"}/p/${offer.slug}`,
+          },
+          Utm: {
+            UtmSource: metadata.utm_source || null,
+            UtmMedium: metadata.utm_medium || null,
+            UtmCampaign: metadata.utm_campaign || null,
+            UtmTerm: metadata.utm_term || null,
+            UtmContent: metadata.utm_content || null,
+          },
+          DeviceInfo: {
+            UserAgent: metadata.userAgent || null,
+            ip: metadata.ip || null,
+          },
+        },
+      };
+
+      // Envia para o webhook
+      await sendPurchaseToUTMfyWebhook(offer.utmfyWebhookUrl, utmfyPayload);
     }
 
     console.log(`\n${"=".repeat(80)}`);
