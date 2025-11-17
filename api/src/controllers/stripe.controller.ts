@@ -1,10 +1,11 @@
 // src/controllers/stripe.controller.ts
 import { Request, Response } from "express";
-import User from "../models/user.model";
+import User, { IUser } from "../models/user.model";
 import stripe from "../lib/stripe";
 import Offer from "../models/offer.model";
 import Sale from "../models/sale.model";
 import { Stripe } from "stripe";
+import * as stripeService from "../services/stripe.service";
 
 // !! IMPORTANTE !!
 // Altere estas URLs para as rotas do seu frontend (dashboard-admin)
@@ -146,7 +147,7 @@ export const handleGetBalance = async (req: Request, res: Response) => {
     const user = await User.findById(userId);
 
     // 1. Verifique se o usuário tem uma conta e se ela está ativa
-    if (!user?.stripeAccountId || !user.stripeOnboardingComplete) {
+    if (!user?.stripeAccountId) {
       return res.status(400).json({
         error: { message: "Conta Stripe não conectada ou onboarding incompleto." },
       });
@@ -167,5 +168,35 @@ export const handleGetBalance = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Erro ao buscar saldo Stripe:", error);
     res.status(500).json({ error: { message: (error as Error).message } });
+  }
+};
+
+export const httpGetAccountBalance = async (req: Request, res: Response) => {
+  try {
+    // req.user deve ser populado pelo seu middleware de autenticação
+    // Defina um tipo local que inclui 'user' para o Request
+    type AuthRequest = Request & { user?: IUser };
+    const userId = (req as AuthRequest).user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Usuário não autenticado." });
+    }
+
+    // Precisamos buscar o usuário para garantir que temos o stripeAccountId
+    // (Seu req.user pode não ter todos os campos do DB)
+    const user = await User.findById(userId);
+    if (!user || !user.stripeAccountId) {
+      return res.status(404).json({ error: "Conta Stripe não encontrada ou não conectada." });
+    }
+
+    const balance = await stripeService.getAccountBalance(user.stripeAccountId);
+
+    res.status(200).json({
+      available: balance.available, // Array de saldos
+      pending: balance.pending, // Array de saldos
+    });
+  } catch (error: any) {
+    console.error("❌ Erro ao buscar saldo do Stripe:", error);
+    res.status(500).json({ error: error.message });
   }
 };

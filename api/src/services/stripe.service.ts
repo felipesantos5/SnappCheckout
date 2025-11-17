@@ -45,3 +45,16 @@ export const createPixPaymentIntent = async (amountInCents: number): Promise<Str
     throw new Error("Falha ao criar intenção de pagamento com PIX.");
   }
 };
+
+export const getAccountBalance = async (stripeAccountId: string) => {
+  if (!stripeAccountId) {
+    throw new Error("Usuário não possui uma conta Stripe conectada.");
+  }
+
+  // Isso faz a chamada "As That Account"
+  const balance = await stripe.balance.retrieve({
+    stripeAccount: stripeAccountId,
+  });
+
+  return balance;
+};
