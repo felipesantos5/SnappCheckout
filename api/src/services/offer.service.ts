@@ -1,9 +1,39 @@
 // src/services/offer.service.ts
-import Offer, { IOffer } from "../models/offer.model";
+import Offer, { IOffer, IProductSubDocument } from "../models/offer.model";
 // O model 'Product' não é mais necessário aqui
 import { customAlphabet } from "nanoid";
 
 const generateSlug = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 16);
+
+/**
+ * Transforma um produto para incluir originalPriceInCents e discountPercentage
+ * Esses campos são calculados a partir do compareAtPriceInCents
+ */
+const transformProductForFrontend = (product: IProductSubDocument) => {
+  const transformed: any = { ...product };
+
+  if (product.compareAtPriceInCents && product.compareAtPriceInCents > product.priceInCents) {
+    transformed.originalPriceInCents = product.compareAtPriceInCents;
+    transformed.discountPercentage = Math.round(
+      ((product.compareAtPriceInCents - product.priceInCents) / product.compareAtPriceInCents) * 100
+    );
+  }
+
+  return transformed;
+};
+
+/**
+ * Transforma uma oferta completa para o formato esperado pelo frontend
+ */
+const transformOfferForFrontend = (offer: IOffer) => {
+  const offerObj = offer.toObject();
+
+  return {
+    ...offerObj,
+    mainProduct: transformProductForFrontend(offerObj.mainProduct),
+    orderBumps: offerObj.orderBumps.map(transformProductForFrontend),
+  };
+};
 
 // O 'slug' SAI do payload de criação
 export type CreateOfferPayload = {
@@ -51,7 +81,7 @@ export const createOffer = async (payload: CreateOfferPayload, ownerId: string):
 /**
  * Busca os dados de uma oferta pelo SLUG (rota pública)
  */
-export const getOfferBySlug = async (slug: string): Promise<IOffer | null> => {
+export const getOfferBySlug = async (slug: string): Promise<any> => {
   try {
     // --- MUDANÇA PRINCIPAL ---
     // Adicione .populate() para buscar o stripeAccountId do dono
@@ -60,7 +90,12 @@ export const getOfferBySlug = async (slug: string): Promise<IOffer | null> => {
       select: "stripeAccountId", // Selecione APENAS o campo que precisamos
     });
 
-    return offer;
+    if (!offer) {
+      return null;
+    }
+
+    // Transforma a oferta para incluir originalPriceInCents e discountPercentage
+    return transformOfferForFrontend(offer);
   } catch (error) {
     throw new Error("Falha ao buscar oferta.");
   }
@@ -82,7 +117,7 @@ export const listOffersByOwner = async (ownerId: string): Promise<IOffer[]> => {
   }
 };
 
-export const getOfferById = async (id: string, ownerId: string): Promise<IOffer | null> => {
+export const getOfferById = async (id: string, ownerId: string): Promise<any> => {
   try {
     if (!id.match(/^[0-9a-fA-F]{24}$/)) {
       // Valida se é um ID do Mongoose
@@ -92,7 +127,13 @@ export const getOfferById = async (id: string, ownerId: string): Promise<IOffer 
       _id: id,
       ownerId: ownerId, // Garante que o usuário é o dono
     });
-    return offer;
+
+    if (!offer) {
+      return null;
+    }
+
+    // Transforma a oferta para incluir originalPriceInCents e discountPercentage
+    return transformOfferForFrontend(offer);
   } catch (error) {
     throw new Error("Falha ao buscar oferta por ID.");
   }
@@ -102,10 +143,18 @@ export const getOfferById = async (id: string, ownerId: string): Promise<IOffer 
 /**
  * Atualiza uma oferta existente.
  */
-export const updateOffer = async (id: string, ownerId: string, payload: UpdateOfferPayload): Promise<IOffer | null> => {
+export const updateOffer = async (id: string, ownerId: string, payload: UpdateOfferPayload): Promise<any> => {
   try {
     // 1. Encontra a oferta (garantindo a posse)
-    const offer = await getOfferById(id, ownerId);
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return null;
+    }
+
+    const offer = await Offer.findOne({
+      _id: id,
+      ownerId: ownerId,
+    });
+
     if (!offer) {
       return null; // Ou lançar um erro de "Não encontrado"
     }
@@ -117,7 +166,9 @@ export const updateOffer = async (id: string, ownerId: string, payload: UpdateOf
 
     // 3. Salva o documento atualizado
     await offer.save();
-    return offer;
+
+    // 4. Retorna a oferta transformada
+    return transformOfferForFrontend(offer);
   } catch (error) {
     throw new Error(`Falha ao atualizar oferta: ${(error as Error).message}`);
   }

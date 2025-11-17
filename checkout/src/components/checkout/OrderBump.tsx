@@ -8,6 +8,8 @@ interface Bump {
   imageUrl?: string;
   description?: string;
   priceInCents: number;
+  originalPriceInCents?: number;
+  discountPercentage?: number;
 }
 
 interface OrderBumpProps {
@@ -47,8 +49,19 @@ export const OrderBump: React.FC<OrderBumpProps> = ({ bumps, selectedBumps, onTo
             <div className="ml-3 text-sm">
               <label htmlFor={`order-bump-${bump._id}`} className="font-medium text-gray-800">
                 {bump.name}
-                <span className="ml-2 font-bold text-green-600">{formatCurrency(bump.priceInCents, currency)}</span>
               </label>
+
+              <div className="flex items-center gap-2 mt-1">
+                {bump.originalPriceInCents && bump.originalPriceInCents > bump.priceInCents && (
+                  <>
+                    <span className="text-sm text-gray-500 line-through">{formatCurrency(bump.originalPriceInCents, currency)}</span>
+                    {bump.discountPercentage && (
+                      <span className="text-xs font-semibold text-white bg-green-600 px-2 py-0.5 rounded">{bump.discountPercentage}% OFF</span>
+                    )}
+                  </>
+                )}
+                <span className="font-bold text-green-600">{formatCurrency(bump.priceInCents, currency)}</span>
+              </div>
 
               <div className="flex items-center mt-2">
                 {bump.imageUrl && <img src={bump.imageUrl} alt={bump.name} className="w-14 h-auto rounded" />}

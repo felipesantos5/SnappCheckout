@@ -10,9 +10,18 @@ const productSubSchema = new Schema(
     description: { type: String, default: "" },
     imageUrl: { type: String, default: "" },
     priceInCents: { type: Number, required: true },
+    compareAtPriceInCents: { type: Number, required: false },
   },
   { _id: false }
 ); // _id: false => não cria _id para sub-documentos
+
+export interface IProductSubDocument {
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  priceInCents: number;
+  compareAtPriceInCents?: number;
+}
 
 export interface IOffer extends Document {
   ownerId: Schema.Types.ObjectId;
@@ -24,8 +33,8 @@ export interface IOffer extends Document {
   primaryColor: string; // Cor principal (textos, bordas)
   buttonColor: string; // Cor do botão de compra
 
-  mainProduct: any; // Mongoose irá tratar isso como o sub-schema
-  orderBumps: any[]; // Mongoose irá tratar isso como um array do sub-schema
+  mainProduct: IProductSubDocument;
+  orderBumps: IProductSubDocument[];
 }
 
 const offerSchema = new Schema<IOffer>(
