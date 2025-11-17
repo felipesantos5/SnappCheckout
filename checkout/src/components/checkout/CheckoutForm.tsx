@@ -1,9 +1,6 @@
-// src/components/checkout/CheckoutForm.tsx
 import React, { useState, useEffect } from "react";
 import { useStripe, useElements, CardNumberElement } from "@stripe/react-stripe-js";
-import type { OfferData } from "../../pages/CheckoutSlugPage"; // Importe a tipagem
-
-// Importe os componentes visuais do formulário
+import type { OfferData } from "../../pages/CheckoutSlugPage";
 import { OrderSummary } from "./OrderSummary";
 import { ContactInfo } from "./ContactInfo";
 import { PaymentMethods } from "./PaymentMethods";
@@ -17,50 +14,35 @@ interface CheckoutFormProps {
 }
 
 export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
-  // 1. Hooks do Stripe
   const stripe = useStripe();
   const elements = useElements();
   const { button, buttonForeground } = useTheme();
 
-  // 2. Estados de UI
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [paymentSucceeded, setPaymentSucceeded] = useState(false);
-
-  // 3. (Refatorado) Estados de Pagamento e Total
   const [method, setMethod] = useState<"creditCard" | "pix">("creditCard");
-  const [selectedBumps, setSelectedBumps] = useState<string[]>([]); // Lista de IDs
+  const [selectedBumps, setSelectedBumps] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [totalAmount, setTotalAmount] = useState(offerData.mainProduct.priceInCents);
 
-  // 4. (Refatorado) Efeito para recalcular o total
   useEffect(() => {
-    // 2. O TOTAL AGORA DEPENDE DA QUANTIDADE
     let newTotal = offerData.mainProduct.priceInCents * quantity;
 
     selectedBumps.forEach((bumpId) => {
       const bump = offerData.orderBumps.find((b) => b._id === bumpId);
       if (bump) {
-        newTotal += bump.priceInCents; // Bumps não são multiplicados pela quantidade
+        newTotal += bump.priceInCents;
       }
     });
 
     setTotalAmount(newTotal);
   }, [selectedBumps, quantity, offerData]);
 
-  // 5. (Refatorado) Função para (des)marcar um bump
   const handleToggleBump = (bumpId: string) => {
-    setSelectedBumps(
-      (prev) =>
-        prev.includes(bumpId)
-          ? prev.filter((id) => id !== bumpId) // Remove
-          : [...prev, bumpId] // Adiciona
-    );
+    setSelectedBumps((prev) => (prev.includes(bumpId) ? prev.filter((id) => id !== bumpId) : [...prev, bumpId]));
   };
 
-  /**
-   * (Refatorado) Função principal de submissão do formulário.
-   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) return;
@@ -68,13 +50,10 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
     setLoading(true);
     setErrorMessage(null);
 
-    // 6. (Refatorado) Coletar dados do formulário
     const email = (document.getElementById("email") as HTMLInputElement).value;
     const fullName = (document.getElementById("name") as HTMLInputElement).value;
     const phone = (document.getElementById("phone") as HTMLInputElement).value;
-    // const country = (document.getElementById("country") as HTMLSelectElement).value;
 
-    // 7. (Refatorado) Montar o payload para o backend
     const payload = {
       offerSlug: offerData.slug,
       selectedOrderBumps: selectedBumps,
@@ -82,13 +61,11 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
         email,
         name: fullName,
         phone,
-        // country,
       },
     };
 
     try {
       if (method === "creditCard") {
-        // 8. (Refatorado) Chamar o NOVO endpoint
         const res = await fetch(`${API_URL}/payments/create-intent`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -103,7 +80,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
 
         const cardName = (document.getElementById("card-name") as HTMLInputElement).value;
 
-        // 9. (Refatorado) Enviar os dados de contato corretos
         const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
           payment_method: {
             card: cardElement,
@@ -111,7 +87,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
               name: cardName,
               email: email,
               phone: phone,
-              // address: { country: country },
             },
           },
           receipt_email: email,
@@ -130,7 +105,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
     setLoading(false);
   };
 
-  // 10. Tela de Sucesso
   if (paymentSucceeded) {
     return (
       <div className="p-6 text-center">
