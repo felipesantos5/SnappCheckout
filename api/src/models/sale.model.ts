@@ -6,6 +6,7 @@ interface ISaleItem {
   name: string;
   priceInCents: number;
   isOrderBump: boolean;
+  _id?: string;
 }
 
 // Interface para o documento de Venda

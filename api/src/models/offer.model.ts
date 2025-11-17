@@ -4,19 +4,17 @@ import mongoose, { Schema, Document, model, Model } from "mongoose";
 // --- NOVO ---
 // Sub-documento para o produto (reutilizado)
 // Isso define a "forma" de um produto que é salvo DENTRO da oferta
-const productSubSchema = new Schema(
-  {
-    name: { type: String, required: true },
-    headline: { type: String, default: "" },
-    description: { type: String, default: "" },
-    imageUrl: { type: String, default: "" },
-    priceInCents: { type: Number, required: true },
-    compareAtPriceInCents: { type: Number, required: false },
-  },
-  { _id: false }
-); // _id: false => não cria _id para sub-documentos
+const productSubSchema = new Schema({
+  name: { type: String, required: true },
+  headline: { type: String, default: "" },
+  description: { type: String, default: "" },
+  imageUrl: { type: String, default: "" },
+  priceInCents: { type: Number, required: true },
+  compareAtPriceInCents: { type: Number, required: false },
+});
 
 export interface IProductSubDocument {
+  _id?: string;
   name: string;
   headline?: string;
   description?: string;

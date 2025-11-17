@@ -57,7 +57,7 @@ export const OrderBump: React.FC<OrderBumpProps> = ({ bumps, selectedBumps, onTo
                 <input
                   id={`order-bump-${bump._id}`}
                   type="checkbox"
-                  className="h-6 w-6 text-green-600 border-gray-300 rounded focus:ring-green-500 cursor-pointer"
+                  className="h-3 w-3 text-green-600 border-gray-300 rounded focus:ring-green-500 cursor-pointer"
                   checked={isSelected}
                   onChange={() => onToggleBump(bump._id)}
                   onClick={(e) => e.stopPropagation()}

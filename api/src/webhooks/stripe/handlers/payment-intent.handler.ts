@@ -57,7 +57,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
 
     // 3. Monta a lista de itens comprados
     console.log(`\n📦 ITENS DA COMPRA:`);
-    const items = [
+    const items: Array<{ _id?: string; name: string; priceInCents: number; isOrderBump: boolean }> = [
       {
         name: offer.mainProduct.name,
         priceInCents: offer.mainProduct.priceInCents,
@@ -68,9 +68,13 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
 
     // Adiciona os order bumps selecionados
     for (const bumpId of selectedOrderBumps) {
-      const bump = offer.orderBumps.find((b: any) => b._id.toString() === bumpId);
+      // 1. ADICIONE OPTIONAL CHAINING AQUI (b?._id?)
+      const bump = offer.orderBumps.find((b: any) => b?._id?.toString() === bumpId);
+
       if (bump) {
         items.push({
+          // 2. ADICIONE O ID DO BUMP AQUI
+          _id: bump._id,
           name: bump.name,
           priceInCents: bump.priceInCents,
           isOrderBump: true,
@@ -80,14 +84,14 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     }
 
     // 4. Verifica se a venda já foi registrada (idempotência)
-    // const existingSale = await Sale.findOne({ stripePaymentIntentId: paymentIntent.id });
-    // if (existingSale) {
-    //   console.log(`\n⚠️  VENDA DUPLICADA DETECTADA!`);
-    //   console.log(`   Esta venda já foi processada anteriormente.`);
-    //   console.log(`   ID da venda existente: ${existingSale._id}`);
-    //   console.log(`${"=".repeat(80)}\n`);
-    //   return;
-    // }
+    const existingSale = await Sale.findOne({ stripePaymentIntentId: paymentIntent.id });
+    if (existingSale) {
+      console.log(`\n⚠️  VENDA DUPLICADA DETECTADA!`);
+      console.log(`   Esta venda já foi processada anteriormente.`);
+      console.log(`   ID da venda existente: ${existingSale._id}`);
+      console.log(`${"=".repeat(80)}\n`);
+      return;
+    }
 
     // 5. Calcula a taxa da plataforma (já vem do application_fee_amount)
     const platformFeeInCents = paymentIntent.application_fee_amount || 0;
@@ -123,13 +127,13 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       const utmfyProducts = items.map((item) => {
         let id;
         if (item.isOrderBump) {
-          // Tenta achar o ID do bump no array de order bumps
-          // O '.find(b => b.name === item.name)' assume nomes únicos.
-          const bump = offer.orderBumps.find((b) => b.name === item.name);
-          id = (bump as any)?._id?.toString() || crypto.randomUUID(); // Usa o ID do bump ou gera um
+          // 3. USE O ID QUE SALVAMOS NO ITEM
+          // @ts-ignore
+          id = item._id ? (item._id as any).toString() : crypto.randomUUID();
         } else {
           // Para o produto principal, podemos usar o ID da própria oferta
-          id = (offer._id as any)?.toString() || crypto.randomUUID();
+          const offerId = (offer._id as any) ?? crypto.randomUUID();
+          id = typeof offerId === "string" ? offerId : offerId?.toString ? offerId.toString() : crypto.randomUUID();
         }
         return {
           Id: id,

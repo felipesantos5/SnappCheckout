@@ -43,6 +43,7 @@ interface ExternalAPIPayload {
     name: string;
     priceInCents: number;
     isOrderBump: boolean;
+    _id?: string;
   }>;
 }
 
