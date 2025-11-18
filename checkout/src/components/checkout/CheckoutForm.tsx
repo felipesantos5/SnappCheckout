@@ -183,7 +183,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
     <>
       <Banner imageUrl={offerData.bannerImageUrl} />
       <div className="min-h-screen bg-white p-4">
-        <div className="max-w-lg mx-auto bg-white rounded-xl shadow-xl p-4">
+        <div className="max-w-lg mx-auto bg-white rounded-xl shadow-xl p-4 pt-0">
           <form onSubmit={handleSubmit}>
             <OrderSummary
               productName={offerData.mainProduct.name}
