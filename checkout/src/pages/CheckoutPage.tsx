@@ -3,7 +3,6 @@ import React from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 import { CheckoutForm } from "../components/checkout/CheckoutForm";
-import { Banner } from "../components/checkout/Banner";
 import type { OfferData } from "./CheckoutSlugPage";
 
 const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
