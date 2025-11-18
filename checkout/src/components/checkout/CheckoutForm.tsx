@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useStripe, useElements, CardNumberElement } from "@stripe/react-stripe-js";
 import type { OfferData } from "../../pages/CheckoutSlugPage";
 import { OrderSummary } from "./OrderSummary";
@@ -28,6 +28,22 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
   const [selectedBumps, setSelectedBumps] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [totalAmount, setTotalAmount] = useState(offerData.mainProduct.priceInCents);
+
+  const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
+
+  const metadata = useMemo(() => {
+    return {
+      utm_source: urlParams.get("utm_source") || null,
+      utm_medium: urlParams.get("utm_medium") || null,
+      utm_campaign: urlParams.get("utm_campaign") || null,
+      utm_term: urlParams.get("utm_term") || null,
+      utm_content: urlParams.get("utm_content") || null,
+      // Também adicionamos o UserAgent aqui, conforme discutimos
+      userAgent: navigator.userAgent,
+      // O IP não pode ser pego pelo frontend de forma confiável
+      ip: null,
+    };
+  }, [urlParams]);
 
   useEffect(() => {
     let newTotal = offerData.mainProduct.priceInCents * quantity;
@@ -88,6 +104,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
         name: fullName,
         phone,
       },
+      metadata: metadata,
       // TODO: Enviar metadata (UTM, IP, UserAgent)
       // metadata: {
       //   ip: "...", (você precisaria de uma API para pegar isso)

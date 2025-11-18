@@ -22,6 +22,7 @@ import {
 } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback } from "./ui/avatar";
+import { getShortName } from "@/helper/shortName";
 
 // Menu items.
 const items = [
@@ -67,7 +68,7 @@ function UserMenu() {
               <User className="h-4 w-4" />
             </AvatarFallback>
           </Avatar>
-          <p className="text-sm font-medium leading-none">{user?.name}</p>
+          <p className="text-sm font-medium leading-none">{getShortName(user?.name)}</p>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>

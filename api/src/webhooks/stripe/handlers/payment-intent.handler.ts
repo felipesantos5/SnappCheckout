@@ -2,7 +2,6 @@
 import { Stripe } from "stripe";
 import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
-import { sendSaleToExternalAPI } from "../../../services/external-api.service";
 import { sendPurchaseToUTMfyWebhook } from "../../../services/utmfy.service";
 
 /**
@@ -188,8 +187,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
           Offer: {
             Id: (offer._id as any)?.toString() || crypto.randomUUID(),
             Name: offer.name,
-            // Certifique-se de ter FRONTEND_URL no seu .env
-            Url: `${process.env.FRONTEND_URL || "https://sua-url.com"}/p/${offer.slug}`,
+            Url: `${process.env.FRONTEND_URL || "https://checkout.abatools.pro"}/p/${offer.slug}`,
           },
           Utm: {
             UtmSource: metadata.utm_source || null,
@@ -205,7 +203,6 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
         },
       };
 
-      console.log("---------------offer.utmfyWebhookUrl", offer.utmfyWebhookUrl);
       console.log("nosso payload para testes");
       console.dir(utmfyPayload, { depth: null, colors: true });
 

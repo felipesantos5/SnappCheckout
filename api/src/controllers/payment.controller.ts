@@ -16,6 +16,7 @@ interface CreateIntentPayload {
     phone: string;
     // O 'country' não está vindo, então não vamos usá-lo por enquanto
   };
+  metadata?: { [key: string]: any };
 }
 
 /**
@@ -81,7 +82,7 @@ const calculateTotalAmount = async (slug: string, bumpIds: string[], quantity: n
  */
 export const handleCreatePaymentIntent = async (req: Request, res: Response) => {
   try {
-    const { offerSlug, selectedOrderBumps, quantity, contactInfo } = req.body as CreateIntentPayload;
+    const { offerSlug, selectedOrderBumps, quantity, contactInfo, metadata } = req.body as CreateIntentPayload;
 
     const stripeAccountId = await getStripeAccountId(offerSlug);
 
@@ -110,6 +111,7 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
           customerPhone: contactInfo.phone || "",
         },
         receipt_email: contactInfo.email, // Email para enviar recibo do Stripe
+        ...metadata, // Adiciona metadados extras vindos do frontend
       },
       {
         stripeAccount: stripeAccountId,
