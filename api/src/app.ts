@@ -9,6 +9,7 @@ const app: Express = express();
 
 const allowedOrigins = [
   "http://localhost:5173",
+  "https://localhost:5173",
   "http://localhost:5174",
   "https://admin.snappcheckout.com",
   "https://checkout.abatools.pro",

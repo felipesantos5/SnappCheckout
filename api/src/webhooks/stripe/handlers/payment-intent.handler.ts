@@ -191,7 +191,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
             },
           ],
           Purchase: {
-            PaymentId: sale.stripePaymentIntentId,
+            PaymentId: crypto.randomUUID(),
             Recurrency: 1,
             PaymentDate: new Date(paymentIntent.created * 1000).toISOString(),
             OriginalPrice: {
