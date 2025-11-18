@@ -32,17 +32,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
 
   const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
 
-  const metadata = useMemo(() => {
+  const utmData = useMemo(() => {
     return {
       utm_source: urlParams.get("utm_source") || null,
       utm_medium: urlParams.get("utm_medium") || null,
       utm_campaign: urlParams.get("utm_campaign") || null,
       utm_term: urlParams.get("utm_term") || null,
       utm_content: urlParams.get("utm_content") || null,
-      // Também adicionamos o UserAgent aqui, conforme discutimos
-      userAgent: navigator.userAgent,
-      // O IP não pode ser pego pelo frontend de forma confiável
-      ip: null,
     };
   }, [urlParams]);
 
@@ -108,9 +104,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
         name: fullName,
         phone,
       },
-
       metadata: {
-        ...metadata,
+        ...utmData,
         ip: clientIp,
         userAgent: navigator.userAgent,
       },

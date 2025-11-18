@@ -28,6 +28,9 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     const customerEmail = metadata.customerEmail;
     const customerName = metadata.customerName;
     const selectedOrderBumps = metadata.selectedOrderBumps ? JSON.parse(metadata.selectedOrderBumps) : [];
+    const customerPhone = metadata.customerPhone;
+    const quantity = parseInt(metadata.quantity || "1", 10);
+    // const customerDocument = metadata.customerDocument;
 
     if (!offerSlug) {
       throw new Error("Metadata 'offerSlug' não encontrado no PaymentIntent");
@@ -56,26 +59,26 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
 
     // 3. Monta a lista de itens comprados
     console.log(`\n📦 ITENS DA COMPRA:`);
-    const items: Array<{ _id?: string; name: string; priceInCents: number; isOrderBump: boolean }> = [
+    const items: Array<{ _id?: string; name: string; priceInCents: number; isOrderBump: boolean; compareAtPriceInCents?: number }> = [
       {
+        _id: (offer.mainProduct as any)._id?.toString() || undefined,
         name: offer.mainProduct.name,
         priceInCents: offer.mainProduct.priceInCents,
+        compareAtPriceInCents: offer.mainProduct.compareAtPriceInCents,
         isOrderBump: false,
       },
     ];
     console.log(`   ✓ Produto Principal: ${offer.mainProduct.name} - R$ ${(offer.mainProduct.priceInCents / 100).toFixed(2)}`);
 
-    // Adiciona os order bumps selecionados
     for (const bumpId of selectedOrderBumps) {
-      // 1. ADICIONE OPTIONAL CHAINING AQUI (b?._id?)
       const bump = offer.orderBumps.find((b: any) => b?._id?.toString() === bumpId);
 
       if (bump) {
         items.push({
-          // 2. ADICIONE O ID DO BUMP AQUI
-          _id: bump._id,
+          _id: bump._id?.toString(),
           name: bump.name,
           priceInCents: bump.priceInCents,
+          compareAtPriceInCents: bump.compareAtPriceInCents,
           isOrderBump: true,
         });
         console.log(`   ✓ Order Bump: ${bump.name} - R$ ${(bump.priceInCents / 100).toFixed(2)}`);
@@ -124,21 +127,39 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
 
       // Mapeia os produtos (usando a variável 'items' que já foi construída)
       const utmfyProducts = items.map((item) => {
-        let id;
-        if (item.isOrderBump) {
-          // 3. USE O ID QUE SALVAMOS NO ITEM
-          // @ts-ignore
-          id = item._id ? (item._id as any).toString() : crypto.randomUUID();
-        } else {
-          // Para o produto principal, podemos usar o ID da própria oferta
-          const offerId = (offer._id as any) ?? crypto.randomUUID();
-          id = typeof offerId === "string" ? offerId : offerId?.toString ? offerId.toString() : crypto.randomUUID();
+        let id = item._id ? item._id.toString() : crypto.randomUUID();
+
+        // Fallback para produto principal sem _id (caso raro)
+        if (!item.isOrderBump && !item._id) {
+          id = (offer._id as any)?.toString() || crypto.randomUUID();
         }
+
         return {
           Id: id,
           Name: item.name,
         };
       });
+
+      let originalTotalInCents = 0;
+
+      // 1. Pega o item principal (que é afetado pela quantidade)
+      const mainItem = items.find((item) => !item.isOrderBump);
+      if (mainItem) {
+        const mainItemOriginalPrice =
+          mainItem.compareAtPriceInCents && mainItem.compareAtPriceInCents > mainItem.priceInCents
+            ? mainItem.compareAtPriceInCents
+            : mainItem.priceInCents;
+        originalTotalInCents += mainItemOriginalPrice * quantity;
+      }
+
+      // 2. Adiciona os bumps (não afetados pela quantidade)
+      items
+        .filter((item) => item.isOrderBump)
+        .forEach((bump) => {
+          const bumpOriginalPrice =
+            bump.compareAtPriceInCents && bump.compareAtPriceInCents > bump.priceInCents ? bump.compareAtPriceInCents : bump.priceInCents;
+          originalTotalInCents += bumpOriginalPrice;
+        });
 
       // Constrói o payload
       const utmfyPayload = {
@@ -152,10 +173,11 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
             Id: paymentIntent.customer?.toString() || crypto.randomUUID(),
             Email: sale.customerEmail,
             Name: sale.customerName,
-            // PhoneNumber e Document não estão disponíveis no seu fluxo atual
+            PhoneNumber: customerPhone || null,
+            // Document: customerDocument || null,
           },
           Seller: {
-            Id: owner._id.toString(),
+            Id: (owner._id as any).toString(),
             Email: owner.email,
           },
           Commissions: [
@@ -167,20 +189,19 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
               Value: (sale.totalAmountInCents - sale.platformFeeInCents) / 100,
               Source: "PRODUCER",
             },
-            // 'AFFILIATE' não está disponível no seu fluxo atual
           ],
           Purchase: {
             PaymentId: sale.stripePaymentIntentId,
-            Recurrency: 1, // Assumindo compra única
+            Recurrency: 1,
             PaymentDate: new Date(paymentIntent.created * 1000).toISOString(),
             OriginalPrice: {
-              Value: sale.totalAmountInCents / 100,
+              Value: originalTotalInCents / 100,
             },
             Price: {
               Value: sale.totalAmountInCents / 100,
             },
             Payment: {
-              NumberOfInstallments: 1, // Default. Obter isso do Stripe é complexo.
+              NumberOfInstallments: 1,
               PaymentMethod: paymentIntent.payment_method_types[0] || "unknown",
             },
           },
