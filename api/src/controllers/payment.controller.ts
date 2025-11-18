@@ -4,7 +4,9 @@ import User, { IUser } from "../models/user.model";
 import Offer, { IOffer } from "../models/offer.model";
 import stripe from "../lib/stripe";
 import * as offerService from "../services/offer.service"; // Importe o service de oferta
-
+import UpsellSession from "../models/upsell-session.model";
+import { v4 as uuidv4 } from "uuid";
+import { getOrCreateCustomer } from "../helper/getOrCreateCustomer";
 // Payload que o frontend (CheckoutForm) vai enviar
 interface CreateIntentPayload {
   offerSlug: string;
@@ -82,47 +84,128 @@ const calculateTotalAmount = async (slug: string, bumpIds: string[], quantity: n
  */
 export const handleCreatePaymentIntent = async (req: Request, res: Response) => {
   try {
-    const { offerSlug, selectedOrderBumps, quantity, contactInfo, metadata } = req.body as CreateIntentPayload;
-
+    const { offerSlug, selectedOrderBumps, quantity, contactInfo, metadata } = req.body;
     const stripeAccountId = await getStripeAccountId(offerSlug);
 
-    // 4. Passe a quantidade para o cálculo seguro
+    // Busca ou cria cliente para permitir salvar o cartão
+    const customerId = await getOrCreateCustomer(stripeAccountId, contactInfo.email, contactInfo.name, contactInfo.phone);
+
     const totalAmount = await calculateTotalAmount(offerSlug, selectedOrderBumps, quantity || 1);
-
-    if (totalAmount < 50) {
-      throw new Error("Valor da compra muito baixo.");
-    }
-
     const applicationFee = Math.round(totalAmount * 0.05);
 
-    // 5. Adicione os metadados completos para processar no webhook
     const paymentIntent = await stripe.paymentIntents.create(
       {
         amount: totalAmount,
         currency: "brl",
+        customer: customerId,
+        setup_future_usage: "off_session",
         payment_method_types: ["card"],
         application_fee_amount: applicationFee,
         metadata: {
-          offerSlug: offerSlug,
+          offerSlug,
           selectedOrderBumps: JSON.stringify(selectedOrderBumps || []),
-          quantity: String(quantity || 1),
           customerEmail: contactInfo.email,
-          customerName: contactInfo.name,
-          customerPhone: contactInfo.phone || "",
           ...metadata,
         },
-        receipt_email: contactInfo.email, // Email para enviar recibo do Stripe
       },
-      {
-        stripeAccount: stripeAccountId,
-      }
+      { stripeAccount: stripeAccountId }
     );
 
-    res.status(200).json({
-      clientSecret: paymentIntent.client_secret,
-    });
+    res.status(200).json({ clientSecret: paymentIntent.client_secret });
   } catch (error: any) {
-    console.error("Erro em handleCreatePaymentIntent:", error.message);
+    console.error("Erro createIntent:", error);
     res.status(500).json({ error: { message: error.message } });
+  }
+};
+
+export const generateUpsellToken = async (req: Request, res: Response) => {
+  try {
+    const { paymentIntentId, offerSlug } = req.body;
+
+    if (!paymentIntentId || !offerSlug) {
+      return res.status(400).json({ error: "Dados insuficientes." });
+    }
+
+    const stripeAccountId = await getStripeAccountId(offerSlug);
+
+    // Busca o PaymentIntent no Stripe da conta conectada para confirmar os dados
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
+      stripeAccount: stripeAccountId,
+    });
+
+    if (paymentIntent.status !== "succeeded") {
+      return res.status(400).json({ error: "Pagamento original não confirmado." });
+    }
+
+    if (!paymentIntent.customer || !paymentIntent.payment_method) {
+      return res.status(400).json({ error: "Dados de pagamento não salvos." });
+    }
+
+    // Gera um token único
+    const token = uuidv4();
+
+    // Salva no banco temporário
+    await UpsellSession.create({
+      token,
+      accountId: stripeAccountId,
+      customerId: paymentIntent.customer as string,
+      paymentMethodId: paymentIntent.payment_method as string,
+    });
+
+    res.status(200).json({ token });
+  } catch (error: any) {
+    console.error("Erro generateUpsellToken:", error);
+    res.status(500).json({ error: { message: "Falha ao gerar link de upsell." } });
+  }
+};
+
+export const handleOneClickUpsell = async (req: Request, res: Response) => {
+  try {
+    const { token, upsellSlug } = req.body;
+
+    if (!token || !upsellSlug) {
+      throw new Error("Token ou produto inválido.");
+    }
+
+    // Busca a sessão válida
+    const session = await UpsellSession.findOne({ token });
+    if (!session) {
+      return res.status(403).json({ success: false, message: "Sessão expirada ou inválida." });
+    }
+
+    // Calcula valor do Upsell
+    const totalAmount = await calculateTotalAmount(upsellSlug, [], 1);
+    const applicationFee = Math.round(totalAmount * 0.05);
+
+    // Cria e Confirma o pagamento na hora
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: totalAmount,
+        currency: "brl",
+        customer: session.customerId,
+        payment_method: session.paymentMethodId,
+        off_session: true, // Indica cobrança automática
+        confirm: true, // Cobra imediatamente
+        application_fee_amount: applicationFee,
+        metadata: {
+          offerSlug: upsellSlug,
+          isUpsell: "true",
+          originalSessionToken: token,
+        },
+      },
+      { stripeAccount: session.accountId }
+    );
+
+    // Opcional: Invalidar o token após uso (se for uso único)
+    // await UpsellSession.deleteOne({ token });
+
+    if (paymentIntent.status === "succeeded") {
+      res.status(200).json({ success: true, message: "Upsell aprovado!" });
+    } else {
+      res.status(400).json({ success: false, message: "Pagamento não aprovado.", status: paymentIntent.status });
+    }
+  } catch (error: any) {
+    console.error("Erro OneClickUpsell:", error.message);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

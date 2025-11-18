@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStripe, useElements, CardNumberElement } from "@stripe/react-stripe-js";
-import type { PaymentRequest, PaymentRequestPaymentMethodEvent } from "@stripe/stripe-js"; // Tipos do Stripe
-// Tipos do Stripe
+import type { PaymentRequest, PaymentRequestPaymentMethodEvent } from "@stripe/stripe-js";
+
+// Tipos
 import type { OfferData } from "../../pages/CheckoutSlugPage";
 import { OrderSummary } from "./OrderSummary";
 import { ContactInfo } from "./ContactInfo";
@@ -28,7 +29,11 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Estado de Sucesso
   const [paymentSucceeded, setPaymentSucceeded] = useState(false);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null); // NOVO: Guarda o ID para o Upsell
+
   const [method, setMethod] = useState<"creditCard" | "pix" | "wallet">("creditCard");
   const [selectedBumps, setSelectedBumps] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
@@ -62,12 +67,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
     setTotalAmount(newTotal);
   }, [selectedBumps, quantity, offerData]);
 
-  // [Alteração] Inicializa o Payment Request (Apple/Google Pay)
+  // Configuração da Carteira Digital (Apple/Google Pay)
   useEffect(() => {
     if (!stripe) return;
 
     const pr = stripe.paymentRequest({
-      country: "BR", // Ajuste conforme o país da conta Stripe conectada
+      country: "BR",
       currency: offerData.currency.toLowerCase(),
       total: {
         label: offerData.mainProduct.name,
@@ -78,30 +83,26 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
       requestPayerPhone: offerData.collectPhone,
     });
 
-    // Verifica se o navegador suporta carteira digital
     pr.canMakePayment().then((result) => {
       if (result) {
         setPaymentRequest(pr);
-
-        // [Alteração] Define o nome correto do botão
         if (result.applePay) setWalletLabel("Apple Pay");
         else if (result.googlePay) setWalletLabel("Google Pay");
         else setWalletLabel("Carteira Digital");
       }
     });
 
-    // Handler: Quando o usuário autoriza o pagamento na carteira (TouchID/FaceID)
+    // Handler: Pagamento via Carteira
     pr.on("paymentmethod", async (ev: PaymentRequestPaymentMethodEvent) => {
       try {
-        // 1. Preparar payload usando dados retornados pela Wallet (ev.payer...)
         const clientIp = await getClientIP();
 
         const payload = {
           offerSlug: offerData.slug,
           selectedOrderBumps: selectedBumps,
           contactInfo: {
-            email: ev.payerEmail, // Email vindo da Apple/Google
-            name: ev.payerName, // Nome vindo da Apple/Google
+            email: ev.payerEmail,
+            name: ev.payerName,
             phone: ev.payerPhone || "",
           },
           metadata: {
@@ -111,7 +112,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
           },
         };
 
-        // 2. Criar PaymentIntent no backend
         const res = await fetch(`${API_URL}/payments/create-intent`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -126,20 +126,19 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
           return;
         }
 
-        // 3. Confirmar o pagamento no Stripe usando o método criado pela Wallet
         const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
           clientSecret,
           { payment_method: ev.paymentMethod.id },
-          { handleActions: false } // Deixe o Stripe lidar com confirmação extra se necessário
+          { handleActions: false }
         );
 
         if (confirmError) {
           ev.complete("fail");
           setErrorMessage(confirmError.message || "Erro no pagamento");
         } else {
-          // Sucesso!
           ev.complete("success");
           if (paymentIntent?.status === "succeeded") {
+            setPaymentIntentId(paymentIntent.id); // Salva o ID
             setPaymentSucceeded(true);
           }
         }
@@ -148,9 +147,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
         setErrorMessage(err.message || "Erro inesperado");
       }
     });
-  }, [stripe]); // Executa uma vez quando o Stripe carrega (não inclua dependências que mudam muito aqui)
+  }, [stripe, offerData, selectedBumps, totalAmount, utmData]);
 
-  // [Alteração] Atualiza o valor no botão da Wallet quando o usuário muda o carrinho
   useEffect(() => {
     if (paymentRequest) {
       paymentRequest.update({
@@ -162,30 +160,55 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
     }
   }, [totalAmount, paymentRequest, offerData.mainProduct.name]);
 
-  // Efeito de redirecionamento para a página de sucesso
+  // --- LÓGICA DE SUCESSO E REDIRECIONAMENTO (UPSELL) ---
   useEffect(() => {
-    if (paymentSucceeded) {
-      const params = new URLSearchParams();
+    const handleSuccessRedirect = async () => {
+      if (paymentSucceeded && paymentIntentId) {
+        // Verifica se existe link de upsell configurado
+        if (offerData.upsellLink) {
+          try {
+            // 1. Solicita o Token de Sessão Segura ao Backend
+            const response = await fetch(`${API_URL}/payments/upsell-token`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                paymentIntentId: paymentIntentId,
+                offerSlug: offerData.slug,
+              }),
+            });
 
-      // Adicionar upsellLink se existir
-      if (offerData.upsellLink) {
-        params.append("upsellLink", offerData.upsellLink);
+            const data = await response.json();
+
+            if (data.token) {
+              // 2. Se tiver token, redireciona para o site do cliente com o token na URL
+              const params = new URLSearchParams();
+              params.append("token", data.token);
+
+              // Redirecionamento externo
+              window.location.href = `${offerData.upsellLink}?${params.toString()}`;
+              return;
+            }
+          } catch (error) {
+            console.error("Falha ao gerar token de upsell, usando fallback.", error);
+          }
+        }
+
+        // Fallback: Se não tiver upsell ou der erro, vai para página de sucesso interna
+        const params = new URLSearchParams();
+        params.append("offerName", offerData.mainProduct.name);
+        navigate(`/success?${params.toString()}`);
       }
+    };
 
-      // Adicionar nome da oferta
-      params.append("offerName", offerData.mainProduct.name);
+    handleSuccessRedirect();
+  }, [paymentSucceeded, paymentIntentId, offerData, navigate]);
 
-      // Navegar para a página de sucesso
-      navigate(`/success?${params.toString()}`);
-    }
-  }, [paymentSucceeded, offerData.upsellLink, offerData.mainProduct.name, navigate]);
-
-  // Toggle Bump (código existente)
+  // Toggle Bump
   const handleToggleBump = (bumpId: string) => {
     setSelectedBumps((prev) => (prev.includes(bumpId) ? prev.filter((id) => id !== bumpId) : [...prev, bumpId]));
   };
 
-  // Submit do formulário normal (código existente)
+  // Submit do formulário (Cartão de Crédito / PIX)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) return;
@@ -234,7 +257,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
         if (error) throw error;
 
         if (paymentIntent.status === "succeeded") {
-          setPaymentSucceeded(true);
+          setPaymentIntentId(paymentIntent.id); // Salva ID
+          setPaymentSucceeded(true); // Dispara o useEffect
         }
       } else if (method === "pix") {
         setErrorMessage(t.messages.pixNotImplemented);
@@ -264,22 +288,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
               discountPercentage={offerData.mainProduct.discountPercentage}
             />
 
-            {/* {paymentRequest && (
-              <div className="mb-6 mt-4">
-                <div className="relative mb-4">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-gray-300" />
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">Checkout Expresso</span>
-                  </div>
-                </div>
-                <div className="h-12 w-full">
-                  <PaymentRequestButtonElement options={{ paymentRequest }} className="w-full h-full" />
-                </div>
-              </div>
-            )} */}
-
             <ContactInfo showPhone={offerData.collectPhone} />
 
             {offerData.collectAddress && <AddressInfo />}
@@ -290,15 +298,15 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
 
             <button
               type="submit"
-              disabled={!stripe || loading}
+              disabled={!stripe || loading || paymentSucceeded}
               className="w-full mt-8 bg-button text-button-foreground font-bold py-3 px-4 rounded-lg text-lg transition-colors disabled:opacity-50 hover:opacity-90 cursor-pointer"
               style={{
-                backgroundColor: loading ? "#ccc" : button,
+                backgroundColor: loading || paymentSucceeded ? "#ccc" : button,
                 color: buttonForeground,
-                opacity: loading ? 0.7 : 1,
+                opacity: loading || paymentSucceeded ? 0.7 : 1,
               }}
             >
-              {loading ? t.buttons.processing : method === "pix" ? t.buttons.submitPix : t.buttons.submit}
+              {loading || paymentSucceeded ? t.buttons.processing : method === "pix" ? t.buttons.submitPix : t.buttons.submit}
             </button>
 
             {errorMessage && <div className="text-red-500 text-sm text-center mt-4">{errorMessage}</div>}

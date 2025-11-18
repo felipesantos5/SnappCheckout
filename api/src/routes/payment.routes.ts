@@ -4,12 +4,8 @@ import * as paymentController from "../controllers/payment.controller";
 
 const router = Router();
 
-// Endpoint ÚNICO para criar a intenção de pagamento (Cartão ou PIX)
-// POST /api/payments/create-intent
-router.post(
-  "/create-intent",
-  // (Aqui não precisa de 'protectRoute' pois o pagamento é público)
-  paymentController.handleCreatePaymentIntent
-);
+router.post("/create-intent", paymentController.handleCreatePaymentIntent);
+router.post("/upsell-token", paymentController.generateUpsellToken);
+router.post("/one-click-upsell", paymentController.handleOneClickUpsell);
 
 export default router;
