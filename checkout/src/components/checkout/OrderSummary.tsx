@@ -61,7 +61,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
         <div className="flex items-center">
           <ShoppingCart className="h-5 w-5 text-primary" />
           <span className="text-md font-semibold text-primary ml-2">{isOpen ? t.orderSummary.hideTitle : t.orderSummary.title}</span>
-          <ChevronDown className={`h-5 w-5 text-primary ml-1 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+          <ChevronDown className={`h-5 w-5 text-primary ml-1 transition-transform duration-300 ease-in-out ${isOpen ? "rotate-180" : ""}`} />
         </div>
 
         {!isOpen && (
@@ -79,75 +79,75 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
         )}
       </Collapsible.Trigger>
 
-      <Collapsible.Content className="overflow-hidden transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2">
+      <Collapsible.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center">
-          {productImageUrl && <img src={productImageUrl} alt={productName} className="w-20 h-20 rounded-md object-cover border" />}
-          <div className="ml-4 flex-1">
-            <h3 className="text-sm font-medium text-gray-800">{productName}</h3>
-            <div className="flex items-center justify-between mt-1 flex-wrap">
-              <div className="flex flex-col">
-                {originalPriceInCents && originalPriceInCents > basePriceInCents && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500 line-through">{formatCurrency(originalPriceInCents, currency)}</span>
-                    {discountPercentage && (
-                      <span className="text-xs font-semibold text-white bg-green-600 px-2 py-0.5 rounded">
-                        {discountPercentage}
-                        {t.product.discount}
-                      </span>
-                    )}
-                  </div>
-                )}
-                <span className="text-lg font-bold text-gray-900">{formatCurrency(basePriceInCents, currency)}</span>
-              </div>
+            {productImageUrl && <img src={productImageUrl} alt={productName} className="w-20 h-20 rounded-md object-cover border" />}
+            <div className="ml-4 flex-1">
+              <h3 className="text-sm font-medium text-gray-800">{productName}</h3>
+              <div className="flex items-center justify-between mt-1 flex-wrap">
+                <div className="flex flex-col">
+                  {originalPriceInCents && originalPriceInCents > basePriceInCents && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500 line-through">{formatCurrency(originalPriceInCents, currency)}</span>
+                      {discountPercentage && (
+                        <span className="text-xs font-semibold text-white bg-green-600 px-2 py-0.5 rounded">
+                          {discountPercentage}
+                          {t.product.discount}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <span className="text-lg font-bold text-gray-900">{formatCurrency(basePriceInCents, currency)}</span>
+                </div>
 
-              <div className="flex items-center border rounded">
-                <button type="button" className="px-2 py-1 text-gray-600 disabled:opacity-50" onClick={handleDecrease} disabled={quantity <= 1}>
-                  —
-                </button>
-                <span className="px-3 py-1 border-l border-r">{quantity}</span>
-                <button type="button" className="px-2 py-1 text-gray-600" onClick={handleIncrease}>
-                  +
-                </button>
+                <div className="flex items-center border rounded">
+                  <button type="button" className="px-2 py-1 text-gray-600 disabled:opacity-50" onClick={handleDecrease} disabled={quantity <= 1}>
+                    —
+                  </button>
+                  <span className="px-3 py-1 border-l border-r">{quantity}</span>
+                  <button type="button" className="px-2 py-1 text-gray-600" onClick={handleIncrease}>
+                    +
+                  </button>
+                </div>
               </div>
-            </div>
             </div>
           </div>
 
           <div className="mt-4 border-t border-gray-200 pt-4 text-sm text-gray-600 space-y-1">
-          {originalPriceInCents && originalPriceInCents > basePriceInCents ? (
-            <>
+            {originalPriceInCents && originalPriceInCents > basePriceInCents ? (
+              <>
+                <div className="flex justify-between">
+                  <span>{t.orderSummary.originalSubtotal}</span>
+                  <span className="line-through text-gray-400">{formatCurrency(subtotalOldPrice, currency)}</span>
+                </div>
+                <div className="flex justify-between text-green-600 font-semibold">
+                  <span>{t.orderSummary.discount}</span>
+                  <span>- {formatCurrency(discountAmount, currency)}</span>
+                </div>
+                <div className="flex justify-between font-medium text-gray-900">
+                  <span>{t.orderSummary.subtotalWithDiscount}</span>
+                  <span>{formatCurrency(subtotal, currency)}</span>
+                </div>
+              </>
+            ) : (
               <div className="flex justify-between">
-                <span>{t.orderSummary.originalSubtotal}</span>
-                <span className="line-through text-gray-400">{formatCurrency(subtotalOldPrice, currency)}</span>
-              </div>
-              <div className="flex justify-between text-green-600 font-semibold">
-                <span>{t.orderSummary.discount}</span>
-                <span>- {formatCurrency(discountAmount, currency)}</span>
-              </div>
-              <div className="flex justify-between font-medium text-gray-900">
-                <span>{t.orderSummary.subtotalWithDiscount}</span>
+                <span>{t.orderSummary.subtotal}</span>
                 <span>{formatCurrency(subtotal, currency)}</span>
               </div>
-            </>
-          ) : (
-            <div className="flex justify-between">
-              <span>{t.orderSummary.subtotal}</span>
-              <span>{formatCurrency(subtotal, currency)}</span>
-            </div>
-          )}
+            )}
 
-          {bumpsTotal > 0 && (
-            <div className="flex justify-between text-green-600">
-              <span>{t.orderSummary.extraProduct}</span>
-              <span>+ {formatCurrency(bumpsTotal, currency)}</span>
-            </div>
-          )}
+            {bumpsTotal > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>{t.orderSummary.extraProduct}</span>
+                <span>+ {formatCurrency(bumpsTotal, currency)}</span>
+              </div>
+            )}
 
-          <div className="flex justify-between mt-2 pt-2 border-t border-gray-300 text-base font-bold text-gray-900">
-            <span>{t.orderSummary.total}</span>
-            <span style={{ color: primary }}>{formatCurrency(totalAmountInCents, currency)}</span>
-          </div>
+            <div className="flex justify-between mt-2 pt-2 border-t border-gray-300 text-base font-bold text-gray-900">
+              <span>{t.orderSummary.total}</span>
+              <span style={{ color: primary }}>{formatCurrency(totalAmountInCents, currency)}</span>
+            </div>
           </div>
         </div>
       </Collapsible.Content>
