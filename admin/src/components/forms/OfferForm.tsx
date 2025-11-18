@@ -81,7 +81,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
     defaultValues: initialData || {
       name: "",
       bannerImageUrl: "",
-      currency: "BRL",
+      currency: "brl",
       language: "pt",
       collectAddress: false,
       utmfyWebhookUrl: "",
