@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useStripe, useElements, CardNumberElement } from "@stripe/react-stripe-js";
+import { useStripe, useElements, CardNumberElement, PaymentRequestButtonElement } from "@stripe/react-stripe-js";
 import type { PaymentRequest, PaymentRequestPaymentMethodEvent } from "@stripe/stripe-js"; // Tipos do Stripe
 // Tipos do Stripe
 import type { OfferData } from "../../pages/CheckoutSlugPage";
@@ -260,10 +260,9 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
               discountPercentage={offerData.mainProduct.discountPercentage}
             />
 
-            {/* [Alteração] Inserir Botão de Carteira Digital (Express Checkout) */}
-            {/* {paymentRequest && (
-              <div className="mb-6">
-                <div className="relative">
+            {paymentRequest && (
+              <div className="mb-6 mt-4">
+                <div className="relative mb-4">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t border-gray-300" />
                   </div>
@@ -271,11 +270,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
                     <span className="px-2 bg-white text-gray-500">Checkout Expresso</span>
                   </div>
                 </div>
-                <div className="mt-4 h-10">
+                {/* O botão precisa de altura definida para renderizar corretamente */}
+                <div className="h-12 w-full">
                   <PaymentRequestButtonElement options={{ paymentRequest }} className="w-full h-full" />
                 </div>
               </div>
-            )} */}
+            )}
 
             <ContactInfo showPhone={offerData.collectPhone} />
 
