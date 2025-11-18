@@ -9,8 +9,9 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { API_URL } from "@/config/BackendUrl";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Loader2 } from "lucide-react";
+import { Copy, ImageIcon, Loader2 } from "lucide-react";
 import type { product } from "@/types/product";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // Tipo para os dados da oferta (sem alterações)
 interface Offer {
@@ -113,7 +114,13 @@ export function OffersPage() {
                   {/* DESCRIÇÃO */}
                   <TableCell className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <img src={offer.mainProduct.imageUrl} alt="imagem do produto" className="w-9" />
+                      {/* <img src={offer.mainProduct.imageUrl || "/default-product-image.png"} alt="imagem do produto" className="w-9" /> */}
+                      <Avatar className="h-9 w-9 ">
+                        <AvatarImage src={offer.mainProduct.imageUrl} alt={"imagem do produto"} />
+                        <AvatarFallback className="rounded-md">
+                          <ImageIcon />
+                        </AvatarFallback>
+                      </Avatar>
                       <div>
                         <div className="font-medium text-sm text-foreground">{offer.name}</div>
                         <div className="text-xs text-muted-foreground">{offer.slug}</div>

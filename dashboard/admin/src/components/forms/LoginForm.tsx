@@ -8,6 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext"; // <-- Nosso Hook de Auth!
+import { Eye, EyeOff } from "lucide-react";
 
 // 1. Schema de validação
 const formSchema = z.object({
@@ -18,6 +19,7 @@ const formSchema = z.object({
 export function LoginForm() {
   const { login } = useAuth(); // <-- Pega a função 'login' do contexto
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // 2. Configuração do Form
   const form = useForm<z.infer<typeof formSchema>>({
@@ -67,7 +69,16 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>Senha</FormLabel>
               <FormControl>
-                <Input type="password" placeholder="••••••" {...field} />
+                <div className="relative">
+                  <Input type={showPassword ? "text" : "password"} placeholder="••••••" {...field} />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </FormControl>
               <FormMessage />
             </FormItem>
