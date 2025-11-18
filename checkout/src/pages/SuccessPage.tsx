@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { CheckCircle } from "lucide-react";
 import { useTranslation } from "../i18n/I18nContext";
 
 export const SuccessPage = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [countdown, setCountdown] = useState(5);
 
@@ -47,14 +46,10 @@ export const SuccessPage = () => {
           </div>
 
           {/* Título */}
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">
-            {t.messages.success}
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-3">{t.messages.success}</h1>
 
           {/* Descrição */}
-          <p className="text-gray-600 mb-6 text-lg">
-            {t.messages.successDescription}
-          </p>
+          <p className="text-gray-600 mb-6 text-lg">{t.messages.successDescription}</p>
 
           {/* Nome da oferta se disponível */}
           {offerName && (
@@ -68,42 +63,30 @@ export const SuccessPage = () => {
           {/* Mensagem de redirecionamento se houver upsell */}
           {upsellLink && (
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                {t.messages.redirecting}
-              </p>
-              <p className="text-2xl font-bold text-blue-600 mt-2">
-                {countdown}s
-              </p>
+              <p className="text-sm text-blue-800">{t.messages.redirecting}</p>
+              <p className="text-2xl font-bold text-blue-600 mt-2">{countdown}s</p>
             </div>
           )}
 
           {/* Checkmarks informativos */}
           <div className="mt-8 space-y-3 text-left">
             <div className="flex items-start gap-3">
-              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-gray-600">
-                Pagamento confirmado e processado com sucesso
-              </p>
+              <CheckCircle className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-gray-600">Pagamento confirmado e processado com sucesso</p>
             </div>
             <div className="flex items-start gap-3">
-              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-gray-600">
-                Confirmação enviada para o seu e-mail
-              </p>
+              <CheckCircle className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-gray-600">Confirmação enviada para o seu e-mail</p>
             </div>
             <div className="flex items-start gap-3">
-              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-gray-600">
-                Acesso ao produto será liberado em breve
-              </p>
+              <CheckCircle className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-gray-600">Acesso ao produto será liberado em breve</p>
             </div>
           </div>
         </div>
 
         {/* Informação adicional */}
-        <p className="text-center text-gray-500 text-sm mt-6">
-          Se você tiver alguma dúvida, verifique seu e-mail para mais informações.
-        </p>
+        <p className="text-center text-gray-500 text-sm mt-6">Se você tiver alguma dúvida, verifique seu e-mail para mais informações.</p>
       </div>
     </div>
   );

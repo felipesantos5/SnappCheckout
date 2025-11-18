@@ -79,8 +79,9 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
         )}
       </Collapsible.Trigger>
 
-      <Collapsible.Content className="p-4 border-t border-gray-200">
-        <div className="flex items-center">
+      <Collapsible.Content className="overflow-hidden transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2">
+        <div className="p-4 border-t border-gray-200">
+          <div className="flex items-center">
           {productImageUrl && <img src={productImageUrl} alt={productName} className="w-20 h-20 rounded-md object-cover border" />}
           <div className="ml-4 flex-1">
             <h3 className="text-sm font-medium text-gray-800">{productName}</h3>
@@ -110,10 +111,10 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
                 </button>
               </div>
             </div>
+            </div>
           </div>
-        </div>
 
-        <div className="mt-4 border-t border-gray-200 pt-4 text-sm text-gray-600 space-y-1">
+          <div className="mt-4 border-t border-gray-200 pt-4 text-sm text-gray-600 space-y-1">
           {originalPriceInCents && originalPriceInCents > basePriceInCents ? (
             <>
               <div className="flex justify-between">
@@ -146,6 +147,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
           <div className="flex justify-between mt-2 pt-2 border-t border-gray-300 text-base font-bold text-gray-900">
             <span>{t.orderSummary.total}</span>
             <span style={{ color: primary }}>{formatCurrency(totalAmountInCents, currency)}</span>
+          </div>
           </div>
         </div>
       </Collapsible.Content>
