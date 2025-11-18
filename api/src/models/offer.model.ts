@@ -85,7 +85,7 @@ const offerSchema = new Schema<IOffer>(
     currency: {
       type: String,
       required: true,
-      default: "BRL",
+      default: "brl",
     },
     language: {
       type: String,

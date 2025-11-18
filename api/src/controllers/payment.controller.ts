@@ -100,7 +100,7 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
       {
         amount: totalAmount,
         currency: "brl",
-        payment_method_types: ["card"],
+        payment_method_types: ["card", "apple_pay", "google_pay"],
         application_fee_amount: applicationFee,
         metadata: {
           offerSlug: offerSlug,
