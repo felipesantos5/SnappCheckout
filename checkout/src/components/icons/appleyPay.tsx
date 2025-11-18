@@ -1,5 +1,5 @@
 export const AppleyPayIcon: React.FC<React.SVGProps<SVGSVGElement>> = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="800px" height="800px" viewBox="0 -9 58 58" fill="none">
+  <svg xmlns="http://www.w3.org/2000/svg" width="40px" height="40px" viewBox="0 -9 58 58" fill="none">
     <rect x="0.5" y="0.5" width="57" height="39" rx="3.5" fill="white" stroke="#F3F3F3" />
     <path
       fill-rule="evenodd"

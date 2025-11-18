@@ -69,9 +69,7 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMetho
               title={walletLabel} // Ex: "Apple Pay" ou "Google Pay"
               icon={
                 // Ícone dinâmico ou genérico
-                <span className="text-xs font-bold px-2 py-1 bg-black text-white rounded">
-                  {walletLabel === "Apple Pay" ? <AppleyPayIcon /> : <GooglePayIcon />}
-                </span>
+                <span className="">{walletLabel === "Apple Pay" ? <AppleyPayIcon /> : <GooglePayIcon />}</span>
               }
             />
 
