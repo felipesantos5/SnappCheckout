@@ -59,8 +59,10 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
     <Collapsible.Root open={isOpen} onOpenChange={setIsOpen} className="w-full bg-gray-50 rounded-lg shadow">
       <Collapsible.Trigger className="w-full p-2 flex justify-between cursor-pointer">
         <div className="flex items-center">
-          <ShoppingCart className="h-5 w-5 text-primary" />
-          <span className="text-md font-semibold text-primary ml-2">{isOpen ? t.orderSummary.hideTitle : t.orderSummary.title}</span>
+          <ShoppingCart className="h-4 w-4 text-primary" />
+          <span className="text-sm font-semibold text-primary ml-2 whitespace-nowrap">
+            {isOpen ? t.orderSummary.hideTitle : t.orderSummary.title}
+          </span>
           <ChevronDown className={`h-5 w-5 text-primary ml-1 transition-transform duration-300 ease-in-out ${isOpen ? "rotate-180" : ""}`} />
         </div>
 

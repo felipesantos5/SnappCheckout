@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useStripe, useElements, CardNumberElement, PaymentRequestButtonElement } from "@stripe/react-stripe-js";
+import { useStripe, useElements, CardNumberElement } from "@stripe/react-stripe-js";
 import type { PaymentRequest, PaymentRequestPaymentMethodEvent } from "@stripe/stripe-js"; // Tipos do Stripe
 // Tipos do Stripe
 import type { OfferData } from "../../pages/CheckoutSlugPage";
@@ -29,13 +29,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [paymentSucceeded, setPaymentSucceeded] = useState(false);
-  const [method, setMethod] = useState<"creditCard" | "pix">("creditCard");
+  const [method, setMethod] = useState<"creditCard" | "pix" | "wallet">("creditCard");
   const [selectedBumps, setSelectedBumps] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [totalAmount, setTotalAmount] = useState(offerData.mainProduct.priceInCents);
-
-  // [Alteração] Estado para armazenar o objeto de solicitação de pagamento (Wallet)
   const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
+  const [walletLabel, setWalletLabel] = useState<string | null>(null);
 
   const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
 
@@ -83,6 +82,11 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
     pr.canMakePayment().then((result) => {
       if (result) {
         setPaymentRequest(pr);
+
+        // [Alteração] Define o nome correto do botão
+        if (result.applePay) setWalletLabel("Apple Pay");
+        else if (result.googlePay) setWalletLabel("Google Pay");
+        else setWalletLabel("Carteira Digital");
       }
     });
 
@@ -260,7 +264,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
               discountPercentage={offerData.mainProduct.discountPercentage}
             />
 
-            {paymentRequest && (
+            {/* {paymentRequest && (
               <div className="mb-6 mt-4">
                 <div className="relative mb-4">
                   <div className="absolute inset-0 flex items-center">
@@ -270,18 +274,17 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
                     <span className="px-2 bg-white text-gray-500">Checkout Expresso</span>
                   </div>
                 </div>
-                {/* O botão precisa de altura definida para renderizar corretamente */}
                 <div className="h-12 w-full">
                   <PaymentRequestButtonElement options={{ paymentRequest }} className="w-full h-full" />
                 </div>
               </div>
-            )}
+            )} */}
 
             <ContactInfo showPhone={offerData.collectPhone} />
 
             {offerData.collectAddress && <AddressInfo />}
 
-            <PaymentMethods method={method} setMethod={setMethod} />
+            <PaymentMethods method={method} setMethod={setMethod} paymentRequest={paymentRequest} walletLabel={walletLabel} />
 
             <OrderBump bumps={offerData.orderBumps} selectedBumps={selectedBumps} onToggleBump={handleToggleBump} currency={offerData.currency} />
 
