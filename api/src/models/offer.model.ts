@@ -84,6 +84,7 @@ const offerSchema = new Schema<IOffer>(
       name: { type: String, default: "" },
       price: { type: Number, default: 0 },
       redirectUrl: { type: String, default: "" },
+      customId: { type: String, default: "" },
     },
     bannerImageUrl: {
       type: String,

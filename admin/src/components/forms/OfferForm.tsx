@@ -382,12 +382,11 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   </FormItem>
                 )}
               />
-              <CustomIdInput name="mainProduct.customId" />
             </div>
           </div>
         </div>
 
-        <div className="rounded-md border p-4 space-y-4 bg-gray-50/50">
+        <div className="rounded-md border p-4 space-y-4">
           <FormField
             control={form.control}
             name="membershipWebhook.enabled"
@@ -397,8 +396,8 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                 </FormControl>
                 <div className="space-y-1 leading-none">
-                  <FormLabel className="font-semibold">Habilitar Integração de Entrega (Webhook)</FormLabel>
-                  <FormDescription>Envie dados da compra para áreas de membros (ex: Husky, MemberKit) automaticamente.</FormDescription>
+                  <FormLabel className="font-semibold">Habilitar Integração de Entrega Husky (Webhook)</FormLabel>
+                  <FormDescription>Envie dados da compra para áreas de membros automaticamente.</FormDescription>
                 </div>
               </FormItem>
             )}
@@ -496,6 +495,8 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
               </FormItem>
             )}
           />
+
+          <CustomIdInput name="mainProduct.customId" />
 
           <FormField
             control={form.control}
@@ -664,6 +665,8 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                 )}
               />
 
+              <CustomIdInput name={`orderBumps.${index}.customId`} />
+
               <FormField
                 control={form.control}
                 name={`orderBumps.${index}.imageUrl`}
@@ -679,8 +682,6 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   </FormItem>
                 )}
               />
-
-              <CustomIdInput name={`orderBumps.${index}.customId`} />
             </div>
           ))}
 
