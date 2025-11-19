@@ -115,7 +115,7 @@ export function RecentSalesTable() {
                     <TableCell>
                       <Button variant="link" asChild className="p-0 h-auto">
                         {sale.offerId ? (
-                          <Link to={`/dashboard/offers/${sale.offerId._id}`}>{sale.offerId.name}</Link>
+                          <Link to={`/offers/${sale.offerId._id}`}>{sale.offerId.name}</Link>
                         ) : (
                           <span className="text-gray-400">Oferta Excluída</span>
                         )}
