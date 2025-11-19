@@ -33,6 +33,7 @@ interface ApiOfferData {
   slug: string;
   name: string;
   bannerImageUrl?: string;
+  thankYouPageUrl?: string;
   currency: string;
   language: string;
   collectAddress: boolean;
