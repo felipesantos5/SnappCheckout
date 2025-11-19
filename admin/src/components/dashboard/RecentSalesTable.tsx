@@ -112,10 +112,13 @@ export function RecentSalesTable() {
                       <div className="font-medium">{sale.customerName || "N/A"}</div>
                       <div className="text-xs text-muted-foreground">{sale.customerEmail}</div>
                     </TableCell>
-                    {/* Nova Célula: Nome da Oferta com Link */}
                     <TableCell>
                       <Button variant="link" asChild className="p-0 h-auto">
-                        <Link to={`/offers/${sale.offerId._id}`}>{sale.offerId?.name || "Oferta Deletada"}</Link>
+                        {sale.offerId ? (
+                          <Link to={`/dashboard/offers/${sale.offerId._id}`}>{sale.offerId.name}</Link>
+                        ) : (
+                          <span className="text-gray-400">Oferta Excluída</span>
+                        )}
                       </Button>
                     </TableCell>
                     <TableCell>{formatDate(sale.createdAt)}</TableCell>
