@@ -11,6 +11,7 @@ const productSubSchema = new Schema({
   imageUrl: { type: String, default: "" },
   priceInCents: { type: Number, required: true },
   compareAtPriceInCents: { type: Number, required: false },
+  customId: { type: String, default: "" },
 });
 
 export interface IProductSubDocument {
@@ -41,8 +42,15 @@ export interface IOffer extends Document {
     name: string;
     price: number;
     redirectUrl: string;
+    customId?: string;
   };
 
+  membershipWebhook?: {
+    enabled: boolean;
+    url: string;
+    authToken: string;
+  };
+  customId?: string;
   collectPhone: boolean;
 
   mainProduct: IProductSubDocument;
@@ -113,6 +121,12 @@ const offerSchema = new Schema<IOffer>(
       required: true,
     },
     orderBumps: [productSubSchema],
+    membershipWebhook: {
+      enabled: { type: Boolean, default: false },
+      url: { type: String, default: "" },
+      authToken: { type: String, default: "" },
+    },
+    customId: { type: String, default: "" },
   },
   { timestamps: true }
 );

@@ -4,6 +4,7 @@ import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
 import { sendPurchaseToUTMfyWebhook } from "../../../services/utmfy.service";
 import stripe from "../../../lib/stripe";
+import { sendAccessWebhook } from "../../../services/integration.service";
 
 /**
  * Handler para quando um pagamento é aprovado
@@ -137,6 +138,8 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     });
 
     console.log(`✅ Venda salva: ${sale._id} | Cliente: ${finalCustomerName}`);
+
+    await sendAccessWebhook(offer as any, sale, items);
 
     // 7. Envia Webhook Externo (UTMfy)
     if (offer.utmfyWebhookUrl && offer.utmfyWebhookUrl.startsWith("http")) {
