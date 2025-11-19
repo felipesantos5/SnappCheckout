@@ -9,9 +9,10 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { API_URL } from "@/config/BackendUrl";
 import { Badge } from "@/components/ui/badge";
-import { Copy, ImageIcon, Loader2 } from "lucide-react";
+import { Copy, ImageIcon, Loader2, Trash2 } from "lucide-react";
 import type { product } from "@/types/product";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Tipo para os dados da oferta (sem alterações)
 interface Offer {
@@ -33,6 +34,8 @@ const formatCurrency = (amountInCents: number) => {
 export function OffersPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [offerToDelete, setOfferToDelete] = useState<Offer | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Função para buscar os dados (sem alterações)
   const fetchOffers = async () => {
@@ -65,6 +68,25 @@ export function OffersPage() {
     const url = `${checkoutBaseUrl}/c/${slug}`;
     navigator.clipboard.writeText(url);
     toast.success("URL do checkout copiada!");
+  };
+
+  // Função para deletar a oferta
+  const handleDelete = async () => {
+    if (!offerToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await axios.delete(`${API_URL}/offers/${offerToDelete._id}`);
+      toast.success("Oferta deletada com sucesso!");
+      setOfferToDelete(null);
+      fetchOffers(); // Recarrega a lista
+    } catch (error) {
+      toast.error("Falha ao deletar oferta.", {
+        description: (error as Error).message,
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -153,11 +175,16 @@ export function OffersPage() {
                     </Badge>
                   </TableCell>
 
-                  {/* AÇÕES (Editar) */}
+                  {/* AÇÕES (Editar e Deletar) */}
                   <TableCell className="px-6 py-4 text-right">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link to={`/offers/${offer._id}`}>Editar</Link>
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link to={`/offers/${offer._id}`}>Editar</Link>
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setOfferToDelete(offer)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -165,6 +192,33 @@ export function OffersPage() {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Modal de Confirmação de Exclusão */}
+      <Dialog open={!!offerToDelete} onOpenChange={(open) => !open && setOfferToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar exclusão</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja deletar a oferta "{offerToDelete?.name}"? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOfferToDelete(null)} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deletando...
+                </>
+              ) : (
+                "Deletar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
