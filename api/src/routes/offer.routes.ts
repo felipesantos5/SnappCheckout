@@ -21,6 +21,9 @@ router.get("/:id", protectRoute, offerController.handleGetOfferById);
 // PUT /api/offers/:id (Atualiza uma oferta)
 router.put("/:id", protectRoute, offerController.handleUpdateOffer);
 
+// DELETE /api/offers/:id (Deleta uma oferta)
+router.delete("/:id", protectRoute, offerController.handleDeleteOffer);
+
 // --- Rota Pública (Checkout) ---
 
 // GET /api/offers/slug/:slug

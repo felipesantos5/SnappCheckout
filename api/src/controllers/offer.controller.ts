@@ -83,3 +83,22 @@ export const handleUpdateOffer = async (req: Request, res: Response) => {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
 };
+
+/**
+ * Controller para DELETAR uma oferta
+ */
+export const handleDeleteOffer = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const ownerId = req.userId!;
+
+    const deleted = await offerService.deleteOffer(id, ownerId);
+
+    if (!deleted) {
+      return res.status(404).json({ error: { message: "Oferta não encontrada ou não pertence a você." } });
+    }
+    res.status(200).json({ message: "Oferta deletada com sucesso." });
+  } catch (error) {
+    res.status(400).json({ error: { message: (error as Error).message } });
+  }
+};

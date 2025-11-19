@@ -200,3 +200,23 @@ export const updateOffer = async (id: string, ownerId: string, payload: UpdateOf
     throw new Error(`Falha ao atualizar oferta: ${(error as Error).message}`);
   }
 };
+
+/**
+ * Deleta uma oferta existente.
+ */
+export const deleteOffer = async (id: string, ownerId: string): Promise<boolean> => {
+  try {
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return false;
+    }
+
+    const result = await Offer.deleteOne({
+      _id: id,
+      ownerId: ownerId, // Garante que o usuário é o dono
+    });
+
+    return result.deletedCount > 0;
+  } catch (error) {
+    throw new Error(`Falha ao deletar oferta: ${(error as Error).message}`);
+  }
+};
