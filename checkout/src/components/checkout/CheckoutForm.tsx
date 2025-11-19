@@ -205,7 +205,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
 
   // Toggle Bump
   const handleToggleBump = (bumpId: string) => {
-    setSelectedBumps((prev) => (prev.includes(bumpId) ? prev.filter((id) => id !== bumpId) : [...prev, bumpId]));
+    setSelectedBumps((prev) => {
+      if (prev.includes(bumpId)) {
+        return prev.filter((id) => id !== bumpId); // Remove
+      } else {
+        return [...prev, bumpId]; // Adiciona
+      }
+    });
   };
 
   // Submit do formulário (Cartão de Crédito / PIX)

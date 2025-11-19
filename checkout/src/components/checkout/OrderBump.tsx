@@ -34,12 +34,11 @@ export const OrderBump: React.FC<OrderBumpProps> = ({ bumps, selectedBumps, onTo
   const { primary } = useTheme();
 
   if (!bumps || bumps.length === 0) {
-    return null; // Não renderiza nada se não houver bumps
+    return null;
   }
 
   return (
     <>
-      {/* Renderiza um bloco para CADA bump */}
       {bumps.map((bump) => {
         const isSelected = selectedBumps.includes(bump._id);
 
