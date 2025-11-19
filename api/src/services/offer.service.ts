@@ -15,9 +15,7 @@ const transformProductForFrontend = (product: IProductSubDocument) => {
 
   if (product.compareAtPriceInCents && product.compareAtPriceInCents > product.priceInCents) {
     transformed.originalPriceInCents = product.compareAtPriceInCents;
-    transformed.discountPercentage = Math.round(
-      ((product.compareAtPriceInCents - product.priceInCents) / product.compareAtPriceInCents) * 100
-    );
+    transformed.discountPercentage = Math.round(((product.compareAtPriceInCents - product.priceInCents) / product.compareAtPriceInCents) * 100);
   }
 
   return transformed;
@@ -50,6 +48,7 @@ export type CreateOfferPayload = {
   language?: string;
   upsellLink?: string;
   utmfyWebhookUrl?: string;
+  thankYouPageUrl?: string;
   upsell?: {
     enabled: boolean;
     name: string;
