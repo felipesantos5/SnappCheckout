@@ -17,7 +17,6 @@ const upsellSessionSchema = new Schema<IUpsellSession>(
     customerId: { type: String, required: true },
     paymentMethodId: { type: String, required: true },
     offerId: { type: Schema.Types.ObjectId, ref: "Offer", required: true },
-    createdAt: { type: Date, default: Date.now, expires: 3600 }, // Expira em 1h (3600s)
   },
   { timestamps: true }
 );
