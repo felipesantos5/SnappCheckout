@@ -37,7 +37,12 @@ export interface OfferData {
     originalPriceInCents?: number;
     discountPercentage?: number;
   }[];
-  upsellLink?: string;
+  upsell?: {
+    enabled: boolean;
+    name: string;
+    price: number;
+    redirectUrl: string;
+  };
   ownerId: {
     stripeAccountId: string;
   };

@@ -17,85 +17,79 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     console.log(`💰 NOVA VENDA RECEBIDA!`);
     console.log(`${"=".repeat(80)}`);
     console.log(`🆔 Payment Intent ID: ${paymentIntent.id}`);
-    console.log(`💵 Valor Total: R$ ${(paymentIntent.amount / 100).toFixed(2)}`);
-    console.log(`📅 Data/Hora: ${new Date().toLocaleString("pt-BR")}`);
 
-    // 1. Extrai metadados
+    // 1. Extrai dados básicos do metadata
     const metadata = paymentIntent.metadata || {};
-    console.log(`\n📋 METADADOS RECEBIDOS:`);
-    console.log(JSON.stringify(metadata, null, 2));
-
-    // --- CORREÇÃO 1: Suporte a Upsell e Fallback de Slug ---
-    // O Upsell pode mandar 'offerSlug' ou 'originalOfferSlug' dependendo da implementação
     const offerSlug = metadata.offerSlug || metadata.originalOfferSlug;
     const isUpsell = metadata.isUpsell === "true";
 
     if (!offerSlug) {
-      throw new Error("Metadata 'offerSlug' (ou originalOfferSlug) não encontrado no PaymentIntent");
+      throw new Error("Metadata 'offerSlug' não encontrado.");
     }
 
-    // --- CORREÇÃO 2: Recuperação Robusta de Dados do Cliente ---
-    // Se for Upsell One-Click, o metadata pode não ter nome/email. Buscamos no Stripe.
-    let customerEmail: string | null | undefined = metadata.customerEmail;
-    let customerName: string | null | undefined = metadata.customerName;
-    let customerPhone: string | null | undefined = metadata.customerPhone;
-
-    if (!customerEmail || !customerName) {
-      console.log("⚠️ Dados do cliente ausentes no metadata. Buscando no Stripe...");
-      if (paymentIntent.customer) {
-        const customerId = typeof paymentIntent.customer === "string" ? paymentIntent.customer : paymentIntent.customer.id;
-
-        try {
-          const stripeCustomer = await stripe.customers.retrieve(customerId);
-          if (!stripeCustomer.deleted) {
-            customerEmail = customerEmail || stripeCustomer.email;
-            customerName = customerName || stripeCustomer.name;
-            customerPhone = customerPhone || stripeCustomer.phone;
-          }
-        } catch (err) {
-          console.error("Erro ao buscar cliente no Stripe:", err);
-        }
-      }
-    }
-
-    // Fallbacks finais para evitar erro de validação do Mongoose
-    customerName = customerName || "Cliente Não Identificado";
-    customerEmail = customerEmail || "email@nao.informado";
-
+    // 2. Busca a OFERTA e o DONO primeiro (Necessário para saber qual conta Stripe consultar)
     console.log(`\n🔍 BUSCANDO OFERTA: ${offerSlug}`);
-
-    // 2. Busca a oferta completa
     const offer = await Offer.findOne({ slug: offerSlug }).populate("ownerId");
+
     if (!offer) {
       throw new Error(`Oferta com slug '${offerSlug}' não encontrada`);
     }
 
-    // Extrai informações do vendedor
     const owner = offer.ownerId as any;
+    const stripeAccountId = owner.stripeAccountId; // <--- O ID da conta conectada
 
-    // 3. Monta a lista de itens comprados
-    console.log(`\n📦 ITENS DA COMPRA:`);
+    if (!stripeAccountId) {
+      throw new Error("Vendedor não possui conta Stripe conectada.");
+    }
+
+    // 3. Recuperação Robusta de Dados do Cliente (AGORA NO LUGAR CERTO)
+    let customerEmail: string | null | undefined = metadata.customerEmail;
+    let customerName: string | null | undefined = metadata.customerName;
+    let customerPhone: string | null | undefined = metadata.customerPhone;
+
+    // Se faltar nome ou email (comum no Upsell One-Click), busca na conta do vendedor
+    if (!customerEmail || !customerName) {
+      console.log("⚠️ Dados do cliente incompletos. Buscando na conta conectada do Stripe...");
+
+      if (paymentIntent.customer) {
+        const customerId = typeof paymentIntent.customer === "string" ? paymentIntent.customer : paymentIntent.customer.id;
+
+        try {
+          // CORREÇÃO PRINCIPAL AQUI: Adicionado { stripeAccount }
+          const stripeCustomer = await stripe.customers.retrieve(customerId, {
+            stripeAccount: stripeAccountId,
+          });
+
+          if (!stripeCustomer.deleted) {
+            customerEmail = customerEmail || stripeCustomer.email;
+            customerName = customerName || stripeCustomer.name;
+            customerPhone = customerPhone || stripeCustomer.phone;
+            console.log("✅ Dados do cliente recuperados do Stripe Connect.");
+          }
+        } catch (err: any) {
+          console.error(`❌ Falha ao buscar cliente ${customerId} na conta ${stripeAccountId}:`, err.message);
+        }
+      }
+    }
+
+    // Fallbacks finais
+    const finalCustomerName = customerName || "Cliente Não Identificado";
+    const finalCustomerEmail = customerEmail || "email@nao.informado";
+
+    // 4. Monta os itens da venda (Lógica Upsell vs Normal)
     const items: Array<{ _id?: string; name: string; priceInCents: number; isOrderBump: boolean; compareAtPriceInCents?: number }> = [];
 
-    // --- CORREÇÃO 3: Lógica diferente para Upsell vs Venda Normal ---
     if (isUpsell) {
-      // SE FOR UPSELL: O item é o produto de upsell configurado na oferta
       console.log(`   ℹ️ Tipo de Venda: UPSELL (One Click)`);
-
       items.push({
-        // Tenta pegar ID se existir, senão undefined
         _id: undefined,
         name: offer.upsell?.name || metadata.productName || "Produto Upsell",
-        priceInCents: paymentIntent.amount, // O valor pago é o valor do item
+        priceInCents: paymentIntent.amount,
         compareAtPriceInCents: undefined,
-        isOrderBump: false, // Para fins de relatório, é o item principal DESTA transação
+        isOrderBump: false,
       });
-
-      console.log(`   ✓ Produto Upsell: ${items[0].name} - R$ ${(items[0].priceInCents / 100).toFixed(2)}`);
     } else {
-      // SE FOR VENDA NORMAL (Checkout padrão)
       console.log(`   ℹ️ Tipo de Venda: CHECKOUT PADRÃO`);
-
       items.push({
         _id: (offer.mainProduct as any)._id?.toString() || undefined,
         name: offer.mainProduct.name,
@@ -103,7 +97,6 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
         compareAtPriceInCents: offer.mainProduct.compareAtPriceInCents,
         isOrderBump: false,
       });
-      console.log(`   ✓ Produto Principal: ${offer.mainProduct.name} - R$ ${(offer.mainProduct.priceInCents / 100).toFixed(2)}`);
 
       const selectedOrderBumps = metadata.selectedOrderBumps ? JSON.parse(metadata.selectedOrderBumps) : [];
       for (const bumpId of selectedOrderBumps) {
@@ -116,70 +109,56 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
             compareAtPriceInCents: bump.compareAtPriceInCents,
             isOrderBump: true,
           });
-          console.log(`   ✓ Order Bump: ${bump.name} - R$ ${(bump.priceInCents / 100).toFixed(2)}`);
         }
       }
     }
 
-    // 4. Verifica se a venda já foi registrada (idempotência)
+    // 5. Verifica duplicidade
     const existingSale = await Sale.findOne({ stripePaymentIntentId: paymentIntent.id });
     if (existingSale) {
-      console.log(`\n⚠️  VENDA DUPLICADA DETECTADA!`);
+      console.log(`⚠️ Venda já processada: ${existingSale._id}`);
       return;
     }
 
-    // 5. Calcula a taxa da plataforma
+    // 6. Salva no Banco
+    console.log(`\n💾 SALVANDO NO BANCO DE DADOS...`);
     const platformFeeInCents = paymentIntent.application_fee_amount || 0;
 
-    // 6. Cria o registro da venda no banco
-    console.log(`\n💾 SALVANDO NO BANCO DE DADOS...`);
     const sale = await Sale.create({
       ownerId: offer.ownerId,
       offerId: offer._id,
       stripePaymentIntentId: paymentIntent.id,
-      customerName, // Agora garantido que não é null
-      customerEmail,
+      customerName: finalCustomerName, // Usa as variáveis finais tratadas
+      customerEmail: finalCustomerEmail,
       totalAmountInCents: paymentIntent.amount,
       platformFeeInCents,
       status: "succeeded",
       items,
     });
 
-    console.log(`✅ Venda salva com sucesso! ID: ${sale._id}`);
+    console.log(`✅ Venda salva: ${sale._id} | Cliente: ${finalCustomerName}`);
 
-    // 7. Dispara para API externa (UTMfy)
-    console.log(`\n📡 ENVIANDO PARA API EXTERNA...`);
+    // 7. Envia Webhook Externo (UTMfy)
     if (offer.utmfyWebhookUrl && offer.utmfyWebhookUrl.startsWith("http")) {
-      const quantity = parseInt(metadata.quantity || "1", 10);
+      // ... (Mantenha a lógica de envio para UTMfy igual à anterior, usando finalCustomerName/Email)
+      // Vou resumir aqui para não ficar gigante, mas mantenha o bloco do UTMfy
+      // Certifique-se de usar 'sale.customerName' ou 'finalCustomerName' no payload
 
-      // Mapeia os produtos
-      const utmfyProducts = items.map((item) => {
-        let id = item._id ? item._id.toString() : crypto.randomUUID();
-        // Fallback para produto principal sem _id
-        if (!item.isOrderBump && !item._id) {
-          id = (offer._id as any)?.toString() || crypto.randomUUID();
-        }
-        return { Id: id, Name: item.name };
-      });
-
+      // Recalcula total original...
       let originalTotalInCents = 0;
-
-      // Cálculo correto do preço original para enviar ao webhook
-      // Se for Upsell, o item principal é o Upsell
+      const quantity = parseInt(metadata.quantity || "1", 10);
       items.forEach((item) => {
         const price = item.compareAtPriceInCents && item.compareAtPriceInCents > item.priceInCents ? item.compareAtPriceInCents : item.priceInCents;
-
-        // Se for order bump, soma 1x. Se for principal, multiplica pela qtd (se não for upsell)
-        if (item.isOrderBump) {
-          originalTotalInCents += price;
-        } else {
-          // Upsell geralmente é qtd 1, checkout normal pode ter qtd > 1
-          originalTotalInCents += price * (isUpsell ? 1 : quantity);
-        }
+        if (item.isOrderBump) originalTotalInCents += price;
+        else originalTotalInCents += price * (isUpsell ? 1 : quantity);
       });
 
-      // Constrói o payload
-      const utmfyPayload = {
+      const utmfyProducts = items.map((i) => ({
+        Id: i._id?.toString() || (offer._id as any).toString(),
+        Name: i.name,
+      }));
+
+      await sendPurchaseToUTMfyWebhook(offer.utmfyWebhookUrl, {
         Id: crypto.randomUUID(),
         IsTest: !paymentIntent.livemode,
         Event: "Purchase_Order_Confirmed",
@@ -192,10 +171,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
             Name: sale.customerName,
             PhoneNumber: customerPhone || null,
           },
-          Seller: {
-            Id: (owner._id as any).toString(),
-            Email: owner.email,
-          },
+          Seller: { Id: (owner._id as any).toString(), Email: owner.email },
           Commissions: [
             { Value: sale.platformFeeInCents / 100, Source: "MARKETPLACE" },
             { Value: (sale.totalAmountInCents - sale.platformFeeInCents) / 100, Source: "PRODUCER" },
@@ -206,14 +182,10 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
             PaymentDate: new Date(paymentIntent.created * 1000).toISOString(),
             OriginalPrice: { Value: originalTotalInCents / 100 },
             Price: { Value: sale.totalAmountInCents / 100 },
-            Payment: {
-              NumberOfInstallments: 1,
-              PaymentMethod: "credit_card",
-              InterestRateAmount: 0,
-            },
+            Payment: { NumberOfInstallments: 1, PaymentMethod: "credit_card", InterestRateAmount: 0 },
           },
           Offer: {
-            Id: (offer._id as any)?.toString() || crypto.randomUUID(),
+            Id: (offer._id as any).toString(),
             Name: offer.name,
             Url: `${process.env.FRONTEND_URL || "https://checkout.abatools.pro"}/p/${offer.slug}`,
           },
@@ -224,26 +196,14 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
             UtmTerm: metadata.utm_term || null,
             UtmContent: metadata.utm_content || null,
           },
-          DeviceInfo: {
-            UserAgent: metadata.userAgent || null,
-            ip: metadata.ip || null,
-          },
+          DeviceInfo: { UserAgent: metadata.userAgent || null, ip: metadata.ip || null },
         },
-      };
-
-      await sendPurchaseToUTMfyWebhook(offer.utmfyWebhookUrl, utmfyPayload);
+      });
     }
 
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`🎉 VENDA PROCESSADA COM SUCESSO!`);
-    console.log(`${"=".repeat(80)}\n`);
+    console.log(`🎉 PROCESSAMENTO CONCLUÍDO!\n`);
   } catch (error: any) {
-    console.error(`\n${"=".repeat(80)}`);
-    console.error(`❌ ERRO AO PROCESSAR VENDA!`);
-    console.error(`${"=".repeat(80)}`);
-    console.error(`Erro: ${error.message}`);
-    // console.error(`Stack: ${error.stack}`); // Opcional para limpar log
-    console.error(`${"=".repeat(80)}\n`);
+    console.error(`❌ ERRO: ${error.message}`);
     throw error;
   }
 };

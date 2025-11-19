@@ -165,7 +165,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
     const handleSuccessRedirect = async () => {
       if (paymentSucceeded && paymentIntentId) {
         // Verifica se existe link de upsell configurado
-        if (offerData.upsellLink) {
+        if (offerData.upsell?.enabled) {
           try {
             // 1. Solicita o Token de Sessão Segura ao Backend
             const response = await fetch(`${API_URL}/payments/upsell-token`, {
@@ -185,7 +185,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
               params.append("token", data.token);
 
               // Redirecionamento externo
-              window.location.href = `${offerData.upsellLink}?${params.toString()}`;
+              window.location.href = `${offerData.upsell?.redirectUrl}?${params.toString()}`;
               return;
             }
           } catch (error) {
@@ -216,6 +216,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
     setLoading(true);
     setErrorMessage(null);
 
+    // Coleta de dados (Mantido igual)
     const email = (document.getElementById("email") as HTMLInputElement).value;
     const fullName = (document.getElementById("name") as HTMLInputElement).value;
     const phoneElement = document.getElementById("phone") as HTMLInputElement | null;
@@ -232,6 +233,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
 
     try {
       if (method === "creditCard") {
+        // 1. Cria a intenção de pagamento
         const res = await fetch(`${API_URL}/payments/create-intent`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -246,6 +248,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
 
         const cardName = (document.getElementById("card-name") as HTMLInputElement).value;
 
+        // 2. Confirma o pagamento no Stripe
         const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
           payment_method: {
             card: cardElement,
@@ -256,18 +259,44 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
 
         if (error) throw error;
 
+        // 3. Pagamento Aprovado! Lógica de Redirecionamento Inteligente
         if (paymentIntent.status === "succeeded") {
-          setPaymentIntentId(paymentIntent.id); // Salva ID
-          setPaymentSucceeded(true); // Dispara o useEffect
+          try {
+            // Tenta gerar o token de Upsell (Verifica se existe upsell ativo)
+            const upsellRes = await fetch(`${API_URL}/payments/upsell-token`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                paymentIntentId: paymentIntent.id,
+                offerSlug: offerData.slug,
+              }),
+            });
+
+            const upsellData = await upsellRes.json();
+
+            // SE tiver Upsell configurado, redireciona para a página externa do cliente com o token
+            if (upsellRes.ok && upsellData.redirectUrl) {
+              window.location.href = upsellData.redirectUrl;
+              return; // Interrompe a função aqui para o navegador carregar a nova página
+            }
+          } catch (err) {
+            // Se falhar a verificação de upsell, apenas loga e segue para o sucesso padrão
+            console.error("Erro ao verificar upsell, seguindo fluxo normal:", err);
+          }
+
+          // FALLBACK: Se não tiver upsell ou der erro, vai para a página de sucesso interna
+          // setPaymentSucceeded(true); // Se você usa useEffect para algo local
+          navigate(`/success?offerSlug=${offerData.slug}&paymentId=${paymentIntent.id}`);
         }
       } else if (method === "pix") {
         setErrorMessage(t.messages.pixNotImplemented);
       }
     } catch (error: any) {
+      console.error("Erro no checkout:", error);
       setErrorMessage(error.message || t.messages.error);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
