@@ -316,7 +316,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
         <div className="fixed inset-0 bg-white/80 z-60 flex items-center justify-center backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-16 w-16 text-blue-600 animate-spin" />
-            <p className="text-gray-600 font-medium animate-pulse">Processando pagamento...</p>
+            <p className="text-gray-600 font-medium animate-pulse">{t.buttons.processing}</p>
           </div>
         </div>
       )}

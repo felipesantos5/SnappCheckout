@@ -76,7 +76,7 @@ export const en: Translation = {
   buttons: {
     submit: "Complete purchase",
     submitPix: "Generate PIX",
-    processing: "Processing...",
+    processing: "processing payment...",
     continue: "Continue",
     back: "Back",
   },

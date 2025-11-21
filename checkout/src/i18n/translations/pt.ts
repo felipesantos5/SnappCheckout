@@ -74,7 +74,7 @@ export const pt = {
   buttons: {
     submit: "Finalizar compra",
     submitPix: "Gerar PIX",
-    processing: "Processando...",
+    processing: "Processando pagamento...",
     continue: "Continuar",
     back: "Voltar",
   },
