@@ -63,7 +63,7 @@ export function OffersPage() {
     const checkoutBaseUrl =
       window.location.hostname === "localhost"
         ? "https://localhost:5173" // URL do app 'checkout' em dev
-        : "https://snappcheckout.com"; // URL do app 'checkout' em produção
+        : "https://pay.snappcheckout.com"; // URL do app 'checkout' em produção
 
     const url = `${checkoutBaseUrl}/c/${slug}`;
     navigator.clipboard.writeText(url);
@@ -198,9 +198,7 @@ export function OffersPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirmar exclusão</DialogTitle>
-            <DialogDescription>
-              Tem certeza que deseja deletar a oferta "{offerToDelete?.name}"? Esta ação não pode ser desfeita.
-            </DialogDescription>
+            <DialogDescription>Tem certeza que deseja deletar a oferta "{offerToDelete?.name}"? Esta ação não pode ser desfeita.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOfferToDelete(null)} disabled={isDeleting}>
