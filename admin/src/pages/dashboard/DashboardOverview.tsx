@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign } from "lucide-react";
 import { RecentSalesTable } from "@/components/dashboard/RecentSalesTable";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MonthlyRevenueChart } from "@/components/dashboard/MonthlyRevenueChart";
 import { SalesAreaChart } from "@/components/dashboard/SalesAreaChart";
 
 interface StripeBalance {
