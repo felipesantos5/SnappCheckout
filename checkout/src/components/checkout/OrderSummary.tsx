@@ -3,6 +3,7 @@ import * as Collapsible from "@radix-ui/react-collapsible";
 import { ChevronDown, ShoppingCart } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import { useTranslation } from "../../i18n/I18nContext";
+import { formatCurrency } from "../../helper/formatCurrency";
 
 interface OrderSummaryProps {
   productName: string;
@@ -15,21 +16,6 @@ interface OrderSummaryProps {
   originalPriceInCents?: number;
   discountPercentage?: number;
 }
-
-const formatCurrency = (amountInCents: number, currency: string) => {
-  const amount = amountInCents / 100;
-  const formatted = new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: currency,
-  }).format(amount);
-
-  // Se for Dólar (USD), remove o "US" e deixa apenas "$"
-  if (currency === "USD") {
-    return formatted.replace("US$", "$");
-  }
-
-  return formatted;
-};
 
 export const OrderSummary: React.FC<OrderSummaryProps> = ({
   productName,

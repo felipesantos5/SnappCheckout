@@ -2,6 +2,7 @@
 import React from "react";
 import { useTheme } from "../../context/ThemeContext";
 import { useTranslation } from "../../i18n/I18nContext";
+import { formatCurrency } from "../../helper/formatCurrency";
 
 // Tipagem para um único bump
 interface Bump {
@@ -21,15 +22,6 @@ interface OrderBumpProps {
   onToggleBump: (bumpId: string) => void; // Função para (des)marcar
   currency: string;
 }
-
-// Helper de formatação
-const formatCurrency = (amountInCents: number, currency: string) => {
-  const amount = amountInCents / 100;
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: currency,
-  }).format(amount);
-};
 
 export const OrderBump: React.FC<OrderBumpProps> = ({ bumps, selectedBumps, onToggleBump, currency }) => {
   const { primary } = useTheme();
