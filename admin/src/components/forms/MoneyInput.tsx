@@ -15,10 +15,10 @@ export const MoneyInput = ({ form, name, label, placeholder, disabled }: MoneyIn
   // Estado local para controlar o que é exibido no input (texto com R$)
   const [displayValue, setDisplayValue] = useState("");
 
-  // Função para formatar centavos em Real (R$ 10,00)
-  const formatCurrency = (cents: number | undefined | null) => {
-    if (cents === undefined || cents === null) return "";
-    return (cents / 100).toLocaleString("pt-BR", {
+  // Função para formatar reais em Real (R$ 10,00)
+  const formatCurrency = (value: number | undefined | null) => {
+    if (value === undefined || value === null) return "";
+    return value.toLocaleString("pt-BR", {
       style: "currency",
       currency: "BRL",
     });
@@ -41,15 +41,14 @@ export const MoneyInput = ({ form, name, label, placeholder, disabled }: MoneyIn
     // Atualiza o visual imediatamente para o usuário não sentir "travado"
     setDisplayValue(rawValue);
 
-    // Converte para número (float) para calcular centavos
+    // Converte para número (float) em reais
     // Substitui vírgula por ponto para o JS entender
     const floatValue = parseFloat(sanitizedValue.replace(",", "."));
 
     if (!isNaN(floatValue)) {
-      // Converte para centavos (Inteiro) e atualiza o formulário
-      // Ex: 100,50 vira 10050
-      const cents = Math.round(floatValue * 100);
-      form.setValue(name, cents, { shouldValidate: true });
+      // Salva o valor direto em reais (não multiplica por 100)
+      // Ex: 100,50 salva como 100.5
+      form.setValue(name, floatValue, { shouldValidate: true });
     } else {
       // Se limpar o campo, define como 0 ou undefined
       form.setValue(name, 0, { shouldValidate: true });

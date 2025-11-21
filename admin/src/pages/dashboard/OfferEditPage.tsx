@@ -41,6 +41,8 @@ interface ApiOfferData {
   primaryColor: string;
   buttonColor: string;
   utmfyWebhookUrl?: string;
+  facebookPixelId?: string;
+  facebookAccessToken?: string;
   upsell?: {
     enabled: boolean;
     name: string;
@@ -72,7 +74,8 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
     primaryColor: data.primaryColor,
     buttonColor: data.buttonColor,
     utmfyWebhookUrl: data.utmfyWebhookUrl,
-
+    facebookPixelId: data.facebookPixelId || "",
+    facebookAccessToken: data.facebookAccessToken || "",
     // --- NOVO: Mapear Membership Webhook ---
     membershipWebhook: data.membershipWebhook
       ? {
