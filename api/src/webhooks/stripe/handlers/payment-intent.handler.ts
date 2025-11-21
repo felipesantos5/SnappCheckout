@@ -50,6 +50,18 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       }
     }
 
+    const clientIp = metadata.ip || "";
+
+    // Tenta pegar o país do cartão (mais preciso para bandeira)
+    let countryCode = "BR";
+
+    // CORREÇÃO AQUI: Usamos (paymentIntent as any) para acessar 'charges' sem erro de TS
+    const intentWithCharges = paymentIntent as any;
+
+    if (intentWithCharges.charges?.data?.[0]?.payment_method_details?.card?.country) {
+      countryCode = intentWithCharges.charges.data[0].payment_method_details.card.country;
+    }
+
     const finalCustomerName = customerName || "Cliente Não Identificado";
     const finalCustomerEmail = customerEmail || "email@nao.informado";
 
@@ -110,6 +122,10 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       stripePaymentIntentId: paymentIntent.id,
       customerName: finalCustomerName,
       customerEmail: finalCustomerEmail,
+
+      ip: clientIp,
+      country: countryCode,
+
       totalAmountInCents: paymentIntent.amount,
       platformFeeInCents: paymentIntent.application_fee_amount || 0,
       status: "succeeded",

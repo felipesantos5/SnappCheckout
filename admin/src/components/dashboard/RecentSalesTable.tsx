@@ -202,7 +202,7 @@ export function RecentSalesTable() {
                           {sale.offerId ? (
                             <Link
                               to={`/offers/${sale.offerId._id}`}
-                              className="font-medium text-yellow-600 hover:underline flex items-center gap-1 w-fit"
+                              className="font-medium text-yellow-500 hover:underline flex items-center gap-1 w-fit"
                             >
                               {sale.offerId.name}
                             </Link>
@@ -247,7 +247,10 @@ export function RecentSalesTable() {
                         <div className="flex flex-col items-center gap-1">
                           {/* TAG DE UPSELL (Prioridade Alta) */}
                           {sale.isUpsell && (
-                            <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 text-[10px] px-1 py-0 h-5 font-semibold">
+                            <Badge
+                              variant="outline"
+                              className="border-yellow-200 bg-yellow-50 text-yellow-700 text-[10px] px-1 py-0 h-5 font-semibold"
+                            >
                               ⚡ Upsell
                             </Badge>
                           )}

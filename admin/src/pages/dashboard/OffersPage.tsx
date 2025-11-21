@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { API_URL } from "@/config/BackendUrl";
-import { Badge } from "@/components/ui/badge";
-import { Copy, ImageIcon, Loader2, Trash2 } from "lucide-react";
+// import { Badge } from "@/components/ui/badge";
+import { BarChart3, Copy, ImageIcon, Loader2, Trash2 } from "lucide-react";
 import type { product } from "@/types/product";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -36,6 +36,7 @@ export function OffersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [offerToDelete, setOfferToDelete] = useState<Offer | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const navigate = useNavigate();
 
   // Função para buscar os dados (sem alterações)
   const fetchOffers = async () => {
@@ -110,11 +111,11 @@ export function OffersPage() {
           <TableHeader>
             <TableRow className="hover:bg-transparent bg-muted/50">
               <TableHead className="w-2/5 px-6 py-3 text-xs font-semibold uppercase tracking-wider">Descrição</TableHead>
-              <TableHead className="w-1/5 px-6 py-3 text-xs font-semibold uppercase tracking-wider">Valor</TableHead>
-              <TableHead className="w-1/5 px-6 py-3 text-xs font-semibold uppercase tracking-wider">URL</TableHead>
-              <TableHead className="w-[100px] px-6 py-3 text-xs font-semibold uppercase tracking-wider text-center">Vendas</TableHead>
-              <TableHead className="w-[100px] px-6 py-3 text-xs font-semibold uppercase tracking-wider text-right">Status</TableHead>
-              <TableHead className="w-[100px] px-6 py-3"></TableHead>
+              <TableHead className="w-28 px-6 py-3 text-xs font-semibold uppercase tracking-wider">Valor</TableHead>
+              <TableHead className="w-36 px-6 py-3 text-xs font-semibold uppercase tracking-wider">URL</TableHead>
+              <TableHead className="w-[70px] px-6 py-3 text-xs font-semibold uppercase tracking-wider text-center">Vendas</TableHead>
+              {/* <TableHead className="w-[100px] px-6 py-3 text-xs font-semibold uppercase tracking-wider text-right">Status</TableHead> */}
+              <TableHead className=" px-6 py-3 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -169,17 +170,21 @@ export function OffersPage() {
                   </TableCell>
 
                   {/* STATUS (Mockado como "Ativo") */}
-                  <TableCell className="px-6 py-4 text-right">
+                  {/* <TableCell className="px-6 py-4 text-right">
                     <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 font-medium">
                       Ativo
                     </Badge>
-                  </TableCell>
+                  </TableCell> */}
 
                   {/* AÇÕES (Editar e Deletar) */}
                   <TableCell className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button variant="outline" size="sm" asChild>
                         <Link to={`/offers/${offer._id}`}>Editar</Link>
+                      </Button>
+
+                      <Button variant="outline" size="icon" onClick={() => navigate(`/offers/${offer._id}/analytics`)} title="Ver Métricas">
+                        <BarChart3 className="h-4 w-4" />
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => setOfferToDelete(offer)}>
                         <Trash2 className="h-4 w-4" />

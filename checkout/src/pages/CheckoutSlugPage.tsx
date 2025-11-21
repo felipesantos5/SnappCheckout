@@ -1,5 +1,4 @@
-// src/pages/CheckoutSlugPage.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react"; // <-- Adicione useRef
 import { useParams } from "react-router-dom";
 import CheckoutPage from "./CheckoutPage";
 import { getContrast } from "polished";
@@ -8,11 +7,12 @@ import { ThemeContext, type ThemeColors } from "../context/ThemeContext";
 import { I18nProvider } from "../i18n/I18nContext";
 import type { Language } from "../i18n/translations";
 
+// ... (Interfaces OfferData mantidas iguais) ...
 export interface OfferData {
   _id: string;
   slug: string;
   name: string;
-  thankYouPageUrl?: string; // NOVO CAMPO
+  thankYouPageUrl?: string;
   language?: Language;
   collectAddress?: boolean;
   collectPhone?: boolean;
@@ -56,6 +56,9 @@ export function CheckoutSlugPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // REF DE CONTROLE: Guarda o slug da última oferta rastreada para evitar duplicação
+  const trackedSlugRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!slug) return;
 
@@ -69,6 +72,22 @@ export function CheckoutSlugPage() {
         }
         const data: OfferData = await response.json();
         setOfferData(data);
+
+        // --- CORREÇÃO AQUI ---
+        // Só dispara o tracking se o slug atual for diferente do último rastreado
+        if (trackedSlugRef.current !== slug) {
+          trackedSlugRef.current = slug; // Marca como rastreado imediatamente
+
+          fetch(`${API_URL}/metrics/track`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              offerId: data._id,
+              type: "view",
+            }),
+          }).catch((err) => console.error("Track view error", err));
+        }
+        // ---------------------
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -79,9 +98,9 @@ export function CheckoutSlugPage() {
     fetchOffer();
   }, [slug]);
 
+  // ... (resto do código de renderização igual)
   const primaryColor = offerData?.primaryColor || "#000000";
   const buttonColor = offerData?.buttonColor || "#2563eb";
-
   const buttonTextColor = getContrast(buttonColor, "#FFF") > 2.5 ? "#FFFFFF" : "#000000";
 
   const themeValues: ThemeColors = {

@@ -336,7 +336,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
               discountPercentage={offerData.mainProduct.discountPercentage}
             />
 
-            <ContactInfo showPhone={offerData.collectPhone} />
+            <ContactInfo showPhone={offerData.collectPhone} offerID={offerData._id} />
             {offerData.collectAddress && <AddressInfo />}
 
             <PaymentMethods method={method} setMethod={setMethod} paymentRequest={paymentRequest} walletLabel={walletLabel} />

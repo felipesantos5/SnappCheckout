@@ -6,36 +6,52 @@ interface MoneyInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElemen
 }
 
 export const MoneyInput = ({ value, onChange, className, ...props }: MoneyInputProps) => {
-  // Formata o valor numérico para BRL (ex: 10.50 -> R$ 10,50)
-  const formatCurrency = (val: number | string | undefined) => {
-    if (val === undefined || val === "") return "";
-    const numberVal = Number(val);
-    if (isNaN(numberVal)) return "";
-
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-      minimumFractionDigits: 2,
-    }).format(numberVal);
+  // Converte o valor numérico para exibição (ex: 10.5 -> "10,5")
+  const toDisplay = (val: number | string | undefined): string => {
+    if (val === undefined || val === "" || val === 0) return "";
+    const num = Number(val);
+    if (isNaN(num)) return "";
+    // Remove zeros desnecessários (10.00 -> "10", 10.50 -> "10,5")
+    return String(num).replace(".", ",");
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Remove tudo que não é dígito
-    const rawValue = e.target.value.replace(/\D/g, "");
+    let raw = e.target.value;
 
-    // Converte para número e divide por 100 (lógica de ATM: 200 -> 2.00)
-    const numberValue = Number(rawValue) / 100;
+    // Remove o prefixo "R$ " se existir
+    raw = raw.replace(/^R\$\s?/, "");
 
+    // Permite apenas números, vírgula e ponto
+    raw = raw.replace(/[^\d,\.]/g, "");
+
+    // Substitui ponto por vírgula
+    raw = raw.replace(/\./g, ",");
+
+    // Garante apenas uma vírgula
+    const parts = raw.split(",");
+    if (parts.length > 2) {
+      raw = parts[0] + "," + parts.slice(1).join("");
+    }
+
+    // Limita a 2 casas decimais
+    if (parts.length === 2 && parts[1].length > 2) {
+      raw = parts[0] + "," + parts[1].slice(0, 2);
+    }
+
+    // Converte para número
+    const numberValue = parseFloat(raw.replace(",", ".")) || 0;
     onChange(numberValue);
   };
+
+  const displayValue = toDisplay(value);
 
   return (
     <Input
       {...props}
-      type="text" // Importante: type="text" previne o comportamento de scroll do mouse
-      inputMode="numeric"
+      type="text"
+      inputMode="decimal"
       className={className}
-      value={formatCurrency(value)}
+      value={displayValue ? `R$ ${displayValue}` : ""}
       onChange={handleChange}
       placeholder="R$ 0,00"
     />

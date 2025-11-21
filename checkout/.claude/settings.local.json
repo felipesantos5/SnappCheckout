@@ -3,7 +3,9 @@
     "allow": [
       "Bash(cat:*)",
       "Bash(dir /s /b)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat(metrics): add conversion funnel and dashboard analytics\n\n- Add checkout metrics tracking (views, initiate_checkout)\n- Add conversion funnel endpoint with offer analytics\n- Enhance dashboard with KPIs, sparklines and revenue charts\n- Add OfferAnalyticsPage and OffersRevenueChart components\n- Improve SalesHistoryTable and forms components\n- Track metrics from checkout page\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []

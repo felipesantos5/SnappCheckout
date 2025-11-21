@@ -171,7 +171,6 @@ export const processUtmfyIntegration = async (
   paymentIntent: Stripe.PaymentIntent,
   metadata: any
 ) => {
-  // 1. Validação inicial (Fail fast)
   if (!offer.utmfyWebhookUrl || !offer.utmfyWebhookUrl.startsWith("http")) {
     return;
   }
@@ -181,30 +180,21 @@ export const processUtmfyIntegration = async (
   try {
     const quantity = parseInt(metadata.quantity || "1", 10);
     const isUpsell = metadata.isUpsell === "true";
-    const owner = (offer as any).ownerId; // Assumindo que o populate foi feito no handler
+    const owner = (offer as any).ownerId;
 
-    // 2. Mapeia os produtos (Usando IDs do Banco, regra da UTMfy)
+    // ... (mapeamento de produtos permanece igual)
     const utmfyProducts = items.map((item) => {
       let id = item._id ? item._id.toString() : crypto.randomUUID();
-
-      // Fallback para produto principal sem _id
       if (!item.isOrderBump && !item._id) {
         id = (offer._id as any)?.toString() || crypto.randomUUID();
       }
-
-      return {
-        Id: id,
-        Name: item.name,
-      };
+      return { Id: id, Name: item.name };
     });
 
-    // 3. Calcula o preço original (para exibir descontos corretamente na UTMfy)
+    // ... (cálculo de preço original permanece igual)
     let originalTotalInCents = 0;
-
     items.forEach((item) => {
       const price = item.compareAtPriceInCents && item.compareAtPriceInCents > item.priceInCents ? item.compareAtPriceInCents : item.priceInCents;
-
-      // Lógica de quantidade: Bump e Upsell geralmente são qtd 1. Principal usa a qtd escolhida.
       if (item.isOrderBump) {
         originalTotalInCents += price;
       } else {
@@ -212,7 +202,9 @@ export const processUtmfyIntegration = async (
       }
     });
 
-    // 4. Constrói o Payload Oficial
+    // CORREÇÃO AQUI: Pegar a moeda do PaymentIntent e garantir maiúscula (ex: "usd" -> "USD")
+    const currencyCode = paymentIntent.currency ? paymentIntent.currency.toUpperCase() : "BRL";
+
     const utmfyPayload = {
       Id: crypto.randomUUID(),
       IsTest: !paymentIntent.livemode,
@@ -238,8 +230,15 @@ export const processUtmfyIntegration = async (
           PaymentId: crypto.randomUUID(),
           Recurrency: 1,
           PaymentDate: new Date(paymentIntent.created * 1000).toISOString(),
-          OriginalPrice: { Value: originalTotalInCents / 100 },
-          Price: { Value: sale.totalAmountInCents / 100 },
+          // ADICIONADO: Campo Currency para informar a moeda correta
+          OriginalPrice: {
+            Value: originalTotalInCents / 100,
+            Currency: currencyCode,
+          },
+          Price: {
+            Value: sale.totalAmountInCents / 100,
+            Currency: currencyCode,
+          },
           Payment: {
             NumberOfInstallments: 1,
             PaymentMethod: "credit_card",
@@ -249,7 +248,7 @@ export const processUtmfyIntegration = async (
         Offer: {
           Id: (offer._id as any)?.toString() || crypto.randomUUID(),
           Name: offer.name,
-          Url: `${process.env.FRONTEND_URL || "https://checkout.abatools.pro"}/p/${offer.slug}`,
+          Url: `${process.env.FRONTEND_URL || "https://pay.snappcheckout.com"}/p/${offer.slug}`,
         },
         Utm: {
           UtmSource: metadata.utm_source || null,
@@ -265,10 +264,8 @@ export const processUtmfyIntegration = async (
       },
     };
 
-    // 5. Chama o envio
     await sendPurchaseToUTMfyWebhook(offer.utmfyWebhookUrl, utmfyPayload);
   } catch (error) {
     console.error("Erro na lógica do serviço UTMfy:", error);
-    // Não lança erro para não travar o webhook principal
   }
 };

@@ -7,6 +7,7 @@ interface ISaleItem {
   priceInCents: number;
   isOrderBump: boolean;
   _id?: string;
+  customId?: string;
 }
 
 // Interface para o documento de Venda
@@ -18,12 +19,16 @@ export interface ISale extends Document {
   customerName: string;
   customerEmail: string;
 
+  ip?: string;
+  country?: string;
+
   totalAmountInCents: number;
   platformFeeInCents: number;
 
   status: "succeeded" | "pending" | "refunded";
   isUpsell: boolean;
   items: ISaleItem[]; // O que foi comprado
+  createdAt: Date;
 }
 
 const saleItemSchema = new Schema<ISaleItem>(
@@ -31,6 +36,7 @@ const saleItemSchema = new Schema<ISaleItem>(
     name: { type: String, required: true },
     priceInCents: { type: Number, required: true },
     isOrderBump: { type: Boolean, default: false },
+    customId: { type: String, default: "" },
   },
   { _id: false }
 );
@@ -44,6 +50,9 @@ const saleSchema = new Schema<ISale>(
 
     customerName: { type: String, required: true },
     customerEmail: { type: String, required: true, index: true },
+
+    ip: { type: String, default: "" },
+    country: { type: String, default: "BR" },
 
     isUpsell: { type: Boolean, default: false },
 

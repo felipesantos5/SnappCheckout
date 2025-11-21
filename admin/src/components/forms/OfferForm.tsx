@@ -19,44 +19,45 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Trash2, ChevronDown, Settings, CreditCard, Box, Layers, ArrowUpCircle, Link as LinkIcon, Code, Copy, Check } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 import { API_URL } from "@/config/BackendUrl";
+import { MoneyInput } from "./MoneyInput";
 
 // --- COMPONENTE DE INPUT DE MOEDA ---
-interface MoneyInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> {
-  value: number | undefined | string;
-  onChange: (value: number) => void;
-}
+// interface MoneyInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> {
+//   value: number | undefined | string;
+//   onChange: (value: number) => void;
+// }
 
-const MoneyInput = ({ value, onChange, className, ...props }: MoneyInputProps) => {
-  const formatCurrency = (val: number | string | undefined) => {
-    if (val === undefined || val === "") return "";
-    const numberVal = Number(val);
-    if (isNaN(numberVal)) return "";
+// const MoneyInput = ({ value, onChange, className, ...props }: MoneyInputProps) => {
+//   const formatCurrency = (val: number | string | undefined) => {
+//     if (val === undefined || val === "") return "";
+//     const numberVal = Number(val);
+//     if (isNaN(numberVal)) return "";
 
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-      minimumFractionDigits: 2,
-    }).format(numberVal);
-  };
+//     return new Intl.NumberFormat("pt-BR", {
+//       style: "currency",
+//       currency: "BRL",
+//       minimumFractionDigits: 2,
+//     }).format(numberVal);
+//   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = e.target.value.replace(/\D/g, "");
-    const numberValue = Number(rawValue) / 100;
-    onChange(numberValue);
-  };
+//   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+//     const rawValue = e.target.value.replace(/\D/g, "");
+//     const numberValue = Number(rawValue) / 100;
+//     onChange(numberValue);
+//   };
 
-  return (
-    <Input
-      {...props}
-      type="text"
-      inputMode="numeric"
-      className={className}
-      value={formatCurrency(value)}
-      onChange={handleChange}
-      placeholder="R$ 0,00"
-    />
-  );
-};
+//   return (
+//     <Input
+//       {...props}
+//       type="text"
+//       inputMode="numeric"
+//       className={className}
+//       value={formatCurrency(value)}
+//       onChange={handleChange}
+//       placeholder="R$ 0,00"
+//     />
+//   );
+// };
 
 // --- COMPONENTE DE SEÇÃO (ACCORDION) ---
 interface FormSectionProps {
@@ -564,33 +565,8 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="mainProduct.priceInCents"
-                render={({ field }: any) => (
-                  <FormItem>
-                    <FormLabel>Preço de Venda</FormLabel>
-                    <FormControl>
-                      <MoneyInput value={field.value} onChange={field.onChange} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="mainProduct.compareAtPriceInCents"
-                render={({ field }: any) => (
-                  <FormItem>
-                    <FormLabel>Preço "De" (Opcional)</FormLabel>
-                    <FormControl>
-                      <MoneyInput value={field.value} onChange={field.onChange} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <MoneyInput form={form} name="mainProduct.priceInCents" label="Preço" placeholder="0,00" />
+              <MoneyInput form={form} name="mainProduct.compareAtPriceInCents" label="Preço" placeholder="0,00" />
             </div>
 
             <CustomIdInput name="mainProduct.customId" />
@@ -657,19 +633,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name={`orderBumps.${index}.priceInCents`}
-                    render={({ field }: any) => (
-                      <FormItem>
-                        <FormLabel>Preço</FormLabel>
-                        <FormControl>
-                          <MoneyInput value={field.value} onChange={field.onChange} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <MoneyInput form={form} name={`orderBumps.${index}.priceInCents`} label="Preço" placeholder="0,00" />
                 </div>
 
                 <FormField
@@ -753,19 +717,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   )}
                 />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="upsell.price"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Preço</FormLabel>
-                        <FormControl>
-                          <MoneyInput value={field.value as number | undefined} onChange={field.onChange} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <MoneyInput form={form} name="upsell.price" label="Preço" placeholder="0,00" />
                   <FormField
                     control={form.control}
                     name="upsell.redirectUrl"

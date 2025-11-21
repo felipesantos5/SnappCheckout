@@ -1,14 +1,17 @@
 import React, { useState } from "react";
 import { Input } from "../ui/Input";
 import { useTranslation } from "../../i18n/I18nContext";
+import { API_URL } from "../../config/BackendUrl";
 
 interface ContactInfoProps {
-  showPhone?: boolean; // Se deve mostrar o campo de telefone (padrão: true)
+  showPhone?: boolean;
+  offerID: string;
 }
 
-export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true }) => {
+export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, offerID }) => {
   const { t } = useTranslation();
   const [phone, setPhone] = useState("");
+  const [hasTrackedInitiate, setHasTrackedInitiate] = useState(false);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
@@ -38,11 +41,29 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true }) =>
     setPhone(value);
   };
 
+  const handleEmailBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const emailValue = e.target.value;
+
+    // Validação básica se tem formato de email antes de contar
+    if (emailValue && emailValue.includes("@") && !hasTrackedInitiate) {
+      setHasTrackedInitiate(true);
+
+      fetch(`${API_URL}/metrics/track`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          offerId: offerID,
+          type: "initiate_checkout",
+        }),
+      }).catch((err) => console.error("Analytics IC error", err));
+    }
+  };
+
   return (
     <div className="w-full mt-6">
       <h2 className="text-lg font-semibold text-primary mb-4">{t.contact.title}</h2>
       <div className="space-y-4">
-        <Input label={t.contact.email} id="email" type="email" required placeholder={t.contact.emailPlaceholder} />
+        <Input label={t.contact.email} id="email" onBlur={handleEmailBlur} type="email" required placeholder={t.contact.emailPlaceholder} />
         <Input label={t.contact.name} id="name" type="text" required placeholder={t.contact.namePlaceholder} />
         {showPhone && (
           <Input
