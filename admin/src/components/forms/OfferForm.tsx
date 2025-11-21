@@ -320,6 +320,11 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         ...data,
         mainProduct: cleanSubDoc(data.mainProduct),
         orderBumps: data.orderBumps?.map(cleanSubDoc),
+        upsell: {
+          ...data.upsell,
+          // Se tiver preço, multiplica por 100. Se não, envia 0.
+          price: data.upsell?.price ? Math.round(data.upsell.price * 100) : 0,
+        },
       };
     };
 
