@@ -254,12 +254,11 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
     // ATIVA LOADING (Isso agora só exibe o overlay, NÃO desmonta o form)
     setLoading(true);
 
-    const fbCookies = useMemo(() => {
-      return {
-        fbc: getCookie("_fbc"),
-        fbp: getCookie("_fbp"),
-      };
-    }, []);
+    // Coleta cookies do Facebook (não usa useMemo aqui pois estamos dentro de um handler)
+    const fbCookies = {
+      fbc: getCookie("_fbc"),
+      fbp: getCookie("_fbp"),
+    };
 
     try {
       const clientIp = await getClientIP();
