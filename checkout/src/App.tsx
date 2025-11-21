@@ -2,12 +2,14 @@
 import { Routes, Route } from "react-router-dom";
 import { CheckoutSlugPage } from "./pages/CheckoutSlugPage";
 import { SuccessPage } from "./pages/SuccessPage";
+import { TestUpsellPage } from "./pages/TestUpsellPage";
 
 function App() {
   return (
     <Routes>
       <Route path="/c/:slug" element={<CheckoutSlugPage />} />
       <Route path="/success" element={<SuccessPage />} />
+      <Route path="/upsell" element={<TestUpsellPage />} />
 
       <Route
         path="/"

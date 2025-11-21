@@ -12,23 +12,20 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
   try {
     const { offerSlug, selectedOrderBumps, quantity, contactInfo, metadata } = req.body;
 
-    // 1. Buscamos a oferta para pegar a MOEDA correta (Antes estava fixo em 'brl')
     const offer = await Offer.findOne({ slug: offerSlug });
     if (!offer) {
       return res.status(404).json({ error: { message: "Oferta não encontrada." } });
     }
 
     const stripeAccountId = await getStripeAccountId(offerSlug);
-
     const customerId = await getOrCreateCustomer(stripeAccountId, contactInfo.email, contactInfo.name, contactInfo.phone);
-
     const totalAmount = await calculateTotalAmount(offerSlug, selectedOrderBumps, quantity || 1);
     const applicationFee = Math.round(totalAmount * 0.05);
 
     const paymentIntent = await stripe.paymentIntents.create(
       {
         amount: totalAmount,
-        currency: offer.currency || "brl", // <--- CORREÇÃO: Usa a moeda da oferta (USD ou BRL)
+        currency: offer.currency || "brl",
         customer: customerId,
         setup_future_usage: "off_session",
         payment_method_types: ["card"],
@@ -74,7 +71,10 @@ export const generateUpsellToken = async (req: Request, res: Response) => {
       offerId: offer._id,
     });
 
-    const redirectUrl = `${offer.upsell?.redirectUrl}?token=${token}`;
+    // Constrói a URL de redirecionamento
+    const separator = offer.upsell?.redirectUrl.includes("?") ? "&" : "?";
+    const redirectUrl = `${offer.upsell?.redirectUrl}${separator}token=${token}`;
+
     res.status(200).json({ token, redirectUrl });
   } catch (error: any) {
     res.status(500).json({ error: { message: "Falha ao gerar link." } });
@@ -87,19 +87,14 @@ export const handleRefuseUpsell = async (req: Request, res: Response) => {
     if (!token) return res.status(400).json({ success: false, message: "Token inválido." });
 
     const session: any = await UpsellSession.findOne({ token }).populate("offerId");
-    if (!session) return res.status(403).json({ success: false, message: "Sessão inválida." });
+    if (!session) return res.status(403).json({ success: false, message: "Sessão expirada." });
 
     const offer = session.offerId as IOffer;
-
     await UpsellSession.deleteOne({ token });
 
     const redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
 
-    res.status(200).json({
-      success: true,
-      message: "Oferta recusada.",
-      redirectUrl,
-    });
+    res.status(200).json({ success: true, message: "Oferta recusada.", redirectUrl });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -111,25 +106,42 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
     if (!token) throw new Error("Token inválido.");
 
     const session: any = await UpsellSession.findOne({ token }).populate("offerId");
-    if (!session) return res.status(403).json({ success: false, message: "Sessão expirada." });
+    if (!session) return res.status(403).json({ success: false, message: "Sessão expirada ou token já usado." });
 
     const offer = session.offerId as IOffer;
-    if (!offer?.upsell?.enabled) return res.status(400).json({ success: false, message: "Upsell inativo." });
 
+    // 1. Validação de Upsell Ativo
+    if (!offer?.upsell?.enabled) {
+      return res.status(400).json({ success: false, message: "Upsell não está ativo nesta oferta." });
+    }
+
+    // 2. Validação de Valor (CRÍTICO PARA EVITAR ERRO DO STRIPE)
     const amountToCharge = offer.upsell.price;
+
+    if (!amountToCharge || amountToCharge < 50) {
+      // Stripe exige mínimo de 50 centavos (na maioria das moedas)
+      console.error(`Erro Upsell: Valor inválido (${amountToCharge}) para a oferta ${offer.name}`);
+      return res.status(400).json({ success: false, message: "Configuração de preço inválida para este Upsell." });
+    }
+
     const applicationFee = Math.round(amountToCharge * 0.05);
 
+    // 3. Processamento
     const paymentIntent = await stripe.paymentIntents.create(
       {
         amount: amountToCharge,
-        currency: offer.currency || "brl", // Aqui já estava correto, mas é bom manter o padrão
+        currency: offer.currency || "brl",
         customer: session.customerId,
         payment_method: session.paymentMethodId,
         off_session: true,
         confirm: true,
         application_fee_amount: applicationFee,
         description: `Upsell: ${offer.upsell.name}`,
-        metadata: { isUpsell: "true", originalOfferSlug: offer.slug, originalSessionToken: token },
+        metadata: {
+          isUpsell: "true",
+          originalOfferSlug: offer.slug,
+          originalSessionToken: token,
+        },
       },
       { stripeAccount: session.accountId }
     );
@@ -141,9 +153,11 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
 
       res.status(200).json({ success: true, message: "Compra realizada com sucesso!", redirectUrl });
     } else {
-      res.status(400).json({ success: false, message: "Cobrança falhou.", status: paymentIntent.status });
+      res.status(400).json({ success: false, message: "Pagamento recusado pelo banco.", status: paymentIntent.status });
     }
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Erro handleOneClickUpsell:", error);
+    const errorMessage = error.raw ? error.raw.message : error.message;
+    res.status(500).json({ success: false, message: errorMessage || "Erro interno ao processar upsell." });
   }
 };
