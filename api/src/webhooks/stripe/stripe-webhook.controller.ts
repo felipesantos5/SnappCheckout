@@ -11,8 +11,11 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
  * Este é o único endpoint que o Stripe vai chamar
  */
 export const handleStripeWebhook = async (req: Request, res: Response) => {
+  // MODO DESENVOLVIMENTO: Pula validação se configurado
+  const isDevelopment = process.env.NODE_ENV === "development" || process.env.SKIP_WEBHOOK_VALIDATION === "true";
+
   // 1. Valida a configuração
-  if (!webhookSecret) {
+  if (!webhookSecret && !isDevelopment) {
     console.error("❌ STRIPE_WEBHOOK_SECRET não está configurado no .env");
     return res.status(500).send("Webhook não configurado.");
   }
@@ -22,12 +25,17 @@ export const handleStripeWebhook = async (req: Request, res: Response) => {
 
   let event: Stripe.Event;
 
-  // 2. Verifica a assinatura do webhook (SEGURANÇA)
-  try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
-  } catch (err: any) {
-    console.error(`❌ Erro na verificação do Webhook: ${err.message}`);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  // 2. Verifica a assinatura do webhook (SEGURANÇA) - Pula em modo dev
+  if (isDevelopment && !webhookSecret) {
+    console.warn("⚠️  MODO DEV: Pulando validação de webhook (NÃO USE EM PRODUÇÃO!)");
+    event = req.body as Stripe.Event;
+  } else {
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret!);
+    } catch (err: any) {
+      console.error(`❌ Erro na verificação do Webhook: ${err.message}`);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
   }
 
   // 3. Log do evento recebido

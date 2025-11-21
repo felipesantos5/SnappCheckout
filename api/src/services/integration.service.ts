@@ -29,8 +29,6 @@ export const sendAccessWebhook = async (
     return;
   }
 
-  console.log(`\n🔗 INICIANDO INTEGRAÇÃO DE ACESSO (Membership)...`);
-
   try {
     const productsPayload: ProductItem[] = items.map((item) => ({
       id: item.customId || item._id || "product-no-id",
@@ -54,8 +52,6 @@ export const sendAccessWebhook = async (
       transactionId: sale.stripePaymentIntentId,
       subscriptionId: subscriptionId,
     };
-
-    console.log(`📤 Enviando para: ${offer.membershipWebhook.url}`);
 
     const response = await fetch(offer.membershipWebhook.url, {
       method: "POST",

@@ -175,8 +175,6 @@ export const processUtmfyIntegration = async (
     return;
   }
 
-  console.log(`\n📡 PREPARANDO ENVIO PARA UTMFY...`);
-
   try {
     const quantity = parseInt(metadata.quantity || "1", 10);
     const isUpsell = metadata.isUpsell === "true";
