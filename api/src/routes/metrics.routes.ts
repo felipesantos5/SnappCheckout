@@ -9,4 +9,6 @@ const router = Router();
 // GET /api/sales/metrics?days=30
 router.get("/", protectRoute, metricsController.handleGetSalesMetrics);
 
+router.get("/offers-ranking", protectRoute, metricsController.handleGetOffersRevenue);
+
 export default router;
