@@ -54,7 +54,6 @@ export function CheckoutSlugPage() {
   const { slug } = useParams<{ slug: string }>();
   const [offerData, setOfferData] = useState<OfferData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   // REF DE CONTROLE: Guarda o slug da última oferta rastreada para evitar duplicação
   const trackedSlugRef = useRef<string | null>(null);
@@ -63,7 +62,6 @@ export function CheckoutSlugPage() {
     if (!slug) return;
 
     const fetchOffer = async () => {
-      setIsLoading(true);
       setError(null);
       try {
         const response = await fetch(`${API_URL}/offers/slug/${slug}`);
@@ -90,8 +88,6 @@ export function CheckoutSlugPage() {
         // ---------------------
       } catch (err) {
         setError((err as Error).message);
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -108,14 +104,6 @@ export function CheckoutSlugPage() {
     button: buttonColor,
     buttonForeground: buttonTextColor,
   };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-100 p-4 flex items-center justify-center">
-        <p>Carregando oferta...</p>
-      </div>
-    );
-  }
 
   if (error) {
     return (
