@@ -240,6 +240,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
 
     try {
       if (method === "creditCard") {
+        const cardElement = elements.getElement(CardNumberElement);
+
+        if (!cardElement) {
+          console.error("Erro Crítico: CardNumberElement não encontrado no DOM.");
+          throw new Error(t.messages.cardElementNotFound || "Erro ao processar cartão. Tente recarregar a página.");
+        }
+
         const res = await fetch(`${API_URL}/payments/create-intent`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -248,9 +255,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
 
         const { clientSecret, error: backendError } = await res.json();
         if (backendError) throw new Error(backendError.message);
-
-        const cardElement = elements.getElement(CardNumberElement);
-        if (!cardElement) throw new Error(t.messages.cardElementNotFound);
 
         const cardName = (document.getElementById("card-name") as HTMLInputElement).value;
 

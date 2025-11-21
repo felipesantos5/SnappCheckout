@@ -1,5 +1,5 @@
 // src/pages/CheckoutPage.tsx
-import React from "react";
+import React, { useMemo } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 import { CheckoutForm } from "../components/checkout/CheckoutForm";
@@ -15,9 +15,11 @@ interface CheckoutPageProps {
 }
 
 const CheckoutPage: React.FC<CheckoutPageProps> = ({ offerData }) => {
-  const stripePromise = loadStripe(stripeKey, {
-    stripeAccount: offerData.ownerId.stripeAccountId,
-  });
+  const stripePromise = useMemo(() => {
+    return loadStripe(stripeKey, {
+      stripeAccount: offerData.ownerId.stripeAccountId,
+    });
+  }, [offerData.ownerId.stripeAccountId]);
 
   return (
     <Elements stripe={stripePromise}>
