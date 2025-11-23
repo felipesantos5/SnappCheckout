@@ -239,7 +239,7 @@ export const duplicateOffer = async (id: string, ownerId: string): Promise<IOffe
     }
 
     // Cria uma cópia da oferta
-    const offerCopy = originalOffer.toObject();
+    const offerCopy = originalOffer.toObject() as any;
 
     // Remove campos que não devem ser duplicados
     delete offerCopy._id;
