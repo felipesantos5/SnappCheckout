@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instala TODAS as dependências (incluindo devDependencies como 'typescript')
-RUN npm ci
+RUN npm install
 
 # Copia o resto do código-fonte (src, tsconfig.json, etc)
 COPY . .
@@ -28,7 +28,7 @@ COPY package*.json ./
 
 # Instala APENAS dependências de produção
 # Isso torna a imagem final muito menor
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Copia o código compilado (dist) do estágio 'builder'
 COPY --from=builder /app/dist ./dist
