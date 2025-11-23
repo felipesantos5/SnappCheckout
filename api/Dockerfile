@@ -1,41 +1,32 @@
-#
 # ---- Estágio 1: Build (Compilação) ----
-# Usamos a imagem node completa como 'builder'
 FROM node:20-slim AS builder
 WORKDIR /app
 
-# Copia os arquivos de dependência
-COPY package*.json ./
+# Copia package.json E yarn.lock
+COPY package.json yarn.lock ./
 
-# Instala TODAS as dependências (incluindo devDependencies como 'typescript')
-RUN npm install
+# Instala dependências usando Yarn (respeitando o lockfile)
+RUN yarn install --frozen-lockfile
 
-# Copia o resto do código-fonte (src, tsconfig.json, etc)
+# Copia o resto do código
 COPY . .
 
-# Roda o script de build (que executa "npx tsc")
-RUN npm run build
-
-# O resultado compilado estará em /app/dist
+# Roda o build
+RUN yarn build
 
 # ---- Estágio 2: Produção ----
-# Começa de uma imagem limpa
 FROM node:20-slim
 WORKDIR /app
 
-# Copia os package.json de novo
-COPY package*.json ./
+COPY package.json yarn.lock ./
 
-# Instala APENAS dependências de produção
-# Isso torna a imagem final muito menor
-RUN npm install --omit=dev
+# Instala apenas dependências de produção
+RUN yarn install --production --frozen-lockfile
 
-# Copia o código compilado (dist) do estágio 'builder'
+# Copia o build do estágio anterior
 COPY --from=builder /app/dist ./dist
 
-# Exponha a porta
 EXPOSE 4242
 
-# Executa o JavaScript compilado
-# O script "start" do seu package.json já é "node dist/server.js"
-CMD ["npm", "start"]
+# Inicia usando yarn ou node direto
+CMD ["yarn", "start"]
