@@ -7,34 +7,46 @@
     <meta name="theme-color" content="#ffffff" />
     <title>Checkout Seguro</title>
 
-    <!-- Preconnect para recursos externos críticos -->
-    <link rel="preconnect" href="https://js.stripe.com" />
-    <link rel="preconnect" href="https://api.stripe.com" />
-    <link rel="preconnect" href="https://res.cloudinary.com" />
+    <!-- Preconnect para recursos externos críticos com crossorigin -->
+    <link rel="preconnect" href="https://js.stripe.com" crossorigin />
+    <link rel="preconnect" href="https://api.stripe.com" crossorigin />
+    <link rel="preconnect" href="https://res.cloudinary.com" crossorigin />
 
-    <!-- DNS Prefetch como fallback -->
+    <!-- DNS Prefetch como fallback para navegadores antigos -->
     <link rel="dns-prefetch" href="https://js.stripe.com" />
     <link rel="dns-prefetch" href="https://api.stripe.com" />
     <link rel="dns-prefetch" href="https://res.cloudinary.com" />
 
-    <!-- Inline critical CSS to prevent render blocking -->
+    <!-- Critical CSS inlined para evitar bloqueio de renderização -->
     <style>
+      /* não descomentar esse styles */
+      /* * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      } */
+
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         background-color: #f9fafb;
+        line-height: 1.5;
+        color: #1f2937;
       }
 
       #root {
         min-height: 100vh;
+        display: flex;
+        flex-direction: column;
       }
 
-      /* Loading state inicial para evitar flash */
+      /* Loading skeleton otimizado */
       .loading-skeleton {
         background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
         background-size: 200% 100%;
-        animation: loading 1.5s infinite;
+        animation: loading 1.5s ease-in-out infinite;
+        border-radius: 0.375rem;
       }
 
       @keyframes loading {
@@ -44,6 +56,29 @@
         100% {
           background-position: -200% 0;
         }
+      }
+
+      /* Previne flash de conteúdo não estilizado */
+      img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      button {
+        cursor: pointer;
+        font-family: inherit;
+      }
+
+      /* Otimizações de performance críticas */
+      img[fetchpriority="high"] {
+        content-visibility: auto;
+      }
+
+      /* Hardware acceleration para transições */
+      .transition-opacity {
+        will-change: opacity;
+        transform: translateZ(0);
       }
     </style>
   </head>

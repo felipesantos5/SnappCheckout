@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { CheckCircle } from "lucide-react";
 import { useTranslation } from "../i18n/I18nContext";
 
-export const SuccessPage = () => {
+const SuccessPage = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const [countdown, setCountdown] = useState(5);
@@ -91,3 +91,5 @@ export const SuccessPage = () => {
     </div>
   );
 };
+
+export default SuccessPage;

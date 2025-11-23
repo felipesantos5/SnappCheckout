@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { API_URL } from "../config/BackendUrl";
 
-export const TestUpsellPage = () => {
+const TestUpsellPage = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
   const [status, setStatus] = useState<"waiting" | "processing" | "success" | "error">("waiting");
@@ -105,3 +105,5 @@ export const TestUpsellPage = () => {
     </div>
   );
 };
+
+export default TestUpsellPage;

@@ -84,7 +84,7 @@ export const OrderSummary = memo<OrderSummaryProps>(
         </Collapsible.Trigger>
 
         <Collapsible.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-          <div className="p-4 border-t border-gray-200">
+          <div className="p-4 border-t border-gray-200 transition-opacity duration-300">
             <div className="flex items-center">
               {productImageUrl && (
                 <OptimizedImage src={productImageUrl} alt={productName} className="w-20 h-20 flex-shrink-0 border" width={80} aspectRatio="1/1" />

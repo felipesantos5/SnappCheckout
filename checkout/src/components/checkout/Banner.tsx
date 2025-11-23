@@ -1,34 +1,51 @@
 import { useState } from "react";
+import { useImagePreload } from "../../hooks/useImagePreload";
 
 interface BannerProps {
   imageUrl?: string;
 }
 
 // Otimiza URL do Cloudinary para carregar imagem menor e otimizada
-const optimizeCloudinaryUrl = (url: string): string => {
+const optimizeCloudinaryUrl = (url: string, width?: number): string => {
   if (!url.includes("cloudinary.com")) return url;
 
   // Insere transformações antes do upload path
   const parts = url.split("/upload/");
   if (parts.length === 2) {
+    const w = width || 1200;
     // f_auto: formato automático (webp quando suportado)
-    // q_auto: qualidade automática
-    // w_800: largura máxima 800px (suficiente para mobile/tablet)
+    // q_auto:good: qualidade automática otimizada
+    // w_xxx: largura responsiva
     // c_limit: não aumenta imagem menor
-    return `${parts[0]}/upload/f_auto,q_auto,w_800,c_limit/${parts[1]}`;
+    // dpr_auto: pixel ratio automático para retina
+    return `${parts[0]}/upload/f_auto,q_auto:good,w_${w},c_limit,dpr_auto/${parts[1]}`;
   }
   return url;
+};
+
+// Gera srcset para diferentes tamanhos de tela
+const generateSrcSet = (url: string): string => {
+  if (!url.includes("cloudinary.com")) return "";
+
+  const sizes = [640, 768, 1024, 1280];
+  return sizes
+    .map(size => `${optimizeCloudinaryUrl(url, size)} ${size}w`)
+    .join(", ");
 };
 
 export const Banner: React.FC<BannerProps> = ({ imageUrl }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
+  // Preload da imagem do banner (crítico para LCP)
+  const optimizedUrl = imageUrl ? optimizeCloudinaryUrl(imageUrl) : undefined;
+  useImagePreload(optimizedUrl, true);
+
   if (!imageUrl || hasError) {
     return null;
   }
 
-  const optimizedUrl = optimizeCloudinaryUrl(imageUrl);
+  const srcSet = generateSrcSet(imageUrl);
 
   return (
     <div className="relative w-full max-w-lg mx-auto overflow-hidden rounded-t-xl" style={{ aspectRatio: "16/9" }}>
@@ -39,11 +56,13 @@ export const Banner: React.FC<BannerProps> = ({ imageUrl }) => {
 
       <img
         src={optimizedUrl}
+        srcSet={srcSet || undefined}
+        sizes="(max-width: 640px) 640px, (max-width: 768px) 768px, (max-width: 1024px) 1024px, 1280px"
         alt="Banner da oferta"
-        className={`w-full h-full object-cover transition-opacity duration-300 ${
+        className={`w-full h-full object-cover transition-opacity duration-150 ${
           isLoaded ? "opacity-100" : "opacity-0"
         }`}
-        loading="lazy"
+        fetchPriority="high"
         decoding="async"
         onLoad={() => setIsLoaded(true)}
         onError={() => setHasError(true)}
