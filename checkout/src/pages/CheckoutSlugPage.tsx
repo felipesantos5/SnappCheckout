@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"; // <-- Adicione useRef
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import CheckoutPage from "./CheckoutPage";
 import { getContrast } from "polished";
@@ -6,6 +6,7 @@ import { API_URL } from "../config/BackendUrl";
 import { ThemeContext, type ThemeColors } from "../context/ThemeContext";
 import { I18nProvider } from "../i18n/I18nContext";
 import type { Language } from "../i18n/translations";
+import { SkeletonLoader } from "../components/ui/SkeletonLoader";
 
 // ... (Interfaces OfferData mantidas iguais) ...
 export interface OfferData {
@@ -54,6 +55,7 @@ export function CheckoutSlugPage() {
   const { slug } = useParams<{ slug: string }>();
   const [offerData, setOfferData] = useState<OfferData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // REF DE CONTROLE: Guarda o slug da última oferta rastreada para evitar duplicação
   const trackedSlugRef = useRef<string | null>(null);
@@ -62,6 +64,7 @@ export function CheckoutSlugPage() {
     if (!slug) return;
 
     const fetchOffer = async () => {
+      setIsLoading(true);
       setError(null);
       try {
         const response = await fetch(`${API_URL}/offers/slug/${slug}`);
@@ -88,6 +91,8 @@ export function CheckoutSlugPage() {
         // ---------------------
       } catch (err) {
         setError((err as Error).message);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -107,14 +112,26 @@ export function CheckoutSlugPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-100 p-4 flex items-center justify-center">
-        <p className="text-red-500">Erro: {error}</p>
+      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+        <div className="max-w-md text-center">
+          <div className="bg-white rounded-xl shadow-lg p-8">
+            <div className="text-red-500 text-5xl mb-4">⚠️</div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Ops! Algo deu errado</h2>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
-  if (!offerData) {
-    return;
+  if (isLoading || !offerData) {
+    return <SkeletonLoader />;
   }
 
   return (

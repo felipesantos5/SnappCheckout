@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, memo, useCallback, useMemo } from "react";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { ChevronDown, ShoppingCart } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import { useTranslation } from "../../i18n/I18nContext";
 import { formatCurrency } from "../../helper/formatCurrency";
+import { OptimizedImage } from "../ui/OptimizedImage";
 
 interface OrderSummaryProps {
   productName: string;
@@ -17,7 +18,7 @@ interface OrderSummaryProps {
   discountPercentage?: number;
 }
 
-export const OrderSummary: React.FC<OrderSummaryProps> = ({
+export const OrderSummary = memo<OrderSummaryProps>(({
   productName,
   productImageUrl,
   currency,
@@ -32,21 +33,28 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
   const { primary } = useTheme();
   const { t } = useTranslation();
 
-  const subtotal = basePriceInCents * quantity;
-  const subtotalOldPrice = (originalPriceInCents || 0) * quantity;
-  const discountAmount = originalPriceInCents ? (originalPriceInCents - basePriceInCents) * quantity : 0;
-  const bumpsTotal = totalAmountInCents - subtotal;
-  const totalSmallText = formatCurrency(totalAmountInCents, currency);
-  const totalOldPrice = originalPriceInCents ? formatCurrency(subtotalOldPrice + bumpsTotal, currency) : null;
+  const subtotal = useMemo(() => basePriceInCents * quantity, [basePriceInCents, quantity]);
+  const subtotalOldPrice = useMemo(() => (originalPriceInCents || 0) * quantity, [originalPriceInCents, quantity]);
+  const discountAmount = useMemo(
+    () => (originalPriceInCents ? (originalPriceInCents - basePriceInCents) * quantity : 0),
+    [originalPriceInCents, basePriceInCents, quantity]
+  );
+  const bumpsTotal = useMemo(() => totalAmountInCents - subtotal, [totalAmountInCents, subtotal]);
+  const totalSmallText = useMemo(() => formatCurrency(totalAmountInCents, currency), [totalAmountInCents, currency]);
+  const totalOldPrice = useMemo(
+    () => (originalPriceInCents ? formatCurrency(subtotalOldPrice + bumpsTotal, currency) : null),
+    [originalPriceInCents, subtotalOldPrice, bumpsTotal, currency]
+  );
 
-  const handleIncrease = () => {
+  const handleIncrease = useCallback(() => {
     setQuantity(quantity + 1);
-  };
-  const handleDecrease = () => {
+  }, [quantity, setQuantity]);
+
+  const handleDecrease = useCallback(() => {
     if (quantity > 1) {
       setQuantity(quantity - 1);
     }
-  };
+  }, [quantity, setQuantity]);
 
   return (
     <Collapsible.Root open={isOpen} onOpenChange={setIsOpen} className="w-full bg-gray-50 rounded-lg shadow">
@@ -77,7 +85,15 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
       <Collapsible.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center">
-            {productImageUrl && <img src={productImageUrl} alt={productName} className="w-20 h-20 rounded-md object-cover border" />}
+            {productImageUrl && (
+              <OptimizedImage
+                src={productImageUrl}
+                alt={productName}
+                className="w-20 h-20 flex-shrink-0 border"
+                width={80}
+                aspectRatio="1/1"
+              />
+            )}
             <div className="ml-4 flex-1">
               <h3 className="text-sm font-medium text-gray-800">{productName}</h3>
               <div className="flex items-center justify-between mt-1 flex-wrap">
@@ -148,4 +164,6 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
       </Collapsible.Content>
     </Collapsible.Root>
   );
-};
+});
+
+OrderSummary.displayName = "OrderSummary";
