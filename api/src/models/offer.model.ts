@@ -22,6 +22,7 @@ export interface IProductSubDocument {
   imageUrl?: string;
   priceInCents: number;
   compareAtPriceInCents?: number;
+  customId?: string;
 }
 
 export interface IOffer extends Document {
@@ -58,6 +59,10 @@ export interface IOffer extends Document {
 
   mainProduct: IProductSubDocument;
   orderBumps: IProductSubDocument[];
+
+  createdAt?: Date;
+  updatedAt?: Date;
+  __v?: number;
 }
 
 const offerSchema = new Schema<IOffer>(
