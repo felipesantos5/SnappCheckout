@@ -3,12 +3,13 @@ import "dotenv/config";
 import { IOffer } from "../models/offer.model";
 import { ISale } from "../models/sale.model";
 import Stripe from "stripe";
+import { convertToBRL, centsToUnits } from "./currency-conversion.service";
 
 export interface UTMfyPayload {
   email: string;
   name: string;
-  amount: number; // Valor em reais (não centavos)
-  currency: string;
+  amountInCents: number; // Valor em centavos na moeda original
+  currency: string; // Moeda original (USD, EUR, BRL, etc.)
   transactionId: string;
   // Campos opcionais adicionais
   productName?: string;
@@ -18,6 +19,7 @@ export interface UTMfyPayload {
 
 /**
  * Envia dados de conversão para a API da UTMfy
+ * IMPORTANTE: Converte valores para BRL antes de enviar
  *
  * @param payload - Dados da conversão a serem enviados
  * @returns Promise<void>
@@ -35,6 +37,12 @@ export const sendConversionToUTMfy = async (payload: UTMfyPayload): Promise<void
 
     console.log(`📤 Enviando conversão para UTMfy: ${payload.transactionId}`);
 
+    // Converte para BRL (UTMfy sempre espera valores em BRL)
+    const amountInBRL = await convertToBRL(payload.amountInCents, payload.currency);
+    const valueInReais = centsToUnits(amountInBRL);
+
+    console.log(`💱 Conversão UTMfy: ${payload.amountInCents / 100} ${payload.currency} = ${valueInReais} BRL`);
+
     // Faz a requisição para a UTMfy
     const response = await fetch(utmfyApiUrl, {
       method: "POST",
@@ -46,8 +54,8 @@ export const sendConversionToUTMfy = async (payload: UTMfyPayload): Promise<void
       body: JSON.stringify({
         email: payload.email,
         name: payload.name,
-        value: payload.amount, // Valor em reais
-        currency: payload.currency,
+        value: valueInReais, // Valor em reais (BRL)
+        currency: "BRL", // Sempre BRL
         transaction_id: payload.transactionId,
         // Adicione campos extras conforme a API da UTMfy
         product_name: payload.productName,
@@ -200,8 +208,16 @@ export const processUtmfyIntegration = async (
       }
     });
 
-    // CORREÇÃO AQUI: Pegar a moeda do PaymentIntent e garantir maiúscula (ex: "usd" -> "USD")
+    // Pegar a moeda do PaymentIntent e garantir maiúscula (ex: "usd" -> "USD")
     const currencyCode = paymentIntent.currency ? paymentIntent.currency.toUpperCase() : "BRL";
+
+    // CONVERSÃO PARA BRL (UTMfy sempre espera valores em BRL)
+    const originalTotalInBRL = await convertToBRL(originalTotalInCents, currencyCode);
+    const totalAmountInBRL = await convertToBRL(sale.totalAmountInCents, currencyCode);
+    const platformFeeInBRL = await convertToBRL(sale.platformFeeInCents, currencyCode);
+    const producerAmountInBRL = totalAmountInBRL - platformFeeInBRL;
+
+    console.log(`💱 Conversão UTMfy: ${sale.totalAmountInCents / 100} ${currencyCode} = ${totalAmountInBRL / 100} BRL`);
 
     const utmfyPayload = {
       Id: crypto.randomUUID(),
@@ -221,21 +237,21 @@ export const processUtmfyIntegration = async (
           Email: owner.email || "unknown@email.com",
         },
         Commissions: [
-          { Value: sale.platformFeeInCents / 100, Source: "MARKETPLACE" },
-          { Value: (sale.totalAmountInCents - sale.platformFeeInCents) / 100, Source: "PRODUCER" },
+          { Value: centsToUnits(platformFeeInBRL), Source: "MARKETPLACE" },
+          { Value: centsToUnits(producerAmountInBRL), Source: "PRODUCER" },
         ],
         Purchase: {
           PaymentId: crypto.randomUUID(),
           Recurrency: 1,
           PaymentDate: new Date(paymentIntent.created * 1000).toISOString(),
-          // ADICIONADO: Campo Currency para informar a moeda correta
+          // VALORES SEMPRE EM BRL (conforme requisito da UTMfy)
           OriginalPrice: {
-            Value: originalTotalInCents / 100,
-            Currency: currencyCode,
+            Value: centsToUnits(originalTotalInBRL),
+            Currency: "BRL",
           },
           Price: {
-            Value: sale.totalAmountInCents / 100,
-            Currency: currencyCode,
+            Value: centsToUnits(totalAmountInBRL),
+            Currency: "BRL",
           },
           Payment: {
             NumberOfInstallments: 1,
