@@ -6,7 +6,8 @@
       "Bash(npm uninstall:*)",
       "Bash(timeout 30 npx tsc:*)",
       "Bash(npm run dev:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npm run preview:*)"
     ],
     "deny": [],
     "ask": []
