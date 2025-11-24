@@ -17,6 +17,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useTranslation } from "../../i18n/I18nContext";
 import { getClientIP } from "../../service/getClientIP";
 import { getCookie } from "../../helper/getCookie";
+import { detectPlatform, shouldShowWallet, getWalletLabel } from "../../utils/platformDetection";
 
 interface CheckoutFormProps {
   offerData: OfferData;
@@ -69,9 +70,18 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
     setTotalAmount(newTotal);
   }, [selectedBumps, quantity, offerData]);
 
-  // Configuração da Carteira Digital
+  // Configuração da Carteira Digital com detecção de plataforma
   useEffect(() => {
     if (!stripe) return;
+
+    // Verifica se a plataforma suporta carteiras digitais
+    if (!shouldShowWallet()) {
+      console.log("Platform does not support digital wallets (desktop)");
+      return;
+    }
+
+    const platform = detectPlatform();
+    console.log("Detected platform:", platform);
 
     const pr = stripe.paymentRequest({
       country: "BR",
@@ -87,10 +97,31 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
 
     pr.canMakePayment().then((result) => {
       if (result) {
+        console.log("Payment Request available:", result);
+
+        // Define o label baseado na plataforma detectada e no suporte do Stripe
+        let label = getWalletLabel(platform);
+
+        // Valida se a plataforma suporta a carteira esperada
+        if (platform === 'ios' && !result.applePay) {
+          console.warn("iOS detected but Apple Pay not available");
+          return; // Não mostra se iOS mas Apple Pay não disponível
+        }
+
+        if (platform === 'android' && !result.googlePay) {
+          console.warn("Android detected but Google Pay not available");
+          return; // Não mostra se Android mas Google Pay não disponível
+        }
+
+        // Se tudo OK, configura a carteira
+        if (result.applePay) label = t.payment.applePay;
+        else if (result.googlePay) label = t.payment.googlePay;
+        else label = t.payment.wallet;
+
+        setWalletLabel(label);
         setPaymentRequest(pr);
-        if (result.applePay) setWalletLabel("Apple Pay");
-        else if (result.googlePay) setWalletLabel("Google Pay");
-        else setWalletLabel("Carteira Digital");
+      } else {
+        console.log("Payment Request not available on this device");
       }
     });
 
@@ -148,7 +179,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
         setErrorMessage(err.message || "Erro inesperado");
       }
     });
-  }, [stripe, offerData, selectedBumps, totalAmount, utmData]);
+  }, [stripe, offerData, selectedBumps, totalAmount, utmData, t]);
 
   useEffect(() => {
     if (paymentRequest) {

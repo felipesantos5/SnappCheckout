@@ -5,6 +5,7 @@ import { PaymentRequestButtonElement } from "@stripe/react-stripe-js"; // Import
 import type { PaymentRequest } from "@stripe/stripe-js"; // Importar o tipo
 import { AppleyPayIcon } from "../icons/appleyPay";
 import { GooglePayIcon } from "../icons/googlePay";
+import { useIsDesktop } from "../../helper/useIsDesktop";
 // Importar o tipo
 
 // Adicionamos "wallet" aos tipos de pagamento
@@ -19,6 +20,7 @@ interface PaymentMethodsProps {
 
 export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMethod, paymentRequest, walletLabel }) => {
   const { t } = useTranslation();
+  const isDesktop = useIsDesktop();
 
   const PaymentOption: React.FC<{
     value: PaymentMethodType;
@@ -74,14 +76,14 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMetho
             />
 
             {/* Renderiza o botão OFICIAL do Stripe apenas se selecionado */}
-            {method === "wallet" && (
-              <div className="mt-2 animate-fade-in">
-                <div className="h-12 w-full">
-                  <PaymentRequestButtonElement options={{ paymentRequest }} className="w-full h-full" />
+            {!isDesktop ||
+              (method === "wallet" && (
+                <div className="mt-2 animate-fade-in">
+                  <div className="h-12 w-full">
+                    <PaymentRequestButtonElement options={{ paymentRequest }} className="w-full h-full" />
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2 text-center">Clique no botão acima para confirmar o pagamento com {walletLabel}.</p>
-              </div>
-            )}
+              ))}
           </div>
         )}
 

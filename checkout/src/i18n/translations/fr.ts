@@ -19,6 +19,9 @@ export const fr: Translation = {
     title: "Paiement",
     creditCard: "Carte de crédit",
     pix: "PIX",
+    wallet: "Portefeuille numérique",
+    applePay: "Apple Pay",
+    googlePay: "Google Pay",
   },
 
   // Contact Info

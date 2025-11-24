@@ -17,6 +17,9 @@ export const pt = {
     title: "Pagamento",
     creditCard: "Cartão de Crédito",
     pix: "PIX",
+    wallet: "Carteira Digital",
+    applePay: "Apple Pay",
+    googlePay: "Google Pay",
   },
 
   // Contact Info
