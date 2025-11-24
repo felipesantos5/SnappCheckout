@@ -28,9 +28,7 @@ const generateSrcSet = (url: string): string => {
   if (!url.includes("cloudinary.com")) return "";
 
   const sizes = [640, 768, 1024, 1280];
-  return sizes
-    .map(size => `${optimizeCloudinaryUrl(url, size)} ${size}w`)
-    .join(", ");
+  return sizes.map((size) => `${optimizeCloudinaryUrl(url, size)} ${size}w`).join(", ");
 };
 
 export const Banner: React.FC<BannerProps> = ({ imageUrl }) => {
@@ -50,19 +48,16 @@ export const Banner: React.FC<BannerProps> = ({ imageUrl }) => {
   return (
     <div className="relative w-full max-w-lg mx-auto overflow-hidden rounded-t-xl" style={{ aspectRatio: "16/9" }}>
       {/* Skeleton placeholder enquanto carrega */}
-      {!isLoaded && (
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse" />
-      )}
+      {!isLoaded && <div className="absolute inset-0 bg-linear-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse" />}
 
       <img
         src={optimizedUrl}
         srcSet={srcSet || undefined}
         sizes="(max-width: 640px) 640px, (max-width: 768px) 768px, (max-width: 1024px) 1024px, 1280px"
         alt="Banner da oferta"
-        className={`w-full h-full object-cover transition-opacity duration-150 ${
-          isLoaded ? "opacity-100" : "opacity-0"
-        }`}
+        className={`w-full h-full object-cover transition-opacity duration-150 ${isLoaded ? "opacity-100" : "opacity-0"}`}
         fetchPriority="high"
+        loading="eager"
         decoding="async"
         onLoad={() => setIsLoaded(true)}
         onError={() => setHasError(true)}

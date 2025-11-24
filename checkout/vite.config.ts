@@ -3,12 +3,17 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 // import { optimizePlugin } from "./vite-plugin-optimize";
+import { compression } from "vite-plugin-compression2";
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     basicSsl(),
+    compression({
+      algorithms: ["gzip", "brotliCompress"], // Gera .gz e .br ao mesmo tempo
+      exclude: [/\.(br)$/, /\.(gz)$/], // Evita comprimir o que já está comprimido
+    }),
     // optimizePlugin(), // Adicione se estiver usando o plugin que mostrou
   ],
   build: {
