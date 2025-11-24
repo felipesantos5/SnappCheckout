@@ -229,12 +229,12 @@ export function RecentSalesTable() {
                                         {item.isOrderBump && <span className="text-xs mr-1">[Bump]</span>}
                                         {item.name}
                                       </span>
-                                      <span className="text-gray-500">{formatCurrency(item.priceInCents)}</span>
+                                      <span className="text-gray-500">{formatCurrency(item.priceInCents, sale.currency)}</span>
                                     </div>
                                   ))}
                                   <div className="flex justify-between font-bold text-sm pt-2 border-t mt-2">
                                     <span>Total</span>
-                                    <span>{formatCurrency(sale.totalAmountInCents)}</span>
+                                    <span>{formatCurrency(sale.totalAmountInCents, sale.currency)}</span>
                                   </div>
                                 </div>
                               </PopoverContent>
@@ -285,7 +285,7 @@ export function RecentSalesTable() {
                         </Badge>
                       </TableCell>
 
-                      <TableCell className="text-right font-bold text-gray-800">{formatCurrency(sale.totalAmountInCents)}</TableCell>
+                      <TableCell className="text-right font-bold text-gray-800">{formatCurrency(sale.totalAmountInCents, sale.currency)}</TableCell>
                     </TableRow>
                   );
                 })

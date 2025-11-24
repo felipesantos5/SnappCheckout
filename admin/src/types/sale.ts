@@ -10,12 +10,14 @@ export interface Sale {
   customerName: string;
   customerEmail: string;
   totalAmountInCents: number;
+  currency: string; // Moeda da transação (brl, usd, eur, etc)
   status: "succeeded" | "pending" | "refunded";
   createdAt: string;
   isUpsell?: boolean;
   offerId: {
     _id: string;
     name: string;
+    currency?: string; // Moeda da oferta (para fallback)
     isUpsell?: boolean;
   } | null; // Pode ser null se a oferta foi deletada
   items: SaleItem[]; // Adicionamos os itens aqui

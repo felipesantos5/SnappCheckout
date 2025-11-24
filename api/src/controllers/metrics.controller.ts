@@ -4,6 +4,7 @@ import CheckoutMetric from "../models/checkout-metric.model";
 import mongoose from "mongoose";
 import Offer from "../models/offer.model";
 import { sendFacebookEvent, createFacebookUserData } from "../services/facebook.service";
+import { convertToBRL } from "../services/currency-conversion.service";
 
 /**
  * Registra um evento de métrica (View ou Initiate Checkout)
@@ -76,66 +77,51 @@ export const handleGetConversionFunnel = async (req: Request, res: Response) => 
   try {
     const ownerId = req.userId!;
 
-    // Pipeline de agregação para cruzar Vendas e Métricas
-    const metrics = await mongoose.model("Offer").aggregate([
-      {
-        $match: { ownerId: new mongoose.Types.ObjectId(ownerId) },
-      },
-      // 1. Buscar Métricas (Views e Initiates)
-      {
-        $lookup: {
-          from: "checkoutmetrics",
-          localField: "_id",
-          foreignField: "offerId",
-          as: "metrics",
-        },
-      },
-      // 2. Buscar Vendas Aprovadas
-      {
-        $lookup: {
-          from: "sales",
-          let: { offerId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [{ $eq: ["$offerId", "$$offerId"] }, { $eq: ["$status", "succeeded"] }],
-                },
-              },
-            },
-          ],
-          as: "sales",
-        },
-      },
-      // 3. Projetar e Calcular Totais
-      {
-        $project: {
-          offerName: "$name",
-          slug: "$slug",
-          views: {
-            $size: {
-              $filter: { input: "$metrics", as: "m", cond: { $eq: ["$$m.type", "view"] } },
-            },
-          },
-          initiatedCheckout: {
-            $size: {
-              $filter: { input: "$metrics", as: "m", cond: { $eq: ["$$m.type", "initiate_checkout"] } },
-            },
-          },
-          purchases: { $size: "$sales" },
-          revenue: { $sum: "$sales.totalAmountInCents" },
-        },
-      },
-      // 4. Calcular Conversão (Evitar divisão por zero)
-      {
-        $addFields: {
-          conversionRate: {
-            $cond: [{ $eq: ["$views", 0] }, 0, { $multiply: [{ $divide: ["$purchases", "$views"] }, 100] }],
-          },
-        },
-      },
-      { $sort: { revenue: -1 } }, // Ordenar por receita
-    ]);
+    // 1. Buscar ofertas do usuário
+    const offers = await Offer.find({ ownerId }).select("_id name slug").lean();
+
+    // 2. Para cada oferta, buscar métricas e vendas
+    const metricsPromises = offers.map(async (offer) => {
+      const offerId = offer._id;
+
+      // Buscar métricas
+      const metrics = await CheckoutMetric.find({ offerId }).select("type").lean();
+      const views = metrics.filter((m) => m.type === "view").length;
+      const initiatedCheckout = metrics.filter((m) => m.type === "initiate_checkout").length;
+
+      // Buscar vendas aprovadas
+      const sales = await Sale.find({
+        offerId,
+        status: "succeeded",
+      })
+        .select("totalAmountInCents currency")
+        .lean();
+
+      // Converter receita para BRL
+      let revenueInBRL = 0;
+      for (const sale of sales) {
+        revenueInBRL += await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
+      }
+
+      const purchases = sales.length;
+      const conversionRate = views > 0 ? (purchases / views) * 100 : 0;
+
+      return {
+        _id: offerId.toString(),
+        offerName: offer.name,
+        slug: offer.slug,
+        views,
+        initiatedCheckout,
+        purchases,
+        revenue: revenueInBRL,
+        conversionRate,
+      };
+    });
+
+    const metrics = await Promise.all(metricsPromises);
+
+    // Ordenar por receita
+    metrics.sort((a, b) => b.revenue - a.revenue);
 
     res.status(200).json(metrics);
   } catch (error) {
@@ -146,7 +132,6 @@ export const handleGetConversionFunnel = async (req: Request, res: Response) => 
 
 // Manter as funções antigas (handleGetSalesMetrics, etc.) abaixo...
 export const handleGetSalesMetrics = async (req: Request, res: Response) => {
-  // ... (Código existente do seu arquivo original)
   try {
     const ownerId = req.userId!;
     const daysParam = req.query.days ? parseInt(req.query.days as string) : 30;
@@ -155,25 +140,36 @@ export const handleGetSalesMetrics = async (req: Request, res: Response) => {
     startDate.setDate(startDate.getDate() - daysParam);
     startDate.setHours(0, 0, 0, 0);
 
-    const metrics = await Sale.aggregate([
-      {
-        $match: {
-          ownerId: new mongoose.Types.ObjectId(ownerId),
-          status: "succeeded",
-          createdAt: { $gte: startDate },
-        },
-      },
-      {
-        $group: {
-          _id: {
-            $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "America/Sao_Paulo" },
-          },
-          revenue: { $sum: "$totalAmountInCents" },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { _id: 1 } },
-    ]);
+    // Buscar vendas com moeda
+    const sales = await Sale.find({
+      ownerId: new mongoose.Types.ObjectId(ownerId),
+      status: "succeeded",
+      createdAt: { $gte: startDate },
+    })
+      .select("totalAmountInCents currency createdAt")
+      .lean();
+
+    // Agrupar por data e converter para BRL
+    const dailyMetricsMap = new Map<string, { revenue: number; count: number }>();
+
+    for (const sale of sales) {
+      const dateStr = sale.createdAt.toISOString().split("T")[0];
+      const revenueInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
+
+      const existing = dailyMetricsMap.get(dateStr) || { revenue: 0, count: 0 };
+      existing.revenue += revenueInBRL;
+      existing.count += 1;
+      dailyMetricsMap.set(dateStr, existing);
+    }
+
+    // Converter para array e ordenar
+    const metrics = Array.from(dailyMetricsMap.entries())
+      .map(([date, data]) => ({
+        _id: date,
+        revenue: data.revenue,
+        count: data.count,
+      }))
+      .sort((a, b) => a._id.localeCompare(b._id));
 
     res.status(200).json(metrics);
   } catch (error) {
@@ -183,42 +179,42 @@ export const handleGetSalesMetrics = async (req: Request, res: Response) => {
 };
 
 export const handleGetOffersRevenue = async (req: Request, res: Response) => {
-  // ... (Código existente do seu arquivo original)
   try {
     const ownerId = req.userId!;
 
-    const metrics = await Sale.aggregate([
-      {
-        $match: {
-          ownerId: new mongoose.Types.ObjectId(ownerId),
-          status: "succeeded",
-        },
-      },
-      {
-        $group: {
-          _id: "$offerId",
-          revenue: { $sum: "$totalAmountInCents" },
-        },
-      },
-      {
-        $lookup: {
-          from: "offers",
-          localField: "_id",
-          foreignField: "_id",
-          as: "offerData",
-        },
-      },
-      {
-        $unwind: "$offerData",
-      },
-      {
-        $project: {
-          offerName: "$offerData.name",
-          revenue: 1,
-        },
-      },
-      { $sort: { revenue: -1 } },
-    ]);
+    // Buscar todas as vendas com moeda e oferta
+    const sales = await Sale.find({
+      ownerId: new mongoose.Types.ObjectId(ownerId),
+      status: "succeeded",
+    })
+      .select("totalAmountInCents currency offerId")
+      .populate("offerId", "name")
+      .lean();
+
+    // Agrupar por oferta e converter para BRL
+    const offerRevenueMap = new Map<string, { offerName: string; revenue: number }>();
+
+    for (const sale of sales) {
+      const offerId = (sale.offerId as any)?._id?.toString();
+      const offerName = (sale.offerId as any)?.name || "Oferta Removida";
+
+      if (!offerId) continue;
+
+      const revenueInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
+
+      const existing = offerRevenueMap.get(offerId) || { offerName, revenue: 0 };
+      existing.revenue += revenueInBRL;
+      offerRevenueMap.set(offerId, existing);
+    }
+
+    // Converter para array e ordenar por receita
+    const metrics = Array.from(offerRevenueMap.entries())
+      .map(([offerId, data]) => ({
+        _id: offerId,
+        offerName: data.offerName,
+        revenue: data.revenue,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
 
     res.status(200).json(metrics);
   } catch (error) {
@@ -237,57 +233,81 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     startDate.setDate(startDate.getDate() - days);
     startDate.setHours(0, 0, 0, 0);
 
-    // 1. IDs das ofertas (para filtrar visitantes)
+    // 1. IDs das ofertas
     const myOffers = await Offer.find({ ownerId }, "_id");
     const offerIds = myOffers.map((o) => o._id);
 
-    // 2. KPIs Totais (Big Numbers)
-    const salesStats = await Sale.aggregate([
-      {
-        $match: {
-          ownerId: new mongoose.Types.ObjectId(ownerId),
-          status: "succeeded",
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { $sum: "$totalAmountInCents" },
-          totalSales: { $sum: 1 },
-        },
-      },
-    ]);
+    // 2. Buscar todas as vendas com moeda para conversão
+    const allSales = await Sale.find({
+      ownerId: new mongoose.Types.ObjectId(ownerId),
+      status: "succeeded",
+    }).lean();
 
-    const { totalRevenue, totalSales } = salesStats[0] || { totalRevenue: 0, totalSales: 0 };
-    const averageTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
+    // 3. Converter e calcular totais
+    let totalRevenueInBRL = 0;
+    let extraRevenueInBRL = 0;
+    const totalSales = allSales.length;
 
+    for (const sale of allSales) {
+      // Converte o total da venda para BRL
+      const saleAmountInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
+      totalRevenueInBRL += saleAmountInBRL;
+
+      // Calcula receita extra (upsells e order bumps)
+      if (sale.isUpsell) {
+        extraRevenueInBRL += saleAmountInBRL;
+      } else {
+        // Soma apenas os order bumps
+        for (const item of sale.items) {
+          if (item.isOrderBump) {
+            const itemAmountInBRL = await convertToBRL(item.priceInCents, sale.currency || "BRL");
+            extraRevenueInBRL += itemAmountInBRL;
+          }
+        }
+      }
+    }
+
+    const averageTicket = totalSales > 0 ? totalRevenueInBRL / totalSales : 0;
+
+    // Cálculo da Taxa de Conversão
     const totalVisitors = await CheckoutMetric.countDocuments({
       offerId: { $in: offerIds },
       type: "view",
     });
 
-    // 3. Gráficos (Histórico de 30 dias)
+    const conversionRate = totalVisitors > 0 ? (totalSales / totalVisitors) * 100 : 0;
 
-    // A) Agregação Diária de Vendas (Receita e Quantidade)
-    const salesDaily = await Sale.aggregate([
-      {
-        $match: {
-          ownerId: new mongoose.Types.ObjectId(ownerId),
-          status: "succeeded",
-          createdAt: { $gte: startDate },
-        },
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "America/Sao_Paulo" } },
-          dailyRevenue: { $sum: "$totalAmountInCents" },
-          dailyCount: { $sum: 1 },
-        },
-      },
-      { $sort: { _id: 1 } },
-    ]);
+    // 4. Gráficos (Histórico de 30 dias) - Buscar vendas por dia e converter
+    const salesByDate = await Sale.find({
+      ownerId: new mongoose.Types.ObjectId(ownerId),
+      status: "succeeded",
+      createdAt: { $gte: startDate },
+    })
+      .select("totalAmountInCents currency createdAt")
+      .lean();
 
-    // B) Agregação Diária de Visitantes
+    // Agrupar vendas por data e converter para BRL
+    const dailyRevenueMap = new Map<string, { revenue: number; count: number }>();
+
+    for (const sale of salesByDate) {
+      const dateStr = sale.createdAt.toISOString().split("T")[0]; // YYYY-MM-DD
+      const revenueInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
+
+      const existing = dailyRevenueMap.get(dateStr) || { revenue: 0, count: 0 };
+      existing.revenue += revenueInBRL;
+      existing.count += 1;
+      dailyRevenueMap.set(dateStr, existing);
+    }
+
+    // Converter para array e ordenar
+    const salesDaily = Array.from(dailyRevenueMap.entries())
+      .map(([date, data]) => ({
+        _id: date,
+        dailyRevenue: data.revenue,
+        dailyCount: data.count,
+      }))
+      .sort((a, b) => a._id.localeCompare(b._id));
+
     const visitorsDaily = await CheckoutMetric.aggregate([
       {
         $match: {
@@ -305,41 +325,39 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
       { $sort: { _id: 1 } },
     ]);
 
-    // 4. Montar resposta formatada para os gráficos
-    // Mapeamos os resultados do banco para o formato { date, value }
+    const revenueChart = salesDaily.map((i) => ({ date: i._id, value: i.dailyRevenue / 100 })); // Envia em Reais para o gráfico
+    const salesChart = salesDaily.map((i) => ({ date: i._id, value: i.dailyCount }));
+    const ticketChart = salesDaily.map((i) => ({ date: i._id, value: i.dailyCount > 0 ? Math.round(i.dailyRevenue / i.dailyCount / 100) : 0 }));
+    const visitorsChart = visitorsDaily.map((i) => ({ date: i._id, value: i.dailyCount }));
 
-    const revenueChart = salesDaily.map((i) => ({
-      date: i._id,
-      value: i.dailyRevenue,
-    }));
+    // 5. Calcular taxa de conversão diária
+    // Para cada dia, calcular: (vendas / visitantes) * 100
+    const conversionRateChart = salesDaily.map((saleDay) => {
+      const visitorDay = visitorsDaily.find((v) => v._id === saleDay._id);
+      const dailyVisitors = visitorDay?.dailyCount || 0;
+      const dailyConversionRate = dailyVisitors > 0 ? (saleDay.dailyCount / dailyVisitors) * 100 : 0;
 
-    const salesChart = salesDaily.map((i) => ({
-      date: i._id,
-      value: i.dailyCount,
-    }));
-
-    const ticketChart = salesDaily.map((i) => ({
-      date: i._id,
-      value: i.dailyCount > 0 ? Math.round(i.dailyRevenue / i.dailyCount) : 0,
-    }));
-
-    const visitorsChart = visitorsDaily.map((i) => ({
-      date: i._id,
-      value: i.dailyCount,
-    }));
+      return {
+        date: saleDay._id,
+        value: parseFloat(dailyConversionRate.toFixed(2)), // Taxa em % com 2 decimais
+      };
+    });
 
     res.status(200).json({
       kpis: {
-        totalRevenue,
+        totalRevenue: totalRevenueInBRL,
         totalSales,
         totalVisitors,
         averageTicket,
+        extraRevenue: extraRevenueInBRL, // Nova métrica
+        conversionRate, // Nova métrica
       },
       charts: {
         revenue: revenueChart,
         sales: salesChart,
         ticket: ticketChart,
         visitors: visitorsChart,
+        conversionRate: conversionRateChart, // Nova métrica de gráfico
       },
     });
   } catch (error) {

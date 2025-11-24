@@ -24,6 +24,7 @@ export interface ISale extends Document {
 
   totalAmountInCents: number;
   platformFeeInCents: number;
+  currency: string; // Moeda da transação (brl, usd, etc)
 
   status: "succeeded" | "pending" | "refunded";
   isUpsell: boolean;
@@ -58,6 +59,7 @@ const saleSchema = new Schema<ISale>(
 
     totalAmountInCents: { type: Number, required: true },
     platformFeeInCents: { type: Number, required: true },
+    currency: { type: String, required: true, default: "brl" },
 
     status: {
       type: String,

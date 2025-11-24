@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { ConnectStripeCard } from "@/components/ConnectStripeCard";
 import { API_URL } from "@/config/BackendUrl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Users, ShoppingCart, TrendingUp } from "lucide-react";
+import { DollarSign, Users, ShoppingCart, TrendingUp, Zap } from "lucide-react";
 import { RecentSalesTable } from "@/components/dashboard/RecentSalesTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Line, LineChart, ResponsiveContainer } from "recharts"; // Usando LineChart agora
@@ -20,12 +20,15 @@ interface DashboardData {
     totalSales: number;
     totalVisitors: number;
     averageTicket: number;
+    extraRevenue: number;
+    conversionRate: number;
   };
   charts: {
     revenue: { date: string; value: number }[];
     sales: { date: string; value: number }[]; // Novo
     ticket: { date: string; value: number }[]; // Novo
     visitors: { date: string; value: number }[];
+    conversionRate: { date: string; value: number }[]; // Novo gráfico de conversão
   };
 }
 
@@ -34,7 +37,6 @@ interface StripeBalance {
   pending: { amount: number; currency: string }[];
 }
 
-// --- Componente Auxiliar: KpiCard com Sparkline Limpo ---
 const KpiCard = ({ title, value, icon: Icon, subtext, chartData, color }: any) => (
   <Card className="overflow-hidden flex flex-col h-[200px] relative py-2 gap-3">
     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-4">
@@ -117,53 +119,59 @@ export function DashboardOverview() {
         <h1 className="text-3xl font-bold tracking-tight">Visão Geral</h1>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 flex-wrap   lg:grid-cols-5">
         <KpiCard
-          title="Receita Aprovada"
+          title="Faturamento Aprovado"
           value={formatCurrency(metrics?.kpis.totalRevenue || 0)}
           icon={DollarSign}
-          subtext="últimos 30 dias"
+          subtext="Últimos 30 dias"
           chartData={metrics?.charts.revenue}
-          color="#fdbf08"
+          color="#eab308" // Verde
         />
 
+        {/* 2. Lucro Extra (DESTAQUE) */}
+        <KpiCard
+          title="Lucro Extra (Upsell/Bump)"
+          value={formatCurrency(metrics?.kpis.extraRevenue || 0)}
+          icon={Zap}
+          subtext="Receita gerada pelo checkout"
+          chartData={metrics?.charts.revenue} // Pode usar o mesmo ou um específico se tiver
+          color="#eab308" // Amarelo Ouro
+          highlight={true} // Card Destacado
+        />
+
+        {/* 3. Vendas */}
         <KpiCard
           title="Vendas Realizadas"
           value={metrics?.kpis.totalSales || 0}
           icon={ShoppingCart}
-          subtext="Volume de transações"
+          subtext="Transações aprovadas"
           chartData={metrics?.charts.sales}
-          color="#f5d578"
+          color="#eab308" // Azul
         />
 
+        {/* 4. Taxa de Conversão */}
+        <KpiCard
+          title="Taxa de Conversão"
+          value={`${metrics?.kpis.conversionRate.toFixed(1)}%`}
+          icon={TrendingUp}
+          subtext="Visitantes x Compradores"
+          chartData={metrics?.charts.conversionRate}
+          color="#eab308"
+        />
+
+        {/* 5. Ticket Médio */}
         <KpiCard
           title="Ticket Médio"
           value={formatCurrency(metrics?.kpis.averageTicket || 0)}
-          icon={TrendingUp}
-          subtext="Por venda aprovada"
-          chartData={metrics?.charts.ticket}
-          color="#F59E0B"
-        />
-
-        <KpiCard
-          title="Visitantes Únicos"
-          value={metrics?.kpis.totalVisitors || 0}
           icon={Users}
-          subtext="Acessos no checkout"
-          chartData={metrics?.charts.visitors}
-          color="#fdd049"
+          subtext="Por cliente"
+          chartData={metrics?.charts.ticket}
+          color="#eab308" // Laranja
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="bg-white border shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Saldo Disponível</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-gray-900">{formatStripe(balance?.available || [])}</div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4">
         <Card className="bg-white border shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">A Receber (Pendente)</CardTitle>

@@ -9,7 +9,7 @@ export const listMySales = async (ownerId: string): Promise<ISale[]> => {
     return await Sale.find({ ownerId })
       .populate({
         path: "offerId",
-        select: "name", // Seleciona apenas o campo 'name' da oferta
+        select: "name currency", // Seleciona nome e moeda da oferta
       })
       .sort({ createdAt: -1 })
       .limit(100);

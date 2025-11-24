@@ -18,6 +18,7 @@ interface Sale {
   customerName: string;
   customerEmail: string;
   totalAmountInCents: number;
+  currency: string;
   status: "succeeded" | "pending" | "refunded";
   items: SaleItem[];
   createdAt: string;
@@ -163,7 +164,7 @@ export function SalesHistoryTable({ offerId }: SalesHistoryTableProps) {
                     </TableCell>
                     <TableCell>{getSaleTypeIcon(sale)}</TableCell>
                     <TableCell className="text-sm text-gray-600">{formatDate(sale.createdAt)}</TableCell>
-                    <TableCell className="text-right font-semibold text-green-700">{formatCurrency(sale.totalAmountInCents)}</TableCell>
+                    <TableCell className="text-right font-semibold text-green-700">{formatCurrency(sale.totalAmountInCents, sale.currency)}</TableCell>
                   </TableRow>
                 ))
               )}

@@ -74,7 +74,7 @@ async function fetchExchangeRates(): Promise<void> {
       }
 
       lastUpdate = new Date();
-      console.log("✅ Taxas de câmbio atualizadas:", cachedRates);
+      // console.log("✅ Taxas de câmbio atualizadas:", cachedRates);
     }
   } catch (error) {
     console.error("❌ Erro ao buscar taxas de câmbio, usando valores em cache:", error);
@@ -145,6 +145,5 @@ export function centsToUnits(amountInCents: number): number {
  * Inicializa o serviço de conversão (busca taxas na primeira vez)
  */
 export async function initializeCurrencyService(): Promise<void> {
-  console.log("🔄 Inicializando serviço de conversão de moeda...");
   await fetchExchangeRates();
 }

@@ -128,6 +128,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
 
       totalAmountInCents: paymentIntent.amount,
       platformFeeInCents: paymentIntent.application_fee_amount || 0,
+      currency: offer.currency || "brl",
       status: "succeeded",
       isUpsell: isUpsell,
       items,
