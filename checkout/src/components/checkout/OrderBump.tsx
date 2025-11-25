@@ -63,10 +63,10 @@ const BumpItem = memo<{ bump: Bump; isSelected: boolean; onToggle: () => void; c
                   </label>
                 )}
                 {bump.description && (
-                  <div className="text-sm text-gray-600 mb-3 wrap-break-word markdown-content">
+                  <div className="text-xs text-gray-600 mb-3 wrap-break-word markdown-content">
                     <ReactMarkdown
                       components={{
-                        p: ({ children }) => <p className="mb-2">{children}</p>,
+                        p: ({ children }) => <p className="mb-1">{children}</p>,
                         ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
                         ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
                         li: ({ children }) => <li className="text-sm">{children}</li>,
