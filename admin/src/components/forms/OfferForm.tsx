@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -638,8 +639,13 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                     <FormItem>
                       <FormLabel>Descrição</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ex: Aprenda técnicas avançadas com este ebook exclusivo" {...field} />
+                        <Textarea
+                          placeholder="Ex: Aprenda técnicas avançadas com este ebook exclusivo&#10;&#10;Você pode usar:&#10;- Listas com -&#10;- Quebras de linha&#10;- **Negrito** e *itálico*"
+                          className="min-h-[100px] resize-y"
+                          {...field}
+                        />
                       </FormControl>
+                      <FormDescription className="text-xs">Suporta Markdown: **negrito**, *itálico*, listas com -, quebras de linha</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

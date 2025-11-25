@@ -1,5 +1,6 @@
 // src/components/checkout/OrderBump.tsx
 import React, { memo, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
 import { useTheme } from "../../context/ThemeContext";
 import { useTranslation } from "../../i18n/I18nContext";
 import { formatCurrency } from "../../helper/formatCurrency";
@@ -61,7 +62,22 @@ const BumpItem = memo<{ bump: Bump; isSelected: boolean; onToggle: () => void; c
                     {bump.name}
                   </label>
                 )}
-                {bump.description && <p className="text-sm text-gray-600 mb-3 wrap-break-word whitespace-normal">{bump.description}</p>}
+                {bump.description && (
+                  <div className="text-sm text-gray-600 mb-3 wrap-break-word markdown-content">
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p className="mb-2">{children}</p>,
+                        ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                        li: ({ children }) => <li className="text-sm">{children}</li>,
+                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                        em: ({ children }) => <em className="italic">{children}</em>,
+                      }}
+                    >
+                      {bump.description}
+                    </ReactMarkdown>
+                  </div>
+                )}
               </div>
             </div>
             <div>
