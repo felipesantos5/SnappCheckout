@@ -9,18 +9,31 @@ interface MoneyInputProps {
   label: string;
   placeholder?: string;
   disabled?: boolean;
+  currency?: string;
 }
 
-export const MoneyInput = ({ form, name, label, placeholder, disabled }: MoneyInputProps) => {
+export const MoneyInput = ({ form, name, label, placeholder, disabled, currency = "BRL" }: MoneyInputProps) => {
   // Estado local para controlar o que é exibido no input (texto com R$)
   const [displayValue, setDisplayValue] = useState("");
 
-  // Função para formatar reais em Real (R$ 10,00)
+  // Mapeamento de moedas para locale correto
+  const getCurrencyLocale = (curr: string): string => {
+    const localeMap: Record<string, string> = {
+      BRL: "pt-BR",
+      USD: "en-US",
+      EUR: "de-DE",
+      GBP: "en-GB",
+    };
+    return localeMap[curr.toUpperCase()] || "en-US";
+  };
+
+  // Função para formatar valor com a moeda selecionada
   const formatCurrency = (value: number | undefined | null) => {
     if (value === undefined || value === null) return "";
-    return value.toLocaleString("pt-BR", {
+    const locale = getCurrencyLocale(currency);
+    return value.toLocaleString(locale, {
       style: "currency",
-      currency: "BRL",
+      currency: currency.toUpperCase(),
     });
   };
 
@@ -28,7 +41,7 @@ export const MoneyInput = ({ form, name, label, placeholder, disabled }: MoneyIn
   useEffect(() => {
     const value = form.getValues(name);
     setDisplayValue(formatCurrency(value));
-  }, [form, name]); // Dependência segura
+  }, [form, name, currency]); // Atualiza quando a moeda mudar
 
   // Quando o usuário digita
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,12 +77,12 @@ export const MoneyInput = ({ form, name, label, placeholder, disabled }: MoneyIn
 
   // Quando o usuário foca no campo
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    // Remove o "R$" e espaços para facilitar a edição
-    // Se for R$ 10,00 vira 10,00
+    // Remove símbolos de moeda e espaços para facilitar a edição
+    // Ex: "R$ 10,00" vira "10,00" ou "$10.00" vira "10.00"
     const currentString = displayValue
-      .replace("R$", "")
+      .replace(/[R$€£¥]/g, "") // Remove símbolos comuns de moeda
       .replace(/\s/g, "")
-      .replace(".", "") // Tira ponto de milhar se houver
+      .replace(/\./g, "") // Tira ponto de milhar se houver
       .trim();
 
     setDisplayValue(currentString);
