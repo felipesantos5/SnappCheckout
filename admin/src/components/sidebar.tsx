@@ -127,7 +127,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent className="justify-between">
         <SidebarGroup>
-          <img src={logo} alt="logo" className="mt-10 ml-2 mb-10 w-28" />
+          <img src={logo} alt="logo" className="mt-10 mb-10 w-36 mx-auto" />
 
           {/* Revenue Card */}
           <div className="px-2 mb-6">
