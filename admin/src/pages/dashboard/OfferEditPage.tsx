@@ -10,7 +10,6 @@ import { OfferForm, type OfferFormData } from "@/components/forms/OfferForm";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { CheckoutOfferSummary } from "@/components/dashboard/CheckoutOfferSummary";
-import { SalesHistoryTable } from "@/components/dashboard/SalesHistoryTable";
 import { API_URL } from "@/config/BackendUrl";
 import { ChevronLeft } from "lucide-react";
 
@@ -193,8 +192,6 @@ export function OfferEditPage() {
           />
         </CardContent>
       </Card>
-      <Separator />
-      <SalesHistoryTable offerId={offerId!} />
     </div>
   );
 }
