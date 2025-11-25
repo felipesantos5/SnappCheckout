@@ -1,12 +1,9 @@
 "use client";
 
 import * as React from "react";
-import axios from "axios";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { API_URL } from "@/config/BackendUrl";
 
 // Configuração visual
 const chartConfig = {
@@ -19,10 +16,12 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function SalesAreaChart() {
-  const [timeRange, setTimeRange] = React.useState("7d");
-  const [chartData, setChartData] = React.useState<{ date: string; revenue: number }[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
+interface SalesAreaChartProps {
+  chartData?: { date: string; value: number }[];
+}
+
+export function SalesAreaChart({ chartData = [] }: SalesAreaChartProps) {
+  const [isLoading, setIsLoading] = React.useState(false);
 
   // Função para formatar moeda no Tooltip
   const formatCurrency = (value: number) => {
@@ -32,80 +31,26 @@ export function SalesAreaChart() {
     }).format(value);
   };
 
-  // Função para preencher dias sem vendas com 0 (para o gráfico ficar contínuo)
-  const fillMissingDates = (data: { _id: string; revenue: number }[], days: number) => {
-    const result = [];
-    const today = new Date();
-
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(today.getDate() - i);
-      const dateStr = d.toISOString().split("T")[0]; // YYYY-MM-DD
-
-      const found = data.find((item) => item._id === dateStr);
-
-      result.push({
-        date: dateStr,
-        revenue: found ? found.revenue / 100 : 0, // Converte centavos para reais
-      });
-    }
-    return result;
-  };
-
-  // Efeito para buscar dados quando o timeRange muda
-  React.useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        // Converte "90d" -> 90
-        const days = parseInt(timeRange.replace("d", ""));
-
-        const response = await axios.get(`${API_URL}/metrics?days=${days}`, {
-          withCredentials: true,
-        });
-
-        const processedData = fillMissingDates(response.data, days);
-        setChartData(processedData);
-      } catch (error) {
-        console.error("Erro ao carregar gráfico:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [timeRange]);
+  // Transformar os dados para o formato esperado pelo gráfico
+  const formattedChartData = chartData.map((item) => ({
+    date: item.date,
+    revenue: item.value, // Já vem em reais do backend
+  }));
 
   return (
-    <Card className="w-full">
+    <Card className="w-full h-full">
       <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row pt-0">
         <div className="grid flex-1 gap-1">
           <CardTitle>Histórico de Vendas</CardTitle>
           <CardDescription>Acompanhamento do faturamento diário</CardDescription>
         </div>
-        <Select value={timeRange} onValueChange={setTimeRange}>
-          <SelectTrigger className="w-40 rounded-lg sm:ml-auto" aria-label="Selecione o período">
-            <SelectValue placeholder="Últimos 3 meses" />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl">
-            <SelectItem value="90d" className="rounded-lg">
-              Últimos 3 meses
-            </SelectItem>
-            <SelectItem value="30d" className="rounded-lg">
-              Últimos 30 dias
-            </SelectItem>
-            <SelectItem value="7d" className="rounded-lg">
-              Últimos 7 dias
-            </SelectItem>
-          </SelectContent>
-        </Select>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
-          {isLoading ? (
-            <div className="w-full h-full flex items-center justify-center text-muted-foreground animate-pulse">Carregando dados...</div>
+          {formattedChartData.length === 0 ? (
+            <div className="w-full h-full flex items-center justify-center text-muted-foreground">Nenhum dado disponível</div>
           ) : (
-            <AreaChart data={chartData}>
+            <AreaChart data={formattedChartData}>
               <defs>
                 <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="var(--chart-6)" stopOpacity={0.8} />
@@ -150,7 +95,6 @@ export function SalesAreaChart() {
                 }
               />
               <Area dataKey="revenue" type="natural" fill="url(#fillRevenue)" stroke="var(--color-revenue)" stackId="a" />
-              {/* <ChartLegend content={<ChartLegendContent />} /> */}
             </AreaChart>
           )}
         </ChartContainer>
