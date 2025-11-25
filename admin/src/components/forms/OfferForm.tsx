@@ -425,6 +425,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                         <SelectItem value="pt">🇧🇷 Português</SelectItem>
                         <SelectItem value="en">🇺🇸 English</SelectItem>
                         <SelectItem value="fr">🇫🇷 Français</SelectItem>
+                        <SelectItem value="es">🇪🇸 Español</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -527,8 +528,8 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <MoneyInput form={form} name="mainProduct.priceInCents" label="Preço" placeholder="0,00" />
-              <MoneyInput form={form} name="mainProduct.compareAtPriceInCents" label="Preço antigo" placeholder="0,00" />
+              <MoneyInput form={form} name="mainProduct.priceInCents" label="Preço" placeholder="0,00" currency={form.watch("currency")} />
+              <MoneyInput form={form} name="mainProduct.compareAtPriceInCents" label="Preço antigo" placeholder="0,00" currency={form.watch("currency")} />
             </div>
 
             <CustomIdInput name="mainProduct.customId" />
@@ -595,7 +596,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                       </FormItem>
                     )}
                   />
-                  <MoneyInput form={form} name={`orderBumps.${index}.priceInCents`} label="Preço" placeholder="0,00" />
+                  <MoneyInput form={form} name={`orderBumps.${index}.priceInCents`} label="Preço" placeholder="0,00" currency={form.watch("currency")} />
                 </div>
 
                 <FormField
@@ -611,6 +612,21 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={form.control}
+                  name={`orderBumps.${index}.description`}
+                  render={({ field }: any) => (
+                    <FormItem>
+                      <FormLabel>Descrição</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: Aprenda técnicas avançadas com este ebook exclusivo" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <CustomIdInput name={`orderBumps.${index}.customId`} />
                 <FormField
                   control={form.control}
@@ -679,7 +695,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   )}
                 />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <MoneyInput form={form} name="upsell.price" label="Preço" placeholder="0,00" />
+                  <MoneyInput form={form} name="upsell.price" label="Preço" placeholder="0,00" currency={form.watch("currency")} />
                   <FormField
                     control={form.control}
                     name="upsell.redirectUrl"

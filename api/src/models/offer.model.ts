@@ -128,7 +128,7 @@ const offerSchema = new Schema<IOffer>(
     language: {
       type: String,
       required: true,
-      enum: ["pt", "en", "fr"],
+      enum: ["pt", "en", "fr", "es"],
       default: "pt",
     },
     collectAddress: {
