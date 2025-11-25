@@ -10,7 +10,7 @@ import { getStripeAccountId } from "../helper/getStripeAccountId";
 
 export const handleCreatePaymentIntent = async (req: Request, res: Response) => {
   try {
-    const { offerSlug, selectedOrderBumps, quantity, contactInfo, metadata } = req.body;
+    const { offerSlug, selectedOrderBumps, quantity, contactInfo, addressInfo, metadata } = req.body;
 
     const offer = await Offer.findOne({ slug: offerSlug });
     if (!offer) {
@@ -34,6 +34,19 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
           offerSlug,
           selectedOrderBumps: JSON.stringify(selectedOrderBumps || []),
           customerEmail: contactInfo.email,
+          customerName: contactInfo.name,
+          customerPhone: contactInfo.phone || "",
+          // Adiciona dados de endereço se disponíveis
+          ...(addressInfo && {
+            addressZipCode: addressInfo.zipCode || "",
+            addressStreet: addressInfo.street || "",
+            addressNumber: addressInfo.number || "",
+            addressComplement: addressInfo.complement || "",
+            addressNeighborhood: addressInfo.neighborhood || "",
+            addressCity: addressInfo.city || "",
+            addressState: addressInfo.state || "",
+            addressCountry: addressInfo.country || "",
+          }),
           ...metadata,
         },
       },

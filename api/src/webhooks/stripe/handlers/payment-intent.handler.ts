@@ -156,7 +156,38 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
         const fbc = metadata.fbc;
         const fbp = metadata.fbp;
 
-        const userData = createFacebookUserData(clientIp, userAgent, finalCustomerEmail, metadata.customerPhone, finalCustomerName, fbc, fbp);
+        // Dados de endereço (quando disponíveis)
+        const city = metadata.addressCity;
+        const state = metadata.addressState;
+        const zipCode = metadata.addressZipCode;
+        const country = metadata.addressCountry;
+
+        // Cria user_data com TODOS os dados disponíveis
+        const userData = createFacebookUserData(
+          clientIp,
+          userAgent,
+          finalCustomerEmail,
+          customerPhone || metadata.customerPhone,
+          finalCustomerName,
+          fbc,
+          fbp,
+          city,
+          state,
+          zipCode,
+          country
+        );
+
+        console.log(`🔵 Enviando evento Facebook Purchase com dados completos:`, {
+          hasEmail: !!userData.em,
+          hasPhone: !!userData.ph,
+          hasName: !!(userData.fn && userData.ln),
+          hasFbc: !!userData.fbc,
+          hasFbp: !!userData.fbp,
+          hasCity: !!userData.ct,
+          hasState: !!userData.st,
+          hasZipCode: !!userData.zp,
+          hasCountry: !!userData.country,
+        });
 
         // Envia sem await bloqueante se preferir, ou com await protegido
         await sendFacebookEvent(offer.facebookPixelId, offer.facebookAccessToken, {

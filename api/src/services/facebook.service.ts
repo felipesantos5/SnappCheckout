@@ -12,6 +12,7 @@ interface FacebookUserData {
   ln?: string; // Last Name (hashed)
   ct?: string; // City (hashed)
   st?: string; // State (hashed)
+  zp?: string; // Zip Code (hashed)
   country?: string; // Country (hashed)
 }
 
@@ -61,7 +62,7 @@ export const sendFacebookEvent = async (pixelId: string, accessToken: string, pa
 };
 
 /**
- * Helper para criar o objeto user_data básico
+ * Helper para criar o objeto user_data completo com todos os dados disponíveis
  */
 export const createFacebookUserData = (
   ip: string,
@@ -69,25 +70,38 @@ export const createFacebookUserData = (
   email?: string,
   phone?: string,
   name?: string,
-  fbc?: string, // Novo
-  fbp?: string
+  fbc?: string,
+  fbp?: string,
+  city?: string,
+  state?: string,
+  zipCode?: string,
+  country?: string
 ): FacebookUserData => {
   const userData: FacebookUserData = {
     client_ip_address: ip,
     client_user_agent: userAgent,
   };
 
+  // Dados de identificação pessoal (hashados)
   if (email) userData.em = hashData(email);
   if (phone) userData.ph = hashData(phone.replace(/\D/g, "")); // Remove não-números antes do hash
 
+  // Nome (separado em primeiro e último)
   if (name) {
     const names = name.trim().split(" ");
     if (names.length > 0) userData.fn = hashData(names[0]);
     if (names.length > 1) userData.ln = hashData(names[names.length - 1]);
   }
 
+  // Cookies de identificação do Facebook (não hashados)
   if (fbc) userData.fbc = fbc;
   if (fbp) userData.fbp = fbp;
+
+  // Dados de localização (hashados)
+  if (city) userData.ct = hashData(city);
+  if (state) userData.st = hashData(state);
+  if (zipCode) userData.zp = hashData(zipCode.replace(/\D/g, "")); // Remove não-números antes do hash
+  if (country) userData.country = hashData(country);
 
   return userData;
 };

@@ -269,6 +269,20 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
     const phone = phoneInput?.value || "";
     const cardName = cardNameInput?.value || "";
 
+    // Coleta dados de endereço (se collectAddress estiver ativado)
+    const addressData = offerData.collectAddress
+      ? {
+          zipCode: (document.getElementById("address-zipCode") as HTMLInputElement)?.value || "",
+          street: (document.getElementById("address-street") as HTMLInputElement)?.value || "",
+          number: (document.getElementById("address-number") as HTMLInputElement)?.value || "",
+          complement: (document.getElementById("address-complement") as HTMLInputElement)?.value || "",
+          neighborhood: (document.getElementById("address-neighborhood") as HTMLInputElement)?.value || "",
+          city: (document.getElementById("address-city") as HTMLInputElement)?.value || "",
+          state: (document.getElementById("address-state") as HTMLInputElement)?.value || "",
+          country: (document.getElementById("address-country") as HTMLInputElement)?.value || "",
+        }
+      : null;
+
     // Validações básicas
     if (!email || !fullName) {
       setErrorMessage("Preencha todos os campos obrigatórios.");
@@ -297,6 +311,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData }) => {
         offerSlug: offerData.slug,
         selectedOrderBumps: selectedBumps,
         contactInfo: { email, name: fullName, phone },
+        addressInfo: addressData,
         metadata: { ...utmData, ip: clientIp, userAgent: navigator.userAgent, fbc: fbCookies.fbc, fbp: fbCookies.fbp },
       };
 
