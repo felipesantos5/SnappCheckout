@@ -402,6 +402,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                       <SelectContent>
                         <SelectItem value="BRL">BRL (Real Brasileiro)</SelectItem>
                         <SelectItem value="USD">USD (Dólar Americano)</SelectItem>
+                        <SelectItem value="EUR">EUR (Euro)</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -424,7 +425,12 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                       <SelectContent>
                         <SelectItem value="pt">🇧🇷 Português</SelectItem>
                         <SelectItem value="en">🇺🇸 English</SelectItem>
-                        <SelectItem value="fr">🇫🇷 Français</SelectItem>
+                        <SelectItem value="fr">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg leading-none">🇫🇷</span>
+                            <span>Français</span>
+                          </div>
+                        </SelectItem>
                         <SelectItem value="es">🇪🇸 Español</SelectItem>
                       </SelectContent>
                     </Select>
@@ -529,7 +535,13 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <MoneyInput form={form} name="mainProduct.priceInCents" label="Preço" placeholder="0,00" currency={form.watch("currency")} />
-              <MoneyInput form={form} name="mainProduct.compareAtPriceInCents" label="Preço antigo" placeholder="0,00" currency={form.watch("currency")} />
+              <MoneyInput
+                form={form}
+                name="mainProduct.compareAtPriceInCents"
+                label="Preço antigo"
+                placeholder="0,00"
+                currency={form.watch("currency")}
+              />
             </div>
 
             <CustomIdInput name="mainProduct.customId" />
@@ -596,7 +608,13 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                       </FormItem>
                     )}
                   />
-                  <MoneyInput form={form} name={`orderBumps.${index}.priceInCents`} label="Preço" placeholder="0,00" currency={form.watch("currency")} />
+                  <MoneyInput
+                    form={form}
+                    name={`orderBumps.${index}.priceInCents`}
+                    label="Preço"
+                    placeholder="0,00"
+                    currency={form.watch("currency")}
+                  />
                 </div>
 
                 <FormField

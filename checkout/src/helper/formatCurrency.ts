@@ -1,18 +1,18 @@
 export const formatCurrency = (amountInCents: number, currency: string) => {
   const amount = amountInCents / 100;
 
-  // USD usa formato americano (ponto como decimal)
-  if (currency === "USD") {
-    const formatted = new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
-    return formatted; // $10.50
-  }
+  // Mapeamento de moedas para locales apropriados
+  const localeMap: Record<string, string> = {
+    BRL: "pt-BR",
+    USD: "en-US",
+    EUR: "de-DE", // Formato europeu: 10,50 €
+    GBP: "en-GB",
+  };
 
-  // Outras moedas usam formato brasileiro (vírgula como decimal)
-  return new Intl.NumberFormat("pt-BR", {
+  const locale = localeMap[currency.toUpperCase()] || "pt-BR";
+
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: currency,
+    currency: currency.toUpperCase(),
   }).format(amount);
 };
