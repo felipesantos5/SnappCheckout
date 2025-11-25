@@ -161,7 +161,7 @@ export default function OfferAnalyticsPage() {
               )}
             </div>
 
-            <Button variant="outline" onClick={() => window.open(`http://localhost:5173/${data.slug}`, "_blank")}>
+            <Button variant="outline" onClick={() => window.open(`https://pay.snappcheckout.com/c/${data.slug}`, "_blank")}>
               Ver Página
             </Button>
           </div>
