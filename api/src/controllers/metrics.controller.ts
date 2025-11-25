@@ -182,17 +182,34 @@ export const handleGetOffersRevenue = async (req: Request, res: Response) => {
   try {
     const ownerId = req.userId!;
 
-    // Buscar todas as vendas com moeda e oferta
-    const sales = await Sale.find({
+    // Filtros via query params
+    const days = parseInt(req.query.days as string) || 30; // Padrão: 30 dias
+    const filterOfferId = req.query.offerId as string | undefined;
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    // Construir query com filtros
+    const salesQuery: any = {
       ownerId: new mongoose.Types.ObjectId(ownerId),
       status: "succeeded",
-    })
+      createdAt: { $gte: startDate },
+    };
+
+    // Filtrar por oferta se especificado
+    if (filterOfferId && filterOfferId !== "all") {
+      salesQuery.offerId = new mongoose.Types.ObjectId(filterOfferId);
+    }
+
+    // Buscar vendas com moeda e oferta (aplicando filtros)
+    const sales = await Sale.find(salesQuery)
       .select("totalAmountInCents currency offerId")
       .populate("offerId", "name")
       .lean();
 
     // Agrupar por oferta e converter para BRL
-    const offerRevenueMap = new Map<string, { offerName: string; revenue: number }>();
+    const offerRevenueMap = new Map<string, { offerName: string; revenue: number; salesCount: number }>();
 
     for (const sale of sales) {
       const offerId = (sale.offerId as any)?._id?.toString();
@@ -202,8 +219,9 @@ export const handleGetOffersRevenue = async (req: Request, res: Response) => {
 
       const revenueInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
 
-      const existing = offerRevenueMap.get(offerId) || { offerName, revenue: 0 };
+      const existing = offerRevenueMap.get(offerId) || { offerName, revenue: 0, salesCount: 0 };
       existing.revenue += revenueInBRL;
+      existing.salesCount += 1;
       offerRevenueMap.set(offerId, existing);
     }
 
@@ -213,6 +231,7 @@ export const handleGetOffersRevenue = async (req: Request, res: Response) => {
         _id: offerId,
         offerName: data.offerName,
         revenue: data.revenue,
+        salesCount: data.salesCount,
       }))
       .sort((a, b) => b.revenue - a.revenue);
 
@@ -227,21 +246,44 @@ export const handleGetOffersRevenue = async (req: Request, res: Response) => {
 export const handleGetDashboardOverview = async (req: Request, res: Response) => {
   try {
     const ownerId = req.userId!;
-    const days = 30;
+
+    // Filtros via query params
+    const days = parseInt(req.query.days as string) || 30; // Padrão: 30 dias
+    const filterOfferId = req.query.offerId as string | undefined;
 
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     startDate.setHours(0, 0, 0, 0);
 
-    // 1. IDs das ofertas
-    const myOffers = await Offer.find({ ownerId }, "_id");
-    const offerIds = myOffers.map((o) => o._id);
+    // 1. IDs das ofertas (filtrar por oferta específica se fornecido)
+    let offerIds: any[];
 
-    // 2. Buscar todas as vendas com moeda para conversão
-    const allSales = await Sale.find({
+    if (filterOfferId && filterOfferId !== "all") {
+      // Filtrar por oferta específica
+      const offer = await Offer.findOne({ _id: filterOfferId, ownerId }, "_id");
+      if (!offer) {
+        return res.status(404).json({ error: "Oferta não encontrada" });
+      }
+      offerIds = [offer._id];
+    } else {
+      // Todas as ofertas do usuário
+      const myOffers = await Offer.find({ ownerId }, "_id");
+      offerIds = myOffers.map((o) => o._id);
+    }
+
+    // 2. Buscar todas as vendas com moeda para conversão (aplicar filtros)
+    const salesQuery: any = {
       ownerId: new mongoose.Types.ObjectId(ownerId),
       status: "succeeded",
-    }).lean();
+      createdAt: { $gte: startDate },
+    };
+
+    // Filtrar por oferta se especificado
+    if (filterOfferId && filterOfferId !== "all") {
+      salesQuery.offerId = new mongoose.Types.ObjectId(filterOfferId);
+    }
+
+    const allSales = await Sale.find(salesQuery).lean();
 
     // 3. Converter e calcular totais
     let totalRevenueInBRL = 0;
@@ -269,20 +311,17 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
 
     const averageTicket = totalSales > 0 ? totalRevenueInBRL / totalSales : 0;
 
-    // Cálculo da Taxa de Conversão
+    // Cálculo da Taxa de Conversão (aplicar filtro de data)
     const totalVisitors = await CheckoutMetric.countDocuments({
       offerId: { $in: offerIds },
       type: "view",
+      createdAt: { $gte: startDate },
     });
 
     const conversionRate = totalVisitors > 0 ? (totalSales / totalVisitors) * 100 : 0;
 
-    // 4. Gráficos (Histórico de 30 dias) - Buscar vendas por dia e converter
-    const salesByDate = await Sale.find({
-      ownerId: new mongoose.Types.ObjectId(ownerId),
-      status: "succeeded",
-      createdAt: { $gte: startDate },
-    })
+    // 4. Gráficos (Histórico) - Buscar vendas por dia e converter (já aplicado filtro)
+    const salesByDate = await Sale.find(salesQuery)
       .select("totalAmountInCents currency createdAt")
       .lean();
 

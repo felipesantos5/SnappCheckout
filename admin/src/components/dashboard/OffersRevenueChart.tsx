@@ -131,8 +131,8 @@ export function OffersRevenueChart() {
       {/* --- RODAPÉ DESCOMENTADO --- */}
       {topOffer && (
         <CardFooter className="flex-col gap-2 text-sm pt-4">
-          <div className="flex items-center gap-2 leading-none font-medium">Campeã: {topOffer.offerName}</div>
-          <div className="text-muted-foreground leading-none">Representa a maior fatia do seu faturamento.</div>
+          {/* <div className="flex items-center gap-2 leading-none font-medium">Campeã: {topOffer.offerName}</div>
+          <div className="text-muted-foreground leading-none">Representa a maior fatia do seu faturamento.</div> */}
         </CardFooter>
       )}
     </Card>
