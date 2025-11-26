@@ -43,6 +43,7 @@ interface ApiOfferData {
   utmfyWebhookUrls?: string[];
   facebookPixelId?: string;
   facebookAccessToken?: string;
+  facebookPixels?: Array<{ pixelId: string; accessToken: string }>;
   upsell?: {
     enabled: boolean;
     name: string;
@@ -77,6 +78,7 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
     utmfyWebhookUrls: data.utmfyWebhookUrls || [],
     facebookPixelId: data.facebookPixelId || "",
     facebookAccessToken: data.facebookAccessToken || "",
+    facebookPixels: data.facebookPixels || [],
     // --- NOVO: Mapear Membership Webhook ---
     membershipWebhook: data.membershipWebhook
       ? {

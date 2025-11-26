@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import CheckoutPage from "./CheckoutPage";
 import { getContrast } from "polished";
@@ -22,7 +22,8 @@ export interface OfferData {
   currency: string;
   primaryColor: string;
   buttonColor: string;
-  facebookPixelId?: string;
+  facebookPixelId?: string; // Mantido para retrocompatibilidade
+  facebookPixels?: Array<{ pixelId: string; accessToken: string }>; // Novo: array de pixels
   mainProduct: {
     _id: string;
     name: string;
@@ -76,8 +77,27 @@ export function CheckoutSlugPage() {
     })()
   ).current;
 
-  // Carrega o Facebook Pixel se o pixelId estiver configurado
-  const { generateEventId } = useFacebookPixel(offerData?.facebookPixelId);
+  // Carrega os Facebook Pixels se estiverem configurados
+  // Coleta todos os IDs (novo array + campo antigo para retrocompatibilidade)
+  const pixelIds = React.useMemo(() => {
+    if (!offerData) return [];
+
+    const pixels: string[] = [];
+
+    // Adiciona pixels do novo array
+    if (offerData.facebookPixels && offerData.facebookPixels.length > 0) {
+      pixels.push(...offerData.facebookPixels.map(p => p.pixelId));
+    }
+
+    // Adiciona pixel antigo se existir e não estiver no array novo (retrocompatibilidade)
+    if (offerData.facebookPixelId && !pixels.includes(offerData.facebookPixelId)) {
+      pixels.push(offerData.facebookPixelId);
+    }
+
+    return pixels;
+  }, [offerData]);
+
+  const { generateEventId } = useFacebookPixel(pixelIds);
 
   useEffect(() => {
     if (!slug) return;

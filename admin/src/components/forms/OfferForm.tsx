@@ -190,6 +190,11 @@ const colorSchema = z
   .optional()
   .or(z.literal(""));
 
+const facebookPixelSchema = z.object({
+  pixelId: z.string().min(1, { message: "Pixel ID é obrigatório." }),
+  accessToken: z.string().min(1, { message: "Token de acesso é obrigatório." }),
+});
+
 const offerFormSchema = z.object({
   name: z.string().min(3, { message: "Nome do link é obrigatório." }),
   bannerImageUrl: optionalUrl,
@@ -203,8 +208,9 @@ const offerFormSchema = z.object({
   mainProduct: productSchema,
   utmfyWebhookUrl: optionalUrl, // Mantido para retrocompatibilidade
   utmfyWebhookUrls: z.array(z.string().url({ message: "URL inválida." }).or(z.literal(""))).optional(),
-  facebookPixelId: z.string().optional(),
-  facebookAccessToken: z.string().optional(),
+  facebookPixelId: z.string().optional(), // Mantido para retrocompatibilidade
+  facebookAccessToken: z.string().optional(), // Mantido para retrocompatibilidade
+  facebookPixels: z.array(facebookPixelSchema).optional(),
   upsell: upsellSchema,
   membershipWebhook: membershipWebhookSchema,
   orderBumps: z.array(productSchema).optional(),
@@ -237,6 +243,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
       utmfyWebhookUrls: [],
       facebookPixelId: "",
       facebookAccessToken: "",
+      facebookPixels: [],
       upsell: {
         enabled: false,
         name: "",
@@ -274,6 +281,15 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
     name: "utmfyWebhookUrls" as "orderBumps", // Type assertion para contornar limitação do react-hook-form
   });
 
+  const {
+    fields: facebookPixelFields,
+    append: appendFacebookPixel,
+    remove: removeFacebookPixel,
+  } = useFieldArray({
+    control: form.control,
+    name: "facebookPixels" as "orderBumps", // Type assertion para contornar limitação do react-hook-form
+  });
+
   async function onSubmit(values: OfferFormData) {
     setIsLoading(true);
 
@@ -297,7 +313,11 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
           price: data.upsell?.price ? Math.round(data.upsell.price * 100) : 0,
         },
         // Filtrar URLs vazias
-        utmfyWebhookUrls: data.utmfyWebhookUrls?.filter(url => url && url.trim() !== ""),
+        utmfyWebhookUrls: data.utmfyWebhookUrls?.filter((url) => url && url.trim() !== ""),
+        // Filtrar pixels vazios (com pixelId e accessToken válidos)
+        facebookPixels: data.facebookPixels?.filter(
+          (pixel) => pixel.pixelId && pixel.pixelId.trim() !== "" && pixel.accessToken && pixel.accessToken.trim() !== ""
+        ),
       };
     };
 
@@ -764,44 +784,94 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         {/* --- 6. INTEGRAÇÕES --- */}
         <FormSection title="Integrações" icon={<LinkIcon className="w-5 h-5" />} description="Conecte com ferramentas externas (Webhooks).">
           <div className="space-y-6">
-            {/* --- BLOCO FACEBOOK --- */}
-            <div className="p-4 border rounded-md space-y-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">FACEBOOK</div>
-                <h4 className="font-medium text-sm">API de Conversões (CAPI)</h4>
+            {/* --- BLOCO FACEBOOK - Múltiplos Pixels --- */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">FACEBOOK</div>
+                    <h4 className="font-medium text-sm">API de Conversões (CAPI)</h4>
+                  </div>
+                  <FormDescription className="mt-1">Adicione múltiplos pixels do Facebook (pode adicionar múltiplos).</FormDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => appendFacebookPixel({ pixelId: "", accessToken: "" } as any)}
+                  className="gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Adicionar Pixel
+                </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="facebookPixelId"
-                  render={({ field }: any) => (
-                    <FormItem>
-                      <FormLabel>ID do Pixel</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: 1234567890" {...field} value={field.value || ""} />
-                      </FormControl>
-                      <FormDescription className="text-xs">ㅤ</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="facebookAccessToken"
-                  render={({ field }: any) => (
-                    <FormItem>
-                      <FormLabel>Token de Acesso (Sistema/API)</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="EAAB..." {...field} value={field.value || ""} />
-                      </FormControl>
-                      <FormDescription className="text-xs">Gerado no Gerenciador de Negócios.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              {facebookPixelFields.map((field, index) => (
+                <div key={field.id} className="p-4 border rounded-md space-y-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Pixel #{index + 1}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeFacebookPixel(index)}
+                      className="shrink-0 text-destructive hover:text-destructive h-8 w-8"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name={`facebookPixels.${index}.pixelId` as any}
+                      render={({ field }: any) => (
+                        <FormItem>
+                          <FormLabel>ID do Pixel</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: 1234567890" {...field} />
+                          </FormControl>
+                          {/* nao revemor esse formdescription */}
+                          <FormDescription className="text-xs">ㅤ</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`facebookPixels.${index}.accessToken` as any}
+                      render={({ field }: any) => (
+                        <FormItem>
+                          <FormLabel>Token de Acesso</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="EAAB..." {...field} />
+                          </FormControl>
+                          <FormDescription className="text-xs">Gerado no Gerenciador de Negócios.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              ))}
+
+              {facebookPixelFields.length === 0 && (
+                <div className="text-center py-8 border-2 border-dashed rounded-lg bg-muted/20">
+                  <p className="text-sm text-muted-foreground mb-2">Nenhum pixel do Facebook configurado</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => appendFacebookPixel({ pixelId: "", accessToken: "" } as any)}
+                    className="gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Adicionar primeiro pixel
+                  </Button>
+                </div>
+              )}
             </div>
+
+            <Separator />
             {/* Webhooks UTMfy - Múltiplas URLs */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -809,13 +879,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   <FormLabel>Webhooks UTMfy</FormLabel>
                   <FormDescription className="mt-1">URLs para enviar eventos de venda (pode adicionar múltiplas).</FormDescription>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => appendUtmfyUrl("" as any)}
-                  className="gap-2"
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => appendUtmfyUrl("" as any)} className="gap-2">
                   <Plus className="w-4 h-4" />
                   Adicionar URL
                 </Button>
@@ -850,13 +914,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
               {utmfyUrlFields.length === 0 && (
                 <div className="text-center py-8 border-2 border-dashed rounded-lg bg-muted/20">
                   <p className="text-sm text-muted-foreground mb-2">Nenhuma URL de webhook configurada</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => appendUtmfyUrl("" as any)}
-                    className="gap-2"
-                  >
+                  <Button type="button" variant="outline" size="sm" onClick={() => appendUtmfyUrl("" as any)} className="gap-2">
                     <Plus className="w-4 h-4" />
                     Adicionar primeira URL
                   </Button>

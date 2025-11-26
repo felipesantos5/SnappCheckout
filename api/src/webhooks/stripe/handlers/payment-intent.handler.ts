@@ -148,7 +148,26 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     // A: FACEBOOK CAPI (PURCHASE) - BLINDADO COM TRY/CATCH
     // Se der erro aqui, NÃO trava o resto do código
     try {
+      // Coletar todos os pixels (novo array + campos antigos para retrocompatibilidade)
+      const pixels: Array<{ pixelId: string; accessToken: string }> = [];
+
+      // Adiciona pixels do novo array
+      if (offer.facebookPixels && offer.facebookPixels.length > 0) {
+        pixels.push(...offer.facebookPixels);
+      }
+
+      // Adiciona pixel antigo se existir e não estiver no array novo (retrocompatibilidade)
       if (offer.facebookPixelId && offer.facebookAccessToken) {
+        const alreadyExists = pixels.some(p => p.pixelId === offer.facebookPixelId);
+        if (!alreadyExists) {
+          pixels.push({
+            pixelId: offer.facebookPixelId,
+            accessToken: offer.facebookAccessToken,
+          });
+        }
+      }
+
+      if (pixels.length > 0) {
         const totalValue = paymentIntent.amount / 100; // Stripe usa centavos
 
         // Dados do Metadata (vindos do frontend)
@@ -177,7 +196,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
           country
         );
 
-        console.log(`🔵 Enviando evento Facebook Purchase com dados completos:`, {
+        console.log(`🔵 Enviando evento Facebook Purchase para ${pixels.length} pixel(s) com dados completos:`, {
           hasEmail: !!userData.em,
           hasPhone: !!userData.ph,
           hasName: !!(userData.fn && userData.ln),
@@ -191,12 +210,11 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
           eventId: metadata.purchaseEventId,
         });
 
-        // Envia evento Purchase para CAPI com event_id para deduplicação
-        await sendFacebookEvent(offer.facebookPixelId, offer.facebookAccessToken, {
-          event_name: "Purchase",
+        const eventData = {
+          event_name: "Purchase" as const,
           event_time: Math.floor(Date.now() / 1000),
           event_id: metadata.purchaseEventId, // event_id do frontend para deduplicação
-          action_source: "website",
+          action_source: "website" as const,
           user_data: userData,
           custom_data: {
             currency: offer.currency || "BRL",
@@ -205,7 +223,12 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
             content_ids: items.map((i) => i._id || i.customId || "unknown"),
             content_type: "product",
           },
-        });
+        };
+
+        // Envia evento Purchase para todos os pixels em paralelo
+        await Promise.all(
+          pixels.map(pixel => sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventData))
+        );
       }
     } catch (fbError: any) {
       console.error("⚠️ Falha no envio ao Facebook (Venda salva normalmente):", fbError.message);

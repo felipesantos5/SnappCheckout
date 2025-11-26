@@ -37,8 +37,9 @@ export interface IOffer extends Document {
   primaryColor: string;
   buttonColor: string;
 
-  facebookPixelId?: string;
-  facebookAccessToken?: string;
+  facebookPixelId?: string; // Mantido para retrocompatibilidade
+  facebookAccessToken?: string; // Mantido para retrocompatibilidade
+  facebookPixels?: Array<{ pixelId: string; accessToken: string }>; // Novo: array de pixels
 
   utmfyWebhookUrl?: string; // Mantido para retrocompatibilidade
   utmfyWebhookUrls?: string[]; // Novo: array de URLs
@@ -93,6 +94,15 @@ const offerSchema = new Schema<IOffer>(
       type: String,
       default: "",
       trim: true,
+    },
+    facebookPixels: {
+      type: [
+        {
+          pixelId: { type: String, required: true },
+          accessToken: { type: String, required: true },
+        },
+      ],
+      default: [],
     },
     utmfyWebhookUrl: {
       type: String,
