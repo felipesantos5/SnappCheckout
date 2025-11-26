@@ -1,4 +1,4 @@
-import { ChartNoAxesCombined, ShoppingBasket, User, ChartColumnIncreasing } from "lucide-react";
+import { ChartNoAxesCombined, ShoppingBasket, User, ChartColumnIncreasing, Moon, Sun } from "lucide-react";
 import logo from "../assets/logo.png";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -15,6 +15,7 @@ import {
   SidebarMenuItem,
 } from "./ui/sidebar";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 import { RevenueCard } from "./RevenueCard";
 import {
   DropdownMenu,
@@ -63,6 +64,7 @@ const items = [
 
 function UserMenu() {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <DropdownMenu>
@@ -85,11 +87,27 @@ function UserMenu() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        {/* 3. O Botão de Logout */}
+        {/* Botão de Dark Mode */}
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault();
-            logout(); // 4. Chame a função de logout do contexto
+            toggleTheme();
+          }}
+          className="cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
+            {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            <span>{theme === "light" ? "Dark Mode" : "Light Mode"}</span>
+          </div>
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
+        {/* Botão de Logout */}
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault();
+            logout();
           }}
           className="cursor-pointer"
         >

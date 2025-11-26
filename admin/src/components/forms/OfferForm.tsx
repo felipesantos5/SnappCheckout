@@ -37,10 +37,7 @@ const FormSection = ({ title, icon, description, children, defaultOpen = false, 
 
   return (
     <Card className="w-full overflow-hidden border shadow-sm">
-      <div
-        className="flex items-center justify-between p-4 cursor-pointer bg-card hover:bg-accent/5 transition-colors"
-        onClick={() => setIsOpen(!isOpen)}
-      >
+      <div className="flex items-center justify-between p-4 cursor-pointer bg-card transition-colors" onClick={() => setIsOpen(!isOpen)}>
         <div className="flex items-center gap-3">
           {icon && <div className="text-primary">{icon}</div>}
           <div className="space-y-1">
@@ -517,7 +514,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                 control={form.control}
                 name="collectAddress"
                 render={({ field }: any) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-white">
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-card">
                     <FormControl>
                       <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
@@ -532,7 +529,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                 control={form.control}
                 name="collectPhone"
                 render={({ field }: any) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-white">
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-card">
                     <FormControl>
                       <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
@@ -611,7 +608,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
             )}
 
             {fields.map((field: any, index: number) => (
-              <div key={field.id} className="p-4 rounded-lg border bg-white relative space-y-4">
+              <div key={field.id} className="p-4 rounded-lg border bg-card relative space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium flex items-center gap-2">
                     <div className="bg-primary/10 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
@@ -726,7 +723,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
               control={form.control}
               name="upsell.enabled"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-white">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-card">
                   <div className="space-y-0.5">
                     <FormLabel className="text-base">Habilitar Upsell</FormLabel>
                     <FormDescription>O cliente será redirecionado para esta oferta APÓS pagar.</FormDescription>

@@ -111,7 +111,7 @@ export function SalesHistoryTable({ offerId }: SalesHistoryTableProps) {
     }
 
     return (
-      <Badge variant="outline" className="text-gray-600">
+      <Badge variant="outline" className="text-muted-foreground">
         <ShoppingBag className="w-3 h-3 mr-1" /> Venda
       </Badge>
     );
@@ -152,9 +152,9 @@ export function SalesHistoryTable({ offerId }: SalesHistoryTableProps) {
                   <TableRow key={sale._id}>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium text-gray-900">{sale.customerName}</span>
+                        <span className="font-medium text-foreground">{sale.customerName}</span>
                         <div className="flex items-center mt-1 text-xs text-muted-foreground gap-2">
-                          <span className="flex items-center bg-gray-100 px-1.5 py-0.5 rounded">
+                          <span className="flex items-center bg-muted px-1.5 py-0.5 rounded">
                             <CountryFlag countryCode={sale.country} />
                             {sale.ip || "IP Oculto"}
                           </span>
@@ -163,7 +163,7 @@ export function SalesHistoryTable({ offerId }: SalesHistoryTableProps) {
                       </div>
                     </TableCell>
                     <TableCell>{getSaleTypeIcon(sale)}</TableCell>
-                    <TableCell className="text-sm text-gray-600">{formatDate(sale.createdAt)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDate(sale.createdAt)}</TableCell>
                     <TableCell className="text-right font-semibold text-green-700">{formatCurrency(sale.totalAmountInCents, sale.currency)}</TableCell>
                   </TableRow>
                 ))

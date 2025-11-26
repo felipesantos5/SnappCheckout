@@ -102,7 +102,7 @@ export function RecentSalesTable() {
       <CardHeader className="pb-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <CardTitle className="text-xl font-bold text-gray-800">Vendas Recentes</CardTitle>
+            <CardTitle className="text-xl font-bold text-foreground">Vendas Recentes</CardTitle>
             <CardDescription>Gerencie suas transações e acompanhe o desempenho.</CardDescription>
           </div>
 
@@ -159,7 +159,7 @@ export function RecentSalesTable() {
       <CardContent>
         <div className="rounded-lg border overflow-hidden">
           <Table>
-            <TableHeader className="bg-gray-50">
+            <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Data</TableHead>
                 <TableHead>Cliente</TableHead>
@@ -189,12 +189,12 @@ export function RecentSalesTable() {
                   const itemsCount = sale.items.length;
 
                   return (
-                    <TableRow key={sale._id} className="hover:bg-gray-50 transition-colors">
-                      <TableCell className="whitespace-nowrap text-gray-600">{formatDate(sale.createdAt)}</TableCell>
+                    <TableRow key={sale._id} className="hover:bg-muted/50 transition-colors">
+                      <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(sale.createdAt)}</TableCell>
 
                       <TableCell>
-                        <div className="font-medium text-gray-900">{sale.customerName}</div>
-                        <div className="text-xs text-gray-500">{sale.customerEmail}</div>
+                        <div className="font-medium text-foreground">{sale.customerName}</div>
+                        <div className="text-xs text-muted-foreground">{sale.customerEmail}</div>
                       </TableCell>
 
                       <TableCell>
@@ -207,29 +207,29 @@ export function RecentSalesTable() {
                               {sale.offerId.name}
                             </Link>
                           ) : (
-                            <span className="text-gray-400 italic">Oferta Removida</span>
+                            <span className="text-muted-foreground italic">Oferta Removida</span>
                           )}
 
                           {/* Detalhes dos Itens via Popover/Tooltip Simples */}
-                          <div className="text-xs text-gray-500 flex items-center gap-1">
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
                             <ShoppingBag className="h-3 w-3" />
                             {itemsCount} {itemsCount === 1 ? "item" : "itens"}
                             <Popover>
                               <PopoverTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-5 w-5 ml-1 rounded-full hover:bg-gray-200">
-                                  <Info className="h-3 w-3 text-gray-500" />
+                                <Button variant="ghost" size="icon" className="h-5 w-5 ml-1 rounded-full hover:bg-muted">
+                                  <Info className="h-3 w-3 text-muted-foreground" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-80 bg-white p-3 shadow-xl">
+                              <PopoverContent className="w-80 bg-popover p-3 shadow-xl">
                                 <div className="space-y-2">
                                   <h4 className="font-semibold text-sm border-b pb-1">Resumo do Pedido</h4>
                                   {sale.items.map((item, idx) => (
                                     <div key={idx} className="flex justify-between text-sm items-center">
-                                      <span className={item.isOrderBump ? "text-purple-600 font-medium" : "text-gray-700"}>
+                                      <span className={item.isOrderBump ? "text-purple-600 font-medium" : "text-foreground"}>
                                         {item.isOrderBump && <span className="text-xs mr-1">[Bump]</span>}
                                         {item.name}
                                       </span>
-                                      <span className="text-gray-500">{formatCurrency(item.priceInCents, sale.currency)}</span>
+                                      <span className="text-muted-foreground">{formatCurrency(item.priceInCents, sale.currency)}</span>
                                     </div>
                                   ))}
                                   <div className="flex justify-between font-bold text-sm pt-2 border-t mt-2">
@@ -264,7 +264,7 @@ export function RecentSalesTable() {
 
                           {/* TAG PADRÃO (Só aparece se não for upsell nem bump) */}
                           {!hasOrderBump && !sale.isUpsell && (
-                            <Badge variant="secondary" className="text-[10px] h-5 bg-gray-100 text-gray-600">
+                            <Badge variant="secondary" className="text-[10px] h-5">
                               Padrão
                             </Badge>
                           )}
@@ -285,7 +285,7 @@ export function RecentSalesTable() {
                         </Badge>
                       </TableCell>
 
-                      <TableCell className="text-right font-bold text-gray-800">{formatCurrency(sale.totalAmountInCents, sale.currency)}</TableCell>
+                      <TableCell className="text-right font-bold text-foreground">{formatCurrency(sale.totalAmountInCents, sale.currency)}</TableCell>
                     </TableRow>
                   );
                 })
@@ -297,7 +297,7 @@ export function RecentSalesTable() {
         {/* Paginação */}
         {filteredSales.length > 0 && totalPages > 1 && (
           <div className="flex items-center justify-between mt-4 border-t pt-4">
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-muted-foreground">
               Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredSales.length)} de {filteredSales.length}
             </div>
             <div className="flex gap-2">

@@ -46,7 +46,7 @@ export function RevenueCard({ currentRevenue, goalRevenue = 10000000 }: RevenueC
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-gray-700">Faturamento</h3>
+            <h3 className="text-sm font-semibold text-foreground">Faturamento</h3>
           </div>
         </div>
 
@@ -57,7 +57,7 @@ export function RevenueCard({ currentRevenue, goalRevenue = 10000000 }: RevenueC
               {formatCompact(currentRevenueInReais)}
             </span>
             {/* <span className="text-sm font-medium text-gray-500">/ {goalRevenueInReais}</span> */}
-            <span className="text-sm font-medium text-gray-500">/ R$ 100K</span>
+            <span className="text-sm font-medium text-muted-foreground">/ R$ 100K</span>
           </div>
         </div>
 
@@ -94,7 +94,9 @@ export function RevenueCard({ currentRevenue, goalRevenue = 10000000 }: RevenueC
 
         {/* Footer hint */}
         <div className="pt-1">
-          <p className="text-xs text-gray-500">{percentage > 100 && <span className="font-semibold text-yellow-600">🎉 Meta atingida!</span>}</p>
+          <p className="text-xs text-muted-foreground">
+            {percentage > 100 && <span className="font-semibold text-yellow-600">🎉 Meta atingida!</span>}
+          </p>
         </div>
       </div>
     </div>
