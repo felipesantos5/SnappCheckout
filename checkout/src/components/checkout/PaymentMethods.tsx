@@ -76,14 +76,13 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMetho
             />
 
             {/* Renderiza o botão OFICIAL do Stripe apenas se selecionado */}
-            {!isDesktop ||
-              (method === "wallet" && (
-                <div className="mt-2 animate-fade-in">
-                  <div className="h-12 w-full">
-                    <PaymentRequestButtonElement options={{ paymentRequest }} className="w-full h-full" />
-                  </div>
+            {method === "wallet" && (
+              <div className="mt-2 animate-fade-in">
+                <div className="h-12 w-full">
+                  <PaymentRequestButtonElement options={{ paymentRequest }} className="w-full h-full" />
                 </div>
-              ))}
+              </div>
+            )}
           </div>
         )}
 

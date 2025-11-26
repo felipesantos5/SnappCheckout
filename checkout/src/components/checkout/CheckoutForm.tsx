@@ -152,17 +152,30 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
       console.log("   - Apple Pay:", result.applePay);
       console.log("   - Google Pay:", result.googlePay);
 
-      // Define o label baseado no que o Stripe confirmou
+      // Detecta plataforma para priorizar corretamente
+      const platform = detectPlatform();
       let label = t.payment.wallet; // Padrão genérico
 
-      if (result.applePay) {
+      // PRIORIZA baseado na plataforma para evitar confusão
+      if (platform === 'ios') {
+        // iPhone/iPad SEMPRE mostra Apple Pay (mesmo que o Stripe reporte as duas)
         label = t.payment.applePay;
-        console.log("🍎 [WALLET] Usando Apple Pay");
-      } else if (result.googlePay) {
+        console.log("🍎 [WALLET] Plataforma iOS - Usando Apple Pay");
+      } else if (platform === 'android') {
+        // Android SEMPRE mostra Google Pay
         label = t.payment.googlePay;
-        console.log("🤖 [WALLET] Usando Google Pay");
+        console.log("🤖 [WALLET] Plataforma Android - Usando Google Pay");
       } else {
-        console.log("💳 [WALLET] Usando label genérico");
+        // Desktop/Outros - usa o que o Stripe reportou
+        if (result.applePay) {
+          label = t.payment.applePay;
+          console.log("🍎 [WALLET] Desktop com Apple Pay disponível");
+        } else if (result.googlePay) {
+          label = t.payment.googlePay;
+          console.log("🤖 [WALLET] Desktop com Google Pay disponível");
+        } else {
+          console.log("💳 [WALLET] Usando label genérico (fallback)");
+        }
       }
 
       // Configura a carteira para uso
