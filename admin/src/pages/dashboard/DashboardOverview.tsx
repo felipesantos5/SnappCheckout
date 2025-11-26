@@ -297,7 +297,7 @@ export function DashboardOverview() {
         {/* Card 8: Aprovação do Checkout */}
         <KpiCard
           title="Aprovação do Checkout"
-          value={`${metrics?.kpis.checkoutApprovalRate.toFixed(1)}%`}
+          value={`${metrics?.kpis.checkoutApprovalRate}%`}
           icon={TrendingUp}
           subtext="Checkout → Compras"
           chartData={metrics?.charts.conversionRate}
