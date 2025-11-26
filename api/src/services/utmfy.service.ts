@@ -179,7 +179,21 @@ export const processUtmfyIntegration = async (
   paymentIntent: Stripe.PaymentIntent,
   metadata: any
 ) => {
-  if (!offer.utmfyWebhookUrl || !offer.utmfyWebhookUrl.startsWith("http")) {
+  // Coletar todas as URLs válidas (novo array + campo antigo para retrocompatibilidade)
+  const webhookUrls: string[] = [];
+
+  // Adiciona URLs do novo array
+  if (offer.utmfyWebhookUrls && offer.utmfyWebhookUrls.length > 0) {
+    webhookUrls.push(...offer.utmfyWebhookUrls.filter(url => url && url.startsWith("http")));
+  }
+
+  // Adiciona URL antiga se existir e não estiver no array novo (retrocompatibilidade)
+  if (offer.utmfyWebhookUrl && offer.utmfyWebhookUrl.startsWith("http") && !webhookUrls.includes(offer.utmfyWebhookUrl)) {
+    webhookUrls.push(offer.utmfyWebhookUrl);
+  }
+
+  // Se não houver URLs válidas, retorna
+  if (webhookUrls.length === 0) {
     return;
   }
 
@@ -278,7 +292,11 @@ export const processUtmfyIntegration = async (
       },
     };
 
-    await sendPurchaseToUTMfyWebhook(offer.utmfyWebhookUrl, utmfyPayload);
+    // Envia para todas as URLs configuradas em paralelo
+    console.log(`📤 Enviando para ${webhookUrls.length} webhook(s) UTMfy...`);
+    await Promise.all(
+      webhookUrls.map(url => sendPurchaseToUTMfyWebhook(url, utmfyPayload))
+    );
   } catch (error) {
     console.error("Erro na lógica do serviço UTMfy:", error);
   }

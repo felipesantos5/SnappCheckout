@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Trash2, ChevronDown, Settings, CreditCard, Box, Layers, ArrowUpCircle, Link as LinkIcon, Code, Copy, Check } from "lucide-react";
+import { Trash2, ChevronDown, Settings, CreditCard, Box, Layers, ArrowUpCircle, Link as LinkIcon, Code, Copy, Check, Plus } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 import { API_URL } from "@/config/BackendUrl";
 import { MoneyInput } from "./MoneyInput";
@@ -201,7 +201,8 @@ const offerFormSchema = z.object({
   primaryColor: colorSchema,
   buttonColor: colorSchema,
   mainProduct: productSchema,
-  utmfyWebhookUrl: optionalUrl,
+  utmfyWebhookUrl: optionalUrl, // Mantido para retrocompatibilidade
+  utmfyWebhookUrls: z.array(z.string().url({ message: "URL inválida." }).or(z.literal(""))).optional(),
   facebookPixelId: z.string().optional(),
   facebookAccessToken: z.string().optional(),
   upsell: upsellSchema,
@@ -233,6 +234,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
       language: "pt",
       collectAddress: false,
       utmfyWebhookUrl: "",
+      utmfyWebhookUrls: [],
       facebookPixelId: "",
       facebookAccessToken: "",
       upsell: {
@@ -263,6 +265,15 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
     name: "orderBumps",
   });
 
+  const {
+    fields: utmfyUrlFields,
+    append: appendUtmfyUrl,
+    remove: removeUtmfyUrl,
+  } = useFieldArray({
+    control: form.control,
+    name: "utmfyWebhookUrls" as "orderBumps", // Type assertion para contornar limitação do react-hook-form
+  });
+
   async function onSubmit(values: OfferFormData) {
     setIsLoading(true);
 
@@ -285,6 +296,8 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
           // Se tiver preço, multiplica por 100. Se não, envia 0.
           price: data.upsell?.price ? Math.round(data.upsell.price * 100) : 0,
         },
+        // Filtrar URLs vazias
+        utmfyWebhookUrls: data.utmfyWebhookUrls?.filter(url => url && url.trim() !== ""),
       };
     };
 
@@ -789,20 +802,67 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                 />
               </div>
             </div>
-            <FormField
-              control={form.control}
-              name="utmfyWebhookUrl"
-              render={({ field }: any) => (
-                <FormItem>
-                  <FormLabel>Webhook UTMfy</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://webhook.utmfy.com/..." {...field} />
-                  </FormControl>
-                  <FormDescription>URL para enviar eventos de venda.</FormDescription>
-                  <FormMessage />
-                </FormItem>
+            {/* Webhooks UTMfy - Múltiplas URLs */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <FormLabel>Webhooks UTMfy</FormLabel>
+                  <FormDescription className="mt-1">URLs para enviar eventos de venda (pode adicionar múltiplas).</FormDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => appendUtmfyUrl("" as any)}
+                  className="gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Adicionar URL
+                </Button>
+              </div>
+
+              {utmfyUrlFields.map((field, index) => (
+                <div key={field.id} className="flex gap-2 items-start">
+                  <FormField
+                    control={form.control}
+                    name={`utmfyWebhookUrls.${index}` as any}
+                    render={({ field }: any) => (
+                      <FormItem className="flex-1">
+                        <FormControl>
+                          <Input placeholder={`https://webhook.utmfy.com/...`} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeUtmfyUrl(index)}
+                    className="shrink-0 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+
+              {utmfyUrlFields.length === 0 && (
+                <div className="text-center py-8 border-2 border-dashed rounded-lg bg-muted/20">
+                  <p className="text-sm text-muted-foreground mb-2">Nenhuma URL de webhook configurada</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => appendUtmfyUrl("" as any)}
+                    className="gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Adicionar primeira URL
+                  </Button>
+                </div>
               )}
-            />
+            </div>
 
             <Separator />
 

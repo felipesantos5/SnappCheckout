@@ -40,7 +40,8 @@ export interface IOffer extends Document {
   facebookPixelId?: string;
   facebookAccessToken?: string;
 
-  utmfyWebhookUrl?: string;
+  utmfyWebhookUrl?: string; // Mantido para retrocompatibilidade
+  utmfyWebhookUrls?: string[]; // Novo: array de URLs
   upsell?: {
     enabled: boolean;
     name: string;
@@ -96,6 +97,10 @@ const offerSchema = new Schema<IOffer>(
     utmfyWebhookUrl: {
       type: String,
       default: "",
+    },
+    utmfyWebhookUrls: {
+      type: [String],
+      default: [],
     },
     upsell: {
       enabled: { type: Boolean, default: false },
