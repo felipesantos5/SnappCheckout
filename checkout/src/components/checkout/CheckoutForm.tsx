@@ -17,7 +17,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useTranslation } from "../../i18n/I18nContext";
 import { getClientIP } from "../../service/getClientIP";
 import { getCookie } from "../../helper/getCookie";
-import { detectPlatform, shouldShowWallet, getWalletLabel } from "../../utils/platformDetection";
+import { detectPlatform, isMobile } from "../../utils/platformDetection";
 
 interface CheckoutFormProps {
   offerData: OfferData;
@@ -104,22 +104,30 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
     setTotalAmount(newTotal);
   }, [selectedBumps, quantity, offerData]);
 
-  // Configuração da Carteira Digital com detecção de plataforma
+  // Configuração simplificada da Carteira Digital - Deixa o Stripe decidir tudo
   useEffect(() => {
-    if (!stripe) return;
+    console.log("🔍 [WALLET] Setup iniciado");
 
-    // Verifica se a plataforma suporta carteiras digitais
-    if (!shouldShowWallet()) {
-      console.log("Platform does not support digital wallets (desktop)");
+    if (!stripe) {
+      console.log("⏳ [WALLET] Aguardando Stripe carregar...");
       return;
     }
 
-    const platform = detectPlatform();
-    console.log("Detected platform:", platform);
+    console.log("✅ [WALLET] Stripe carregado");
+    console.log("📱 [WALLET] User Agent:", navigator.userAgent);
+    console.log("📱 [WALLET] Plataforma detectada:", detectPlatform());
+    console.log("📱 [WALLET] É mobile:", isMobile());
 
+    // Normaliza configurações
+    const normalizedCurrency = offerData.currency.toLowerCase();
+    const countryCode = normalizedCurrency === "brl" ? "BR" : "US";
+
+    console.log("💰 [WALLET] Moeda:", normalizedCurrency, "| País:", countryCode);
+
+    // Cria PaymentRequest - Stripe decide internamente se Apple/Google Pay está disponível
     const pr = stripe.paymentRequest({
-      country: "BR",
-      currency: offerData.currency.toLowerCase(),
+      country: countryCode,
+      currency: normalizedCurrency,
       total: {
         label: offerData.mainProduct.name,
         amount: totalAmount,
@@ -129,34 +137,40 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
       requestPayerPhone: offerData.collectPhone,
     });
 
+    console.log("💳 [WALLET] PaymentRequest criado, verificando disponibilidade...");
+
+    // Stripe verifica se carteiras digitais estão disponíveis
     pr.canMakePayment().then((result) => {
-      if (result) {
-        console.log("Payment Request available:", result);
+      console.log("🔎 [WALLET] Resultado canMakePayment:", result);
 
-        // Define o label baseado na plataforma detectada e no suporte do Stripe
-        let label = getWalletLabel(platform);
-
-        // Valida se a plataforma suporta a carteira esperada
-        if (platform === "ios" && !result.applePay) {
-          console.warn("iOS detected but Apple Pay not available");
-          return; // Não mostra se iOS mas Apple Pay não disponível
-        }
-
-        if (platform === "android" && !result.googlePay) {
-          console.warn("Android detected but Google Pay not available");
-          return; // Não mostra se Android mas Google Pay não disponível
-        }
-
-        // Se tudo OK, configura a carteira
-        if (result.applePay) label = t.payment.applePay;
-        else if (result.googlePay) label = t.payment.googlePay;
-        else label = t.payment.wallet;
-
-        setWalletLabel(label);
-        setPaymentRequest(pr);
-      } else {
-        console.log("Payment Request not available on this device");
+      if (!result) {
+        console.log("❌ [WALLET] Nenhuma carteira digital disponível");
+        return;
       }
+
+      console.log("✅ [WALLET] Carteira disponível!");
+      console.log("   - Apple Pay:", result.applePay);
+      console.log("   - Google Pay:", result.googlePay);
+
+      // Define o label baseado no que o Stripe confirmou
+      let label = t.payment.wallet; // Padrão genérico
+
+      if (result.applePay) {
+        label = t.payment.applePay;
+        console.log("🍎 [WALLET] Usando Apple Pay");
+      } else if (result.googlePay) {
+        label = t.payment.googlePay;
+        console.log("🤖 [WALLET] Usando Google Pay");
+      } else {
+        console.log("💳 [WALLET] Usando label genérico");
+      }
+
+      // Configura a carteira para uso
+      setWalletLabel(label);
+      setPaymentRequest(pr);
+      console.log("✅ [WALLET] Configuração concluída com sucesso!");
+    }).catch((error) => {
+      console.error("❌ [WALLET] Erro ao verificar disponibilidade:", error);
     });
 
     pr.on("paymentmethod", async (ev: PaymentRequestPaymentMethodEvent) => {
