@@ -449,22 +449,22 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
       if (sale.isUpsell && sale.items.length > 0) {
         const product = sale.items[0];
         const productName = product.name || "Produto sem nome";
-        const revenueInBRL = await convertToBRL(product.priceInCents * product.quantity, sale.currency || "BRL");
+        const revenueInBRL = await convertToBRL(product.priceInCents, sale.currency || "BRL");
 
         const existing = topProductsMap.get(productName) || { name: productName, revenue: 0, count: 0 };
         existing.revenue += revenueInBRL;
-        existing.count += product.quantity;
+        existing.count += 1;
         topProductsMap.set(productName, existing);
       } else {
         // Para vendas normais, pegar apenas order bumps
         for (const item of sale.items) {
           if (item.isOrderBump) {
             const productName = item.name || "Produto sem nome";
-            const revenueInBRL = await convertToBRL(item.priceInCents * item.quantity, sale.currency || "BRL");
+            const revenueInBRL = await convertToBRL(item.priceInCents, sale.currency || "BRL");
 
             const existing = topProductsMap.get(productName) || { name: productName, revenue: 0, count: 0 };
             existing.revenue += revenueInBRL;
-            existing.count += item.quantity;
+            existing.count += 1;
             topProductsMap.set(productName, existing);
           }
         }
