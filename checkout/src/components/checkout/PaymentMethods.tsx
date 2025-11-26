@@ -5,7 +5,6 @@ import { PaymentRequestButtonElement } from "@stripe/react-stripe-js"; // Import
 import type { PaymentRequest } from "@stripe/stripe-js"; // Importar o tipo
 import { AppleyPayIcon } from "../icons/appleyPay";
 import { GooglePayIcon } from "../icons/googlePay";
-import { useIsDesktop } from "../../helper/useIsDesktop";
 // Importar o tipo
 
 // Adicionamos "wallet" aos tipos de pagamento
@@ -20,7 +19,6 @@ interface PaymentMethodsProps {
 
 export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMethod, paymentRequest, walletLabel }) => {
   const { t } = useTranslation();
-  const isDesktop = useIsDesktop();
 
   const PaymentOption: React.FC<{
     value: PaymentMethodType;
