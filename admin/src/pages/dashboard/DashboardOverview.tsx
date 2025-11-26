@@ -6,17 +6,17 @@ import { ConnectStripeCard } from "@/components/ConnectStripeCard";
 import { API_URL } from "@/config/BackendUrl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Users, ShoppingCart, TrendingUp, Zap, Filter } from "lucide-react";
+import { DollarSign, ShoppingCart, TrendingUp, Filter } from "lucide-react";
 import { RecentSalesTable } from "@/components/dashboard/RecentSalesTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Line, LineChart, ResponsiveContainer } from "recharts";
 import { formatCurrency } from "@/helper/formatCurrency";
 import { SalesAreaChart } from "@/components/dashboard/SalesAreaChart";
 import { TopOffersChart } from "@/components/dashboard/TopOffersChart";
-import { TopCountriesChart } from "@/components/dashboard/TopCountriesChart";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
 import { subDays, startOfDay, endOfDay } from "date-fns";
+import { SalesWorldMap } from "@/components/dashboard/SalesWorldMap";
 
 // --- Interfaces ---
 interface DashboardData {
@@ -30,6 +30,13 @@ interface DashboardData {
     totalOrders: number;
     checkoutsInitiated: number;
     checkoutApprovalRate: number;
+    totalRevenueChange?: number;
+    extraRevenueChange?: number;
+    totalOrdersChange?: number;
+    averageTicketChange?: number;
+    totalVisitorsChange?: number;
+    conversionRateChange?: number;
+    checkoutApprovalRateChange?: number;
   };
   charts: {
     revenue: { date: string; value: number }[];
@@ -53,41 +60,64 @@ interface Offer {
   name: string;
 }
 
-const KpiCard = ({ title, value, icon: Icon, subtext, chartData, color, destaque = false }: any) => (
-  <Card
-    className={`overflow-hidden flex flex-col h-[180px] relative py-2 gap-3 ${
-      destaque ? "bg-linear-to-br from-yellow-400 via-yellow-500 to-chart-1 border-chart-1 shadow-lg shadow-yellow-500/50" : ""
-    }`}
-  >
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-4">
-      <CardTitle className={`text-sm font-medium ${destaque ? "text-white" : "text-muted-foreground"}`}>{title}</CardTitle>
-      <Icon className={`h-4 w-4 ${destaque ? "text-white" : "text-muted-foreground"}`} />
-    </CardHeader>
-    <CardContent className="px-4 pb-0">
-      <span className={`text-2xl font-bold ${destaque ? "text-white text-3xl" : ""}`}>{value}</span>
-      {subtext && <p className={`text-xs ${destaque ? "text-white/90" : "text-muted-foreground"}`}>{subtext}</p>}
-    </CardContent>
-    {/* Área do Gráfico colada na base */}
-    <div className="absolute bottom-0 w-full h-20">
-      {chartData && chartData.length > 0 ? (
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
-            <Line
-              type="monotone"
-              dataKey="value"
-              stroke={destaque ? "#ffffff" : color}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4, strokeWidth: 0, fill: destaque ? "#ffffff" : color }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      ) : (
-        <div className={`w-full h-full border-t ${destaque ? "border-white/30" : "border-gray-100"}`}></div>
-      )}
-    </div>
-  </Card>
-);
+const KpiCard = ({ title, value, icon: Icon, subtext, chartData, color, destaque = false, changePercentage }: any) => {
+  const isPositive = changePercentage >= 0;
+  const showChange = changePercentage !== undefined && changePercentage !== null;
+
+  return (
+    <Card
+      className={`overflow-hidden flex flex-col h-[180px] relative py-2 gap-3 ${
+        destaque ? "bg-linear-to-br from-yellow-400 via-yellow-500 to-chart-1 border-chart-1 shadow-lg shadow-yellow-500/50" : ""
+      }`}
+    >
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-4">
+        <CardTitle className={`text-base font-medium ${destaque ? "text-white" : "text-muted-foreground"}`}>{title}</CardTitle>
+        <div className="flex items-center gap-2">
+          {showChange && (
+            <span
+              className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                destaque
+                  ? isPositive
+                    ? "bg-white/20 text-white"
+                    : "bg-white/20 text-white"
+                  : isPositive
+                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                  : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+              }`}
+            >
+              {isPositive ? "+" : ""}
+              {changePercentage.toFixed(1)}%
+            </span>
+          )}
+          <Icon className={`h-4 w-4 ${destaque ? "text-white" : "text-muted-foreground"}`} />
+        </div>
+      </CardHeader>
+      <CardContent className="px-4 pb-0">
+        <span className={`text-3xl font-bold ${destaque && "text-white"}`}>{value}</span>
+        {subtext && <p className={`text-xs ${destaque ? "text-white/90" : "text-muted-foreground"}`}>{subtext}</p>}
+      </CardContent>
+      {/* Área do Gráfico colada na base */}
+      <div className="absolute bottom-2 w-full h-20">
+        {chartData && chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData}>
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={destaque ? "#ffffff" : color}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, strokeWidth: 0, fill: destaque ? "#ffffff" : color }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className={`w-full h-full border-t ${destaque ? "border-white/30" : "border-gray-100"}`}></div>
+        )}
+      </div>
+    </Card>
+  );
+};
 
 export function DashboardOverview() {
   const { token } = useAuth();
@@ -257,11 +287,13 @@ export function DashboardOverview() {
 
         {/* Filtros */}
         <div className="flex items-center gap-3">
+          <h3 className="mr-4 text-muted-foreground flex items-center gap-2">
+            Valor a receber: <span className="text-chart-1 text-2xl font-semibold">{formatStripe(balance?.pending || [])}</span>
+          </h3>
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium text-muted-foreground">Filtros:</span>
           </div>
-
           {/* Filtro de Período */}
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="">
@@ -275,14 +307,12 @@ export function DashboardOverview() {
               <SelectItem value="custom">Período personalizado</SelectItem>
             </SelectContent>
           </Select>
-
           {/* DateRangePicker (só aparece quando period === "custom") */}
           {period === "custom" && (
             <div className="w-[250px]">
               <DateRangePicker value={customDateRange} onChange={setCustomDateRange} />
             </div>
           )}
-
           {/* Filtro de Oferta */}
           <Select value={selectedOfferId} onValueChange={setSelectedOfferId}>
             <SelectTrigger className="w-[200px]">
@@ -299,106 +329,70 @@ export function DashboardOverview() {
           </Select>
         </div>
       </div>
+      <div className="flex gap-4">
+        {/* 8 Cards de KPIs */}
+        <div className="w-full grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Card 1: Total em Vendas */}
+          <KpiCard
+            title="Total em Vendas"
+            value={formatCurrency(metrics?.kpis.totalRevenue || 0)}
+            icon={DollarSign}
+            subtext={getPeriodLabel()}
+            chartData={metrics?.charts.revenue}
+            color="#eab308"
+            destaque={true}
+            changePercentage={metrics?.kpis.totalRevenueChange}
+          />
 
-      {/* 8 Cards de KPIs */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Total em Vendas */}
-        <KpiCard
-          title="Total em Vendas"
-          value={formatCurrency(metrics?.kpis.totalRevenue || 0)}
-          icon={DollarSign}
-          subtext={getPeriodLabel()}
-          chartData={metrics?.charts.revenue}
-          color="#eab308"
-          destaque={true}
-        />
+          {/* Card 2: Upsells */}
 
-        {/* Card 2: Upsells */}
-        <KpiCard
-          title="Upsells"
-          value={formatCurrency(metrics?.kpis.extraRevenue || 0)}
-          icon={Zap}
-          subtext={getPeriodLabel()}
-          chartData={metrics?.charts.revenue}
-          color="#eab308"
-        />
+          {/* Card 3: Total de Pedidos */}
+          <KpiCard
+            title="Total de Pedidos"
+            value={metrics?.kpis.totalOrders || 0}
+            icon={ShoppingCart}
+            subtext={`Total de Visitantes ${metrics?.kpis.totalVisitors || 0}`}
+            chartData={metrics?.charts.sales}
+            color="#eab308"
+            changePercentage={metrics?.kpis.totalOrdersChange}
+          />
 
-        {/* Card 3: Total de Pedidos */}
-        <KpiCard
-          title="Total de Pedidos"
-          value={metrics?.kpis.totalOrders || 0}
-          icon={ShoppingCart}
-          subtext={getPeriodLabel()}
-          chartData={metrics?.charts.sales}
-          color="#eab308"
-        />
+          {/* Card 4: Valor a Receber (Pendente) */}
 
-        {/* Card 4: Valor a Receber (Pendente) */}
-        <KpiCard
-          title="Valor a Receber"
-          value={formatStripe(balance?.pending || [])}
-          icon={TrendingUp}
-          subtext="Pendente da plataforma"
-          chartData={metrics?.charts.conversionRate}
-          color="#eab308"
-        />
+          {/* Card 5: Ticket Médio */}
+          <KpiCard
+            title="Ticket Médio"
+            value={formatCurrency(metrics?.kpis.averageTicket || 0)}
+            icon={DollarSign}
+            subtext={`Upsell ${formatCurrency(metrics?.kpis.extraRevenue || 0)}`}
+            chartData={metrics?.charts.ticket}
+            color="#eab308"
+            changePercentage={metrics?.kpis.averageTicketChange}
+          />
 
-        {/* Card 5: Ticket Médio */}
-        <KpiCard
-          title="Ticket Médio"
-          value={formatCurrency(metrics?.kpis.averageTicket || 0)}
-          icon={DollarSign}
-          subtext={getPeriodLabel()}
-          chartData={metrics?.charts.ticket}
-          color="#eab308"
-        />
-
-        {/* Card 6: Total de Visitantes */}
-        <KpiCard
-          title="Total de Visitantes"
-          value={metrics?.kpis.totalVisitors || 0}
-          icon={Users}
-          subtext={getPeriodLabel()}
-          chartData={metrics?.charts.visitors}
-          color="#eab308"
-        />
-
-        {/* Card 7: Conversão do Checkout */}
-        <KpiCard
-          title="Conversão do Checkout"
-          value={`${metrics?.kpis.conversionRate.toFixed(1)}%`}
-          icon={TrendingUp}
-          subtext="Visitantes → Compras"
-          chartData={metrics?.charts.conversionRate}
-          color="#eab308"
-        />
-
-        {/* Card 8: Aprovação do Checkout */}
-        <KpiCard
-          title="Aprovação do Checkout"
-          value={`${metrics?.kpis.checkoutApprovalRate.toFixed(1)}%`}
-          icon={TrendingUp}
-          subtext="Checkout → Compras"
-          chartData={metrics?.charts.conversionRate}
-          color="#eab308"
-        />
+          {/* Card 7: Conversão do Checkout */}
+          <KpiCard
+            title="Conversão do Checkout"
+            value={`${metrics?.kpis.conversionRate.toFixed(1)}%`}
+            icon={TrendingUp}
+            subtext={`Aprovação do Checkout ${metrics?.kpis.checkoutApprovalRate.toFixed(1)}%`}
+            chartData={metrics?.charts.conversionRate}
+            color="#eab308"
+            changePercentage={metrics?.kpis.conversionRateChange}
+          />
+        </div>
       </div>
 
       {/* Seção Inferior: Gráficos Circulares + Histórico de Vendas */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
         {/* Top Ofertas (Gráfico Circular) */}
-        <div className="lg:col-span-1">
-          <TopOffersChart data={metrics?.topOffers || []} />
-        </div>
-
-        {/* Top Países (Gráfico Circular) */}
-        <div className="lg:col-span-1">
-          <TopCountriesChart data={metrics?.topCountries || []} />
-        </div>
-
+        <TopOffersChart data={metrics?.topOffers || []} />
         {/* Histórico de Vendas */}
         <div className="lg:col-span-1">
           <SalesAreaChart chartData={metrics?.charts.revenue || []} />
+        </div>
+        <div className="lg:col-span-1">
+          <SalesWorldMap data={metrics?.topCountries || []} />
         </div>
       </div>
       <RecentSalesTable />

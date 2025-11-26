@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 interface TopOffer {
@@ -28,13 +28,13 @@ export function TopOffersChart({ data }: TopOffersChartProps) {
   }
 
   return (
-    <Card className="gap-0">
+    <Card className="">
       <CardHeader>
-        <CardTitle className="text-lg">Top Ofertas</CardTitle>
-        <p className="text-xs text-muted-foreground">Receita por oferta</p>
+        <CardTitle>Top Ofertas</CardTitle>
+        <CardDescription>Receita por oferta</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="h-[300px]">
+      <CardContent className="flex flex-col justify-between h-full pb-4">
+        <div className="h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -58,7 +58,7 @@ export function TopOffersChart({ data }: TopOffersChartProps) {
             </PieChart>
           </ResponsiveContainer>
         </div>
-        <div className="mt-4 space-y-2">
+        <div className="space-y-2">
           {data.map((offer, index) => (
             <div key={index} className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">

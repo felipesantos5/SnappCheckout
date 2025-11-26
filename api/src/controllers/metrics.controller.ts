@@ -512,6 +512,65 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
       .slice(0, 5)
       .map((p) => ({ name: p.name, value: p.revenue / 100, count: p.count }));
 
+    // --- CÁLCULO DO PERÍODO ANTERIOR PARA COMPARAÇÃO ---
+    const periodDiffMs = endDate.getTime() - startDate.getTime();
+    const previousStartDate = new Date(startDate.getTime() - periodDiffMs);
+    const previousEndDate = new Date(startDate);
+
+    const [previousSales, previousMetrics] = await Promise.all([
+      Sale.find({
+        ownerId: new mongoose.Types.ObjectId(ownerId),
+        status: "succeeded",
+        createdAt: { $gte: previousStartDate, $lt: previousEndDate },
+        offerId: filterOfferId && filterOfferId !== "all" ? filterOfferId : { $exists: true },
+      }).lean(),
+
+      CheckoutMetric.find({
+        offerId: { $in: offerIds },
+        createdAt: { $gte: previousStartDate, $lt: previousEndDate },
+      })
+        .select("type")
+        .lean(),
+    ]);
+
+    // Calcular KPIs do período anterior
+    let previousTotalRevenueInBRL = 0;
+    let previousExtraRevenueInBRL = 0;
+
+    await Promise.all(
+      previousSales.map(async (sale) => {
+        const saleAmountInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
+        previousTotalRevenueInBRL += saleAmountInBRL;
+
+        if (sale.isUpsell) {
+          previousExtraRevenueInBRL += saleAmountInBRL;
+        } else {
+          if (sale.items && sale.items.length > 0) {
+            for (const item of sale.items) {
+              if (item.isOrderBump) {
+                const itemAmountInBRL = await convertToBRL(item.priceInCents, sale.currency || "BRL");
+                previousExtraRevenueInBRL += itemAmountInBRL;
+              }
+            }
+          }
+        }
+      })
+    );
+
+    const previousTotalSales = previousSales.length;
+    const previousAverageTicket = previousTotalSales > 0 ? previousTotalRevenueInBRL / previousTotalSales : 0;
+    const previousViews = previousMetrics.filter((m) => m.type === "view");
+    const previousCheckoutsInitiatedCount = previousMetrics.filter((m) => m.type === "initiate_checkout").length;
+    const previousTotalVisitors = previousViews.length;
+    const previousConversionRate = previousTotalVisitors > 0 ? (previousTotalSales / previousTotalVisitors) * 100 : 0;
+    const previousCheckoutApprovalRate = previousCheckoutsInitiatedCount > 0 ? (previousTotalSales / previousCheckoutsInitiatedCount) * 100 : 0;
+
+    // Calcular porcentagens de mudança
+    const calculateChangePercentage = (current: number, previous: number) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
+
     res.status(200).json({
       kpis: {
         totalRevenue: totalRevenueInBRL,
@@ -523,6 +582,14 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
         totalOrders: totalSales,
         checkoutsInitiated: checkoutsInitiatedCount,
         checkoutApprovalRate,
+        // Comparações com período anterior
+        totalRevenueChange: calculateChangePercentage(totalRevenueInBRL, previousTotalRevenueInBRL),
+        extraRevenueChange: calculateChangePercentage(extraRevenueInBRL, previousExtraRevenueInBRL),
+        totalOrdersChange: calculateChangePercentage(totalSales, previousTotalSales),
+        averageTicketChange: calculateChangePercentage(averageTicket, previousAverageTicket),
+        totalVisitorsChange: calculateChangePercentage(totalVisitors, previousTotalVisitors),
+        conversionRateChange: calculateChangePercentage(conversionRate, previousConversionRate),
+        checkoutApprovalRateChange: calculateChangePercentage(checkoutApprovalRate, previousCheckoutApprovalRate),
       },
       charts: {
         revenue: revenueChart,
