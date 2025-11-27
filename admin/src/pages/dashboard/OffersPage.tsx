@@ -132,7 +132,7 @@ export function OffersPage() {
 
       {/* 4. Card que envolve a Tabela. 
           overflow-hidden é para os cantos arredondados funcionarem no Header da tabela */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden p-0">
         <Table>
           {/* 5. Cabeçalho da Tabela estilizado para parecer com o protótipo */}
           <TableHeader>
@@ -181,7 +181,9 @@ export function OffersPage() {
                   </TableCell>
 
                   {/* VALOR */}
-                  <TableCell className="px-6 py-4 text-sm font-medium text-foreground">{formatCurrency(offer.mainProduct.priceInCents, offer.currency)}</TableCell>
+                  <TableCell className="px-6 py-4 text-sm font-medium text-foreground">
+                    {formatCurrency(offer.mainProduct.priceInCents, offer.currency)}
+                  </TableCell>
 
                   {/* URL */}
                   <TableCell className="px-6 py-4">

@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"; // Certifique-se de ter este componente
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Loader2, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ShoppingBag, Info } from "lucide-react";
 import { API_URL } from "@/config/BackendUrl";
 import { Link } from "react-router-dom";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 import type { Sale } from "@/types/sale";
 import { formatCurrency } from "@/helper/formatCurrency";
 import { formatDate } from "@/helper/formatDate";
+import { getCountryFlag, getCountryName } from "@/helper/getCountryFlag";
 
 type DateRangeFilter = "all" | "today" | "week" | "month" | "custom";
 
@@ -162,6 +164,7 @@ export function RecentSalesTable() {
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Data</TableHead>
+                <TableHead className="text-center w-16">País</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Oferta / Itens</TableHead>
                 <TableHead className="text-center">Tipo</TableHead>
@@ -172,14 +175,14 @@ export function RecentSalesTable() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center">
+                  <TableCell colSpan={7} className="h-32 text-center">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
                     <p className="text-sm text-gray-500 mt-2">Carregando transações...</p>
                   </TableCell>
                 </TableRow>
               ) : paginatedSales.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                     Nenhuma venda encontrada neste período.
                   </TableCell>
                 </TableRow>
@@ -191,6 +194,21 @@ export function RecentSalesTable() {
                   return (
                     <TableRow key={sale._id} className="hover:bg-muted/50 transition-colors">
                       <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(sale.createdAt)}</TableCell>
+
+                      <TableCell className="text-center">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-2xl cursor-help" role="img" aria-label={getCountryName(sale.country)}>
+                                {getCountryFlag(sale.country)}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{getCountryName(sale.country)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableCell>
 
                       <TableCell>
                         <div className="font-medium text-foreground">{sale.customerName}</div>

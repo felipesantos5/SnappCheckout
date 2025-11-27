@@ -14,6 +14,7 @@ export interface Sale {
   status: "succeeded" | "pending" | "refunded";
   createdAt: string;
   isUpsell?: boolean;
+  country?: string; // Código do país (ex: BR, US, FR)
   offerId: {
     _id: string;
     name: string;
