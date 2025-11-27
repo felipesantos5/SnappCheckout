@@ -135,7 +135,7 @@ export function SalesWorldMap({ data }: SalesWorldMapProps) {
         {/* --- LISTA DE PAÍSES --- */}
         <div className="">
           <div className="overflow-y-auto pr-2 custom-scrollbar flex gap-3 flex-wrap">
-            {data.map((country, idx) => (
+            {data.slice(0, 6).map((country, idx) => (
               <div key={idx} className="flex items-center justify-between gap-3 p-2 rounded-md transition-colors ">
                 <div className="flex items-center gap-2 flex-1">
                   <img src={`https://flagcdn.com/w40/${country.name.toLowerCase()}.png`} alt={country.name} className="w-7 h-5 rounded object-none" />
@@ -150,6 +150,13 @@ export function SalesWorldMap({ data }: SalesWorldMapProps) {
                 </div>
               </div>
             ))}
+
+            {/* Indicador de países adicionais */}
+            {data.length > 6 && (
+              <div className="flex items-center justify-center w-full p-2">
+                <span className="text-xs text-muted-foreground">+ {data.length - 6} outros países</span>
+              </div>
+            )}
 
             {data.length === 0 && <div className="text-center py-8 text-muted-foreground text-sm">Nenhuma venda registrada por região.</div>}
           </div>

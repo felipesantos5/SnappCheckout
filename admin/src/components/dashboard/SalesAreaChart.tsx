@@ -43,7 +43,7 @@ export function SalesAreaChart({ chartData }: SalesChartProps) {
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader>
+      <CardHeader className="mb-10">
         <CardTitle>Histórico de Vendas</CardTitle>
         <CardDescription>Receita no período selecionado</CardDescription>
       </CardHeader>

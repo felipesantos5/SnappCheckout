@@ -38,9 +38,9 @@ export function RevenueCard({ currentRevenue, goalRevenue = 10000000 }: RevenueC
   };
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-sidebar-primary bg-linear-to-br from-yellow-50 via-white to-yellow-400/20 px-4 pt-1 shadow-sm transition-all duration-300 hover:shadow-md">
+    <div className="relative overflow-hidden rounded-xl border border-sidebar-primary bg-linear-to-br from-yellow-50 via-white to-yellow-400/20 dark:from-black dark:via-gray-900 dark:to-yellow-600/20 px-4 pt-1 shadow-sm transition-all duration-300 hover:shadow-md">
       {/* Glow effect */}
-      <div className="absolute inset-0 bg-linear-to-br from-yellow-100/20 via-transparent to-transparent opacity-50" />
+      <div className="absolute inset-0 bg-linear-to-br from-yellow-100/50 via-transparent to-transparent dark:from-yellow-600/20 dark:via-transparent dark:to-black/50 opacity-50" />
 
       <div className="relative space-y-1">
         {/* Header */}
@@ -64,10 +64,10 @@ export function RevenueCard({ currentRevenue, goalRevenue = 10000000 }: RevenueC
         {/* Progress Bar */}
         <div className="flex items-center gap-2 mb-0">
           {/* Progress bar container */}
-          <div className="w-full relative flex h-2.5 overflow-hidden rounded-full bg-linear-to-r from-gray-100 to-gray-200 shadow-inner">
+          <div className="w-full relative flex h-2.5 overflow-hidden rounded-full bg-linear-to-r from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 shadow-inner">
             {/* Animated progress fill */}
             <div
-              className="w-full h-full rounded-full bg-linear-to-r from-yellow-400 via-yellow-500 to-yellow-400 shadow-sm transition-all duration-1000 ease-out"
+              className="w-full h-full rounded-full bg-linear-to-r from-yellow-400 via-yellow-500 to-yellow-400 dark:from-yellow-600 dark:via-yellow-500 dark:to-yellow-600 shadow-sm transition-all duration-1000 ease-out"
               style={{
                 width: `${animatedProgress}%`,
                 backgroundSize: "200% 100%",

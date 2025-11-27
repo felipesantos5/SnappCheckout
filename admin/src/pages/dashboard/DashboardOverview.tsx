@@ -97,7 +97,7 @@ const KpiCard = ({ title, value, icon: Icon, subtext, chartData, color, destaque
         {subtext && <p className={`text-xs ${destaque ? "text-white/90" : "text-muted-foreground"}`}>{subtext}</p>}
       </CardContent>
       {/* Área do Gráfico colada na base */}
-      <div className="absolute bottom-2 w-full h-20">
+      <div className="absolute bottom-2 w-full h-16">
         {chartData && chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>

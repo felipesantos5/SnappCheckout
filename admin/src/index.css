@@ -33,7 +33,7 @@
   --sidebar-foreground: rgb(51, 51, 51);
   --sidebar-primary: #fbc21b;
   --sidebar-primary-foreground: rgb(255, 255, 255);
-  --sidebar-accent: rgb(251, 240, 208);
+  --sidebar-accent: rgb(235, 198, 74);
   --sidebar-accent-foreground: rgb(133, 102, 10);
   --sidebar-border: rgb(229, 231, 235);
   --sidebar-ring: rgb(251, 194, 27);
@@ -88,7 +88,7 @@
   --sidebar-foreground: rgb(229, 229, 229);
   --sidebar-primary: rgb(251, 194, 27);
   --sidebar-primary-foreground: rgb(255, 255, 255);
-  --sidebar-accent: rgb(247, 203, 69);
+  --sidebar-accent: rgb(230, 178, 25);
   --sidebar-accent-foreground: rgb(255, 240, 194);
   --sidebar-border: rgb(64, 64, 64);
   --sidebar-ring: rgb(251, 194, 27);
