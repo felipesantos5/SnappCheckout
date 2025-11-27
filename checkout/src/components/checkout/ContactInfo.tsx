@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { Input } from "../ui/Input";
 import { useTranslation } from "../../i18n/I18nContext";
-import { API_URL } from "../../config/BackendUrl";
 
 interface ContactInfoProps {
   showPhone?: boolean;
   offerID: string;
+  onEmailValidated?: () => void; // Callback para disparar InitiateCheckout no Facebook Pixel
 }
 
-export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, offerID }) => {
+export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, offerID, onEmailValidated }) => {
   const { t } = useTranslation();
   const [phone, setPhone] = useState("");
   const [hasTrackedInitiate, setHasTrackedInitiate] = useState(false);
@@ -44,18 +44,15 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, offe
   const handleEmailBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const emailValue = e.target.value;
 
-    // Validação básica se tem formato de email antes de contar
+    // Validação básica se tem formato de email antes de disparar evento
     if (emailValue && emailValue.includes("@") && !hasTrackedInitiate) {
       setHasTrackedInitiate(true);
 
-      fetch(`${API_URL}/metrics/track`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          offerId: offerID,
-          type: "initiate_checkout",
-        }),
-      }).catch((err) => console.error("Analytics IC error", err));
+      // Dispara evento InitiateCheckout no Facebook Pixel(s) + Backend CAPI
+      // O callback irá disparar tanto o Pixel quanto o Backend com todos os dados
+      if (onEmailValidated) {
+        onEmailValidated();
+      }
     }
   };
 

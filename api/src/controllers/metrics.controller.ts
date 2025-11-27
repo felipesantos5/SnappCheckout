@@ -12,7 +12,7 @@ import { convertToBRL } from "../services/currency-conversion.service";
  */
 export const handleTrackMetric = async (req: Request, res: Response) => {
   try {
-    const { offerId, type, fbc, fbp } = req.body;
+    const { offerId, type, fbc, fbp, email, phone, name, eventId, totalAmount, contentIds } = req.body;
 
     // Resposta imediata para não travar o cliente (Fire and Forget)
     res.status(200).send();
@@ -56,31 +56,75 @@ export const handleTrackMetric = async (req: Request, res: Response) => {
     });
 
     // --- INTEGRAÇÃO FACEBOOK CAPI ---
-    // Se for initiate_checkout, buscamos a oferta para pegar o pixel
+    // Se for initiate_checkout, buscamos a oferta para pegar os pixels
     if (type === "initiate_checkout") {
-      // Busca apenas os campos necessários para performance
-      const offer = await Offer.findById(offerId, "facebookPixelId facebookAccessToken currency mainProduct name slug");
+      // Busca todos os campos necessários incluindo múltiplos pixels
+      const offer = await Offer.findById(offerId, "facebookPixelId facebookAccessToken facebookPixels currency mainProduct name slug").lean();
 
-      if (offer && offer.facebookPixelId && offer.facebookAccessToken) {
-        const userData = createFacebookUserData(ip, userAgent);
+      if (offer) {
+        // Coleta TODOS os pixels configurados (novo array + campo antigo para retrocompatibilidade)
+        const pixels: Array<{ pixelId: string; accessToken: string }> = [];
 
-        // Adicione fbc e fbp ao userData se existirem
-        if (fbc) userData.fbc = fbc;
-        if (fbp) userData.fbp = fbp;
-        // Dispara evento em background (sem await para não atrasar resposta ao cliente)
-        sendFacebookEvent(offer.facebookPixelId, offer.facebookAccessToken, {
-          event_name: "InitiateCheckout",
-          event_time: Math.floor(Date.now() / 1000),
-          event_source_url: referer || `https://pay.spappcheckout.com/c/${offer.slug}`,
-          action_source: "website",
-          user_data: createFacebookUserData(ip, userAgent), // Aqui ainda não temos email/phone
-          custom_data: {
-            currency: offer.currency || "BRL",
-            value: (offer.mainProduct as any).priceInCents ? (offer.mainProduct as any).priceInCents / 100 : 0,
-            content_ids: [(offer.mainProduct as any)._id?.toString()],
-            content_type: "product",
-          },
-        }).catch((err) => console.error("Erro async FB initiate:", err));
+        // Adiciona pixels do novo array
+        if (offer.facebookPixels && offer.facebookPixels.length > 0) {
+          pixels.push(...offer.facebookPixels);
+        }
+
+        // Adiciona pixel antigo se existir e não estiver no array novo (retrocompatibilidade)
+        if (offer.facebookPixelId && offer.facebookAccessToken) {
+          const alreadyExists = pixels.some(p => p.pixelId === offer.facebookPixelId);
+          if (!alreadyExists) {
+            pixels.push({
+              pixelId: offer.facebookPixelId,
+              accessToken: offer.facebookAccessToken,
+            });
+          }
+        }
+
+        // Se houver pixels configurados, envia evento para TODOS
+        if (pixels.length > 0) {
+          // Cria userData completo com TODOS os dados disponíveis
+          const userData = createFacebookUserData(
+            ip,
+            userAgent,
+            email, // Email do cliente
+            phone, // Telefone do cliente
+            name, // Nome do cliente
+            fbc, // Cookie Facebook
+            fbp // Cookie Facebook
+          );
+
+          // Calcula valor total correto (já vem em centavos do frontend)
+          const valueInCurrency = totalAmount ? totalAmount / 100 : ((offer.mainProduct as any).priceInCents || 0) / 100;
+
+          // IDs de produtos (mainProduct + bumps selecionados)
+          const productIds = contentIds && contentIds.length > 0
+            ? contentIds
+            : [(offer.mainProduct as any)._id?.toString()];
+
+          // Payload do evento
+          const eventPayload = {
+            event_name: "InitiateCheckout" as const,
+            event_time: Math.floor(Date.now() / 1000),
+            event_id: eventId, // event_id para deduplicação com Pixel
+            event_source_url: referer || `https://pay.spappcheckout.com/c/${offer.slug}`,
+            action_source: "website" as const,
+            user_data: userData,
+            custom_data: {
+              currency: offer.currency || "BRL",
+              value: valueInCurrency,
+              content_ids: productIds,
+              content_type: "product",
+            },
+          };
+
+          // Envia para TODOS os pixels configurados
+          console.log(`🔵 Enviando InitiateCheckout para ${pixels.length} pixel(s) [eventID: ${eventId}]`);
+          pixels.forEach((pixel) => {
+            sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventPayload)
+              .catch((err) => console.error(`Erro async FB initiate para pixel ${pixel.pixelId}:`, err));
+          });
+        }
       }
     }
     // -------------------------------
