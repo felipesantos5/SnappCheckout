@@ -4,10 +4,11 @@ import { useTranslation } from "../../i18n/I18nContext";
 
 interface ContactInfoProps {
   showPhone?: boolean;
+  offerID: string;
   onEmailValidated?: () => void; // Callback para disparar InitiateCheckout no Facebook Pixel
 }
 
-export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, onEmailValidated }) => {
+export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, offerID, onEmailValidated }) => {
   const { t } = useTranslation();
   const [phone, setPhone] = useState("");
   const [hasTrackedInitiate, setHasTrackedInitiate] = useState(false);
