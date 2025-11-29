@@ -1,6 +1,6 @@
 // src/webhooks/stripe/handlers/index.ts
 import { Stripe } from "stripe";
-import { handlePaymentIntentSucceeded } from "./payment-intent.handler";
+import { handlePaymentIntentSucceeded, handlePaymentIntentFailed } from "./payment-intent.handler";
 import { handleAccountUpdated } from "./account.handler";
 
 /**
@@ -15,8 +15,8 @@ export const handleStripeEvent = async (event: Stripe.Event): Promise<void> => {
       break;
 
     case "payment_intent.payment_failed":
-      console.log(`⚠️  Pagamento falhou: ${event.data.object.id}`);
-      // Aqui você pode implementar lógica adicional se necessário
+      console.log(`❌ Pagamento FALHOU - Processando...`);
+      await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
       break;
 
     case "account.updated":
