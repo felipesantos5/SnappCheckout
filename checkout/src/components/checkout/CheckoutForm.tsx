@@ -17,7 +17,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useTranslation } from "../../i18n/I18nContext";
 import { getClientIP } from "../../service/getClientIP";
 import { getCookie } from "../../helper/getCookie";
-import { detectPlatform, isMobile } from "../../utils/platformDetection";
+import { detectPlatform } from "../../utils/platformDetection";
 
 interface CheckoutFormProps {
   offerData: OfferData;
@@ -113,8 +113,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         },
         { eventID: eventId }
       );
-
-      console.log(`🔵 Facebook Pixel: InitiateCheckout [eventID: ${eventId}] - Valor: ${totalValue} ${offerData.currency.toUpperCase()} - Produtos: ${contentIds.length} - Quantidade: ${quantity}`);
     }
 
     // 2. Envia evento para o backend (CAPI) com TODOS os dados
@@ -135,7 +133,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
           fbp: fbCookies.fbp,
         }),
       });
-      console.log(`✅ Backend CAPI: InitiateCheckout enviado com todos os dados`);
     } catch (err) {
       console.error("❌ Erro ao enviar InitiateCheckout para backend:", err);
     }
@@ -157,23 +154,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
   // Configuração simplificada da Carteira Digital - Deixa o Stripe decidir tudo
   useEffect(() => {
-    console.log("🔍 [WALLET] Setup iniciado");
-
     if (!stripe) {
-      console.log("⏳ [WALLET] Aguardando Stripe carregar...");
       return;
     }
-
-    console.log("✅ [WALLET] Stripe carregado");
-    console.log("📱 [WALLET] User Agent:", navigator.userAgent);
-    console.log("📱 [WALLET] Plataforma detectada:", detectPlatform());
-    console.log("📱 [WALLET] É mobile:", isMobile());
 
     // Normaliza configurações
     const normalizedCurrency = offerData.currency.toLowerCase();
     const countryCode = normalizedCurrency === "brl" ? "BR" : "US";
-
-    console.log("💰 [WALLET] Moeda:", normalizedCurrency, "| País:", countryCode);
 
     // Cria PaymentRequest - Stripe decide internamente se Apple/Google Pay está disponível
     const pr = stripe.paymentRequest({
@@ -188,63 +175,43 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
       requestPayerPhone: offerData.collectPhone,
     });
 
-    console.log("💳 [WALLET] PaymentRequest criado, verificando disponibilidade...");
-
     // Stripe verifica se carteiras digitais estão disponíveis
-    pr.canMakePayment().then((result) => {
-      console.log("🔎 [WALLET] Resultado canMakePayment:", result);
-
-      if (!result) {
-        console.log("❌ [WALLET] Nenhuma carteira digital disponível");
-        return;
-      }
-
-      console.log("✅ [WALLET] Carteira disponível!");
-      console.log("   - Apple Pay:", result.applePay);
-      console.log("   - Google Pay:", result.googlePay);
-
-      // Detecta plataforma para priorizar corretamente
-      const platform = detectPlatform();
-      let label = t.payment.wallet; // Padrão genérico
-
-      // PRIORIZA baseado na plataforma para evitar confusão
-      if (platform === 'ios') {
-        // iPhone/iPad SEMPRE mostra Apple Pay (mesmo que o Stripe reporte as duas)
-        label = t.payment.applePay;
-        console.log("🍎 [WALLET] Plataforma iOS - Usando Apple Pay");
-      } else if (platform === 'android') {
-        // Android SEMPRE mostra Google Pay
-        label = t.payment.googlePay;
-        console.log("🤖 [WALLET] Plataforma Android - Usando Google Pay");
-      } else {
-        // Desktop/Outros - usa o que o Stripe reportou
-        if (result.applePay) {
-          label = t.payment.applePay;
-          console.log("🍎 [WALLET] Desktop com Apple Pay disponível");
-        } else if (result.googlePay) {
-          label = t.payment.googlePay;
-          console.log("🤖 [WALLET] Desktop com Google Pay disponível");
-        } else {
-          console.log("💳 [WALLET] Usando label genérico (fallback)");
+    pr.canMakePayment()
+      .then((result) => {
+        if (!result) {
+          return;
         }
-      }
 
-      // Configura a carteira para uso
-      setWalletLabel(label);
-      setPaymentRequest(pr);
-      console.log("✅ [WALLET] Configuração concluída com sucesso!");
-    }).catch((error) => {
-      console.error("❌ [WALLET] Erro ao verificar disponibilidade:", error);
-    });
+        // Detecta plataforma para priorizar corretamente
+        const platform = detectPlatform();
+        let label = t.payment.wallet; // Padrão genérico
 
-    pr.on("paymentmethod", async (ev: PaymentRequestPaymentMethodEvent) => {
-      console.log("💳 [APPLE PAY] Evento paymentmethod disparado");
-      console.log("💳 [APPLE PAY] Dados do pagador:", {
-        email: ev.payerEmail,
-        name: ev.payerName,
-        phone: ev.payerPhone,
+        // PRIORIZA baseado na plataforma para evitar confusão
+        if (platform === "ios") {
+          // iPhone/iPad SEMPRE mostra Apple Pay (mesmo que o Stripe reporte as duas)
+          label = t.payment.applePay;
+        } else if (platform === "android") {
+          // Android SEMPRE mostra Google Pay
+          label = t.payment.googlePay;
+        } else {
+          // Desktop/Outros - usa o que o Stripe reportou
+          if (result.applePay) {
+            label = t.payment.applePay;
+          } else if (result.googlePay) {
+            label = t.payment.googlePay;
+          } else {
+          }
+        }
+
+        // Configura a carteira para uso
+        setWalletLabel(label);
+        setPaymentRequest(pr);
+      })
+      .catch((error) => {
+        console.error("❌ [WALLET] Erro ao verificar disponibilidade:", error);
       });
 
+    pr.on("paymentmethod", async (ev: PaymentRequestPaymentMethodEvent) => {
       try {
         setLoading(true);
         const clientIp = await getClientIP();
@@ -276,8 +243,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
           },
         };
 
-        console.log("🚀 [APPLE PAY] Criando PaymentIntent no backend...");
-
         const res = await fetch(`${API_URL}/payments/create-intent`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -299,8 +264,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
           return;
         }
 
-        console.log("✅ [APPLE PAY] PaymentIntent criado, confirmando...");
-
         // Para Apple Pay/Google Pay, usa confirmCardPayment com o payment_method
         const { error: confirmError, paymentIntent } = await stripe!.confirmCardPayment(clientSecret, {
           payment_method: ev.paymentMethod.id,
@@ -312,15 +275,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
           setErrorMessage(confirmError.message || "Erro no pagamento");
           setLoading(false);
         } else {
-          console.log("✅ [APPLE PAY] Pagamento confirmado:", paymentIntent?.status);
           ev.complete("success");
 
           if (paymentIntent?.status === "succeeded") {
-            console.log("🎉 [APPLE PAY] Pagamento bem-sucedido!");
             setPaymentIntentId(paymentIntent.id);
             setPaymentSucceeded(true);
           } else if (paymentIntent?.status === "requires_action") {
-            console.log("⚠️ [APPLE PAY] Requer ação adicional");
             // Tenta completar a ação
             const { error: actionError } = await stripe!.confirmCardPayment(clientSecret);
             if (actionError) {
@@ -484,8 +444,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         },
         { eventID: eventId }
       );
-
-      console.log(`🔵 Facebook Event: AddPaymentInfo [eventID: ${eventId}]`);
     }
 
     // Coleta cookies do Facebook (não usa useMemo aqui pois estamos dentro de um handler)
@@ -588,7 +546,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
           </div>
         </div>
       )}
-      <Banner imageUrl={offerData.bannerImageUrl} />
+      <Banner imageUrl={offerData.bannerImageUrl} secondaryBannerImageUrl={offerData.secondaryBannerImageUrl} />
       <div className="min-h-screen bg-white p-4">
         <div className="max-w-lg mx-auto bg-white rounded-xl shadow-xl p-4 pt-0">
           <form onSubmit={handleSubmit}>
@@ -609,19 +567,22 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
             <PaymentMethods method={method} setMethod={setMethod} paymentRequest={paymentRequest} walletLabel={walletLabel} />
             <OrderBump bumps={offerData.orderBumps} selectedBumps={selectedBumps} onToggleBump={handleToggleBump} currency={offerData.currency} />
-
-            <button
-              type="submit"
-              disabled={!stripe || loading || paymentSucceeded}
-              className="w-full mt-8 bg-button text-button-foreground font-bold py-3 px-4 rounded-lg text-lg transition-colors disabled:opacity-50 hover:opacity-90 cursor-pointer"
-              style={{
-                backgroundColor: loading || paymentSucceeded ? "#ccc" : button,
-                color: buttonForeground,
-                opacity: loading || paymentSucceeded ? 0.7 : 1,
-              }}
-            >
-              {loading || paymentSucceeded ? t.buttons.processing : method === "pix" ? t.buttons.submitPix : t.buttons.submit}
-            </button>
+            {method === "wallet" ? (
+              <></>
+            ) : (
+              <button
+                type="submit"
+                disabled={!stripe || loading || paymentSucceeded}
+                className="w-full mt-8 bg-button text-button-foreground font-bold py-3 px-4 rounded-lg text-lg transition-colors disabled:opacity-50 hover:opacity-90 cursor-pointer"
+                style={{
+                  backgroundColor: loading || paymentSucceeded ? "#ccc" : button,
+                  color: buttonForeground,
+                  opacity: loading || paymentSucceeded ? 0.7 : 1,
+                }}
+              >
+                {loading || paymentSucceeded ? t.buttons.processing : method === "pix" ? t.buttons.submitPix : t.buttons.submit}
+              </button>
+            )}
 
             {errorMessage && <div className="text-red-500 text-sm text-center mt-4">{errorMessage}</div>}
           </form>

@@ -51,7 +51,7 @@ export const Banner: React.FC<BannerProps> = ({ imageUrl, secondaryBannerImageUr
   const srcSetSecondary = secondaryBannerImageUrl ? generateSrcSet(secondaryBannerImageUrl) : "";
 
   return (
-    <div className="lg:flex max-w-6xl mx-auto">
+    <div className="flex flex-col lg:flex-row max-w-6xl mx-auto">
       <div className="relative w-full max-w-lg mx-auto overflow-hidden" style={{ aspectRatio: "16/9" }}>
         {/* Skeleton placeholder enquanto carrega */}
         {!isLoaded && <div className="absolute inset-0 bg-linear-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse" />}

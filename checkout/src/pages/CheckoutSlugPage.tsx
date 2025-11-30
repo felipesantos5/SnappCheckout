@@ -20,6 +20,7 @@ export interface OfferData {
   collectAddress?: boolean;
   collectPhone?: boolean;
   bannerImageUrl?: string;
+  secondaryBannerImageUrl?: string;
   currency: string;
   primaryColor: string;
   buttonColor: string;
