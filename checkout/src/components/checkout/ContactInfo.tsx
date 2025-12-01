@@ -4,6 +4,7 @@ import { useTranslation } from "../../i18n/I18nContext";
 
 interface ContactInfoProps {
   showPhone?: boolean;
+  offerID: string;
   onEmailValidated?: () => void; // Callback para disparar InitiateCheckout no Facebook Pixel
 }
 

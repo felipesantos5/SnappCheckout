@@ -29,9 +29,7 @@ export const useFacebookPixel = (pixelIds?: string | string[]) => {
 
   useEffect(() => {
     // Normaliza para array
-    const pixels = pixelIds
-      ? (Array.isArray(pixelIds) ? pixelIds : [pixelIds]).filter(id => id && id.trim() !== "")
-      : [];
+    const pixels = pixelIds ? (Array.isArray(pixelIds) ? pixelIds : [pixelIds]).filter((id) => id && id.trim() !== "") : [];
 
     // Se não tiver pixels, não faz nada
     if (pixels.length === 0) {
@@ -40,8 +38,6 @@ export const useFacebookPixel = (pixelIds?: string | string[]) => {
 
     // Injeta o script base do Facebook Pixel (uma única vez)
     if (!isInitialized.current) {
-      console.log(`🔵 Inicializando Facebook Pixel Base Script`);
-
       (function (f: any, b: any, e: any, v: any, n?: any, t?: any, s?: any) {
         if (f.fbq) return;
         n = f.fbq = function () {
@@ -65,7 +61,6 @@ export const useFacebookPixel = (pixelIds?: string | string[]) => {
     // Inicializa cada pixel que ainda não foi inicializado
     pixels.forEach((pixelId) => {
       if (!initializedPixels.current.has(pixelId)) {
-        console.log(`🔵 Inicializando Facebook Pixel: ${pixelId}`);
         window.fbq("init", pixelId);
         initializedPixels.current.add(pixelId);
       }
@@ -73,7 +68,6 @@ export const useFacebookPixel = (pixelIds?: string | string[]) => {
 
     // Dispara o PageView automaticamente (será enviado para todos os pixels)
     window.fbq("track", "PageView");
-    console.log(`✅ Facebook Pixel(s) carregado(s): ${pixels.join(", ")} - PageView disparado`);
   }, [pixelIds]);
 
   // Retorna funções helper para disparar eventos manualmente com event_id
@@ -83,7 +77,6 @@ export const useFacebookPixel = (pixelIds?: string | string[]) => {
       if (window.fbq && initializedPixels.current.size > 0) {
         const finalEventId = eventId || generateEventId();
         window.fbq("track", eventName, data, { eventID: finalEventId });
-        console.log(`🔵 Facebook Event: ${eventName} [eventID: ${finalEventId}] para ${initializedPixels.current.size} pixel(s)`, data);
         return finalEventId;
       }
       return null;
@@ -92,7 +85,6 @@ export const useFacebookPixel = (pixelIds?: string | string[]) => {
       if (window.fbq && initializedPixels.current.size > 0) {
         const finalEventId = eventId || generateEventId();
         window.fbq("trackCustom", eventName, data, { eventID: finalEventId });
-        console.log(`🔵 Facebook Custom Event: ${eventName} [eventID: ${finalEventId}] para ${initializedPixels.current.size} pixel(s)`, data);
         return finalEventId;
       }
       return null;

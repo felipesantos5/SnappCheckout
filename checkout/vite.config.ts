@@ -23,7 +23,6 @@ export default defineConfig({
     minify: "esbuild",
     target: "es2020",
     reportCompressedSize: false,
-    sourcemap: false, // Desabilita sourcemaps em produção para reduzir tamanho
     rollupOptions: {
       treeshake: {
         preset: "recommended",
@@ -50,20 +49,6 @@ export default defineConfig({
 
           // UI libs (Radix, Lucide) podem ficar juntas ou separadas
           if (id.includes("@radix-ui") || id.includes("lucide-react")) {
-            return "ui-vendor";
-          }
-
-          // Bibliotecas pesadas usadas condicionalmente - lazy load
-          if (id.includes("react-markdown")) {
-            return "markdown";
-          }
-
-          if (id.includes("qrcode.react")) {
-            return "qrcode";
-          }
-
-          // Polished só para cálculo de contraste (pequeno)
-          if (id.includes("polished")) {
             return "ui-vendor";
           }
 
