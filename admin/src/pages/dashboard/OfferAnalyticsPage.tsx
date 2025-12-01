@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { ArrowLeft, Eye, ShoppingCart, CreditCard, TrendingUp, DollarSign } from "lucide-react";
+import { ArrowLeft, Eye, ShoppingCart, CreditCard, TrendingUp } from "lucide-react";
 import { formatCurrency } from "@/helper/formatCurrency";
 import { SalesHistoryTable } from "@/components/dashboard/SalesHistoryTable";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -25,13 +25,13 @@ interface FunnelData {
   conversionRate: number;
 }
 
-interface TotalRevenueData {
-  offerId: string;
-  offerName: string;
-  totalRevenue: number;
-  totalSales: number;
-  averageTicket: number;
-}
+// interface TotalRevenueData {
+//   offerId: string;
+//   offerName: string;
+//   totalRevenue: number;
+//   totalSales: number;
+//   averageTicket: number;
+// }
 
 export default function OfferAnalyticsPage() {
   const { id } = useParams<{ id: string }>(); // ID da oferta vindo da URL
@@ -39,7 +39,7 @@ export default function OfferAnalyticsPage() {
   const navigate = useNavigate();
 
   const [data, setData] = useState<FunnelData | null>(null);
-  const [totalRevenueData, setTotalRevenueData] = useState<TotalRevenueData | null>(null);
+  // const [totalRevenueData, setTotalRevenueData] = useState<TotalRevenueData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -109,29 +109,29 @@ export default function OfferAnalyticsPage() {
   }, [token, id, dateFilter, customDateRange]);
 
   // Busca o faturamento total da oferta (histórico completo, sem filtro de data)
-  useEffect(() => {
-    const fetchTotalRevenue = async () => {
-      if (!token || !id) return;
+  // useEffect(() => {
+  //   const fetchTotalRevenue = async () => {
+  //     if (!token || !id) return;
 
-      try {
-        const response = await fetch(`${API_URL}/metrics/offer-total-revenue?offerId=${id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+  //     try {
+  //       const response = await fetch(`${API_URL}/metrics/offer-total-revenue?offerId=${id}`, {
+  //         headers: {
+  //           Authorization: `Bearer ${token}`,
+  //         },
+  //       });
 
-        if (!response.ok) throw new Error("Falha ao buscar faturamento total");
+  //       if (!response.ok) throw new Error("Falha ao buscar faturamento total");
 
-        const totalData: TotalRevenueData = await response.json();
-        setTotalRevenueData(totalData);
-      } catch (err) {
-        console.error("Erro ao buscar faturamento total:", err);
-        // Não exibe erro para não quebrar a página, apenas não mostra o card
-      }
-    };
+  //       const totalData: TotalRevenueData = await response.json();
+  //       setTotalRevenueData(totalData);
+  //     } catch (err) {
+  //       console.error("Erro ao buscar faturamento total:", err);
+  //       // Não exibe erro para não quebrar a página, apenas não mostra o card
+  //     }
+  //   };
 
-    fetchTotalRevenue();
-  }, [token, id]);
+  //   fetchTotalRevenue();
+  // }, [token, id]);
 
   if (loading) {
     return (
@@ -201,24 +201,6 @@ export default function OfferAnalyticsPage() {
           </div>
         </div>
       </div>
-
-      {/* Card de Faturamento Total (Histórico Completo) */}
-      {totalRevenueData && (
-        <Card className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-800">Faturamento Total da Oferta</CardTitle>
-            <DollarSign className="h-5 w-5 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-700">{formatCurrency(totalRevenueData.totalRevenue / 100)}</div>
-            <p className="text-xs text-green-600 mt-1">
-              {totalRevenueData.totalSales} vendas aprovadas • Ticket médio: {formatCurrency(totalRevenueData.averageTicket / 100)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">📊 Histórico completo desde a criação da oferta</p>
-          </CardContent>
-        </Card>
-      )}
-
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -319,14 +301,6 @@ export default function OfferAnalyticsPage() {
                   <p className="text-sm text-muted-foreground">Pessoas que iniciaram mas não compraram</p>
                 </div>
                 <div className="ml-auto font-bold text-red-500">{data.initiatedCheckout - data.purchases}</div>
-              </div>
-
-              <div className="flex items-center">
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">ROI (Estimado)</p>
-                  <p className="text-sm text-muted-foreground">Baseado apenas na receita bruta</p>
-                </div>
-                <div className="ml-auto font-bold text-green-600">Positivo</div>
               </div>
             </div>
           </CardContent>

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from "rea
 import { useNavigate } from "react-router-dom";
 import { useStripe, useElements, CardNumberElement } from "@stripe/react-stripe-js";
 import type { PaymentRequest, PaymentRequestPaymentMethodEvent } from "@stripe/stripe-js";
-import { Loader2, CheckCircle, Lock, ShieldCheck } from "lucide-react";
+import { Loader2, CheckCircle, Lock } from "lucide-react";
 
 import type { OfferData } from "../../pages/CheckoutSlugPage";
 import { OrderSummary } from "./OrderSummary";

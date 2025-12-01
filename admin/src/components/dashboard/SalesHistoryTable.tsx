@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowUpCircle, Zap, ShoppingBag, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowUpCircle, Zap, ShoppingBag, CheckCircle2, XCircle } from "lucide-react";
 import { API_URL } from "@/config/BackendUrl";
 import { formatCurrency } from "@/helper/formatCurrency";
 import { useAuth } from "@/context/AuthContext"; // Importar contexto de Auth se precisar de token
