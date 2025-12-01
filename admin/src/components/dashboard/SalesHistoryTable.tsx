@@ -3,10 +3,11 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowUpCircle, Zap, ShoppingBag } from "lucide-react";
+import { Loader2, ArrowUpCircle, Zap, ShoppingBag, CheckCircle2, XCircle } from "lucide-react";
 import { API_URL } from "@/config/BackendUrl";
 import { formatCurrency } from "@/helper/formatCurrency";
 import { useAuth } from "@/context/AuthContext"; // Importar contexto de Auth se precisar de token
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 
 interface SaleItem {
   name: string;
@@ -15,12 +16,15 @@ interface SaleItem {
 
 interface Sale {
   _id: string;
+  offerId: any;
   customerName: string;
   customerEmail: string;
   totalAmountInCents: number;
   currency: string;
-  status: "succeeded" | "pending" | "refunded";
+  status: "succeeded" | "pending" | "refunded" | "failed";
   items: SaleItem[];
+  failureMessage?: string;
+  failureReason?: string;
   createdAt: string;
   isUpsell: boolean;
   ip?: string;
@@ -42,12 +46,7 @@ const formatDate = (dateString: string) => {
 const CountryFlag = ({ countryCode }: { countryCode?: string }) => {
   if (!countryCode) return <span>🌐</span>;
   return (
-    <img
-      src={`https://flagcdn.com/24x18/${countryCode.toLowerCase()}.png`}
-      alt={countryCode}
-      className="inline-block mr-2 rounded-sm shadow-sm"
-      title={countryCode}
-    />
+    <img src={`https://flagcdn.com/24x18/${countryCode.toLowerCase()}.png`} alt={countryCode} className="inline-block mr-2" title={countryCode} />
   );
 };
 
@@ -58,13 +57,13 @@ interface SalesHistoryTableProps {
 export function SalesHistoryTable({ offerId }: SalesHistoryTableProps) {
   const { token } = useAuth(); // Usar token para autenticação
   const [sales, setSales] = useState<Sale[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!offerId || !token) return;
 
     const fetchSales = async () => {
-      setIsLoading(true);
+      // setIsLoading(true);
       try {
         const response = await fetch(`${API_URL}/sales/offer/${offerId}`, {
           headers: {
@@ -85,7 +84,7 @@ export function SalesHistoryTable({ offerId }: SalesHistoryTableProps) {
         toast.error("Erro ao carregar vendas.");
         setSales([]);
       } finally {
-        setIsLoading(false);
+        // setIsLoading(false);
       }
     };
 
@@ -118,60 +117,75 @@ export function SalesHistoryTable({ offerId }: SalesHistoryTableProps) {
   };
 
   return (
-    <Card className="w-full mt-6">
-      <CardHeader>
-        <CardTitle>Histórico de Transações</CardTitle>
-        <CardDescription>Detalhamento de todas as vendas aprovadas para esta oferta.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cliente & IP</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Data/Hora</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-600" />
-                  </TableCell>
-                </TableRow>
-              ) : sales.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                    Nenhuma venda registrada ainda.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sales.map((sale) => (
-                  <TableRow key={sale._id}>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-foreground">{sale.customerName}</span>
-                        <div className="flex items-center mt-1 text-xs text-muted-foreground gap-2">
-                          <span className="flex items-center bg-muted px-1.5 py-0.5 rounded">
-                            <CountryFlag countryCode={sale.country} />
-                            {sale.ip || "IP Oculto"}
-                          </span>
-                          <span>{sale.customerEmail}</span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{getSaleTypeIcon(sale)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDate(sale.createdAt)}</TableCell>
-                    <TableCell className="text-right font-semibold text-green-700">{formatCurrency(sale.totalAmountInCents, sale.currency)}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Cliente</TableHead>
+            <TableHead>Oferta</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Valor</TableHead>
+            <TableHead className="text-right">Data</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sales.map((sale) => (
+            <TableRow key={sale._id}>
+              <TableCell>
+                <div className="flex flex-col">
+                  <div className="flex">
+                    <CountryFlag countryCode={sale.country} />
+                    <span className="font-medium text-foreground">{sale.customerName}</span>
+                  </div>
+                  <div className="flex items-center mt-1 text-xs text-muted-foreground gap-2">
+                    <span className="flex items-center bg-muted px-1.5 py-0.5 rounded">{sale.ip || "IP Oculto"}</span>
+                    <span>{sale.customerEmail}</span>
+                  </div>
+                </div>
+              </TableCell>
+
+              <TableCell>
+                <TableCell>{getSaleTypeIcon(sale)}</TableCell>
+              </TableCell>
+
+              <TableCell>
+                {/* Lógica de Renderização de Status Melhorada */}
+                {sale.status === "succeeded" ? (
+                  <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                    <CheckCircle2 className="w-3 h-3 mr-1" /> Aprovada
+                  </Badge>
+                ) : sale.status === "failed" ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Badge variant="destructive" className="cursor-help">
+                          <XCircle className="w-3 h-3 mr-1" /> Falhou
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="font-semibold text-red-400">Motivo: {sale.failureReason}</p>
+                        <p className="text-xs">{sale.failureMessage}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <Badge variant="secondary">{sale.status}</Badge>
+                )}
+              </TableCell>
+
+              <TableCell>
+                <div className="font-medium">
+                  {formatCurrency(sale.totalAmountInCents, sale.currency || "BRL")}
+                  {/* Se falhou, mostrar texto explicativo pequeno */}
+                  {sale.status === "failed" && <span className="block text-[10px] text-red-500 font-normal mt-0.5">Não cobrado</span>}
+                </div>
+              </TableCell>
+
+              <TableCell className="text-right text-muted-foreground">{formatDate(sale.createdAt)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
