@@ -602,22 +602,20 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
       <div className="min-h-screen bg-gray-50 py-4 md:py-8">
         {/* Container principal com 2 colunas no desktop */}
         <div className="max-w-7xl mx-auto px-4">
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-6">
             {/* OrderSummary no Mobile - Logo abaixo do banner */}
             <div className="lg:hidden mb-6">
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <OrderSummary
-                  productName={offerData.mainProduct.name}
-                  productImageUrl={offerData.mainProduct.imageUrl}
-                  totalAmountInCents={totalAmount}
-                  basePriceInCents={offerData.mainProduct.priceInCents}
-                  currency={offerData.currency}
-                  quantity={quantity}
-                  setQuantity={setQuantity}
-                  originalPriceInCents={offerData.mainProduct.compareAtPriceInCents}
-                  discountPercentage={offerData.mainProduct.discountPercentage}
-                />
-              </div>
+              <OrderSummary
+                productName={offerData.mainProduct.name}
+                productImageUrl={offerData.mainProduct.imageUrl}
+                totalAmountInCents={totalAmount}
+                basePriceInCents={offerData.mainProduct.priceInCents}
+                currency={offerData.currency}
+                quantity={quantity}
+                setQuantity={setQuantity}
+                originalPriceInCents={offerData.mainProduct.compareAtPriceInCents}
+                discountPercentage={offerData.mainProduct.discountPercentage}
+              />
             </div>
 
             {/* Grid 2 colunas: mobile = 1 col, desktop = 2 cols */}
@@ -650,7 +648,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
               {/* COLUNA DIREITA: Resumo do Pedido + Botão */}
               <div className="lg:sticky lg:top-4 lg:self-start space-y-6">
                 {/* Resumo do Produto - Desktop Only */}
-                <div className="hidden lg:block bg-white rounded-xl shadow-lg p-6">
+                <div className="hidden lg:block ">
                   <OrderSummary
                     productName={offerData.mainProduct.name}
                     productImageUrl={offerData.mainProduct.imageUrl}
@@ -677,98 +675,39 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                 </div>
 
                 {/* Botão e Trust Badges - Mobile e Desktop */}
-                <div className="bg-white rounded-xl shadow-lg p-6">
-                  {/*
-                    Botão de Compra Principal
-                    Só aparece quando NÃO for Apple Pay/Google Pay (wallet)
-                    Wallet tem seu próprio botão nativo no PaymentMethods
-                  */}
-                  {method !== "wallet" && (
-                    <>
-                      {/* CTA Button Melhorado */}
-                      <button
-                        type="submit"
-                        disabled={!stripe || loading || paymentSucceeded}
-                        className="w-full mt-6 bg-button text-button-foreground font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 disabled:opacity-50 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg hover:shadow-xl relative overflow-hidden group"
-                        style={{
-                          backgroundColor: loading || paymentSucceeded ? "#ccc" : button,
-                          color: buttonForeground,
-                          opacity: loading || paymentSucceeded ? 0.7 : 1,
-                        }}
-                      >
-                        {/* Shimmer effect on hover */}
-                        <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
 
-                        <span className="relative flex items-center justify-center gap-2">
-                          {loading || paymentSucceeded ? (
-                            <>
-                              <Loader2 className="h-5 w-5 animate-spin" />
-                              {t.buttons.processing}
-                            </>
-                          ) : (
-                            <>
-                              <Lock className="h-5 w-5" />
-                              <span>
-                                {method === "pix" ? t.buttons.submitPix : `${t.buttons.submit} - ${formatCurrency(totalAmount, offerData.currency)}`}
-                              </span>
-                            </>
-                          )}
-                        </span>
-                      </button>
+                {method !== "wallet" && (
+                  <>
+                    <button
+                      type="submit"
+                      disabled={!stripe || loading || paymentSucceeded}
+                      className="w-full bg-button text-button-foreground font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 disabled:opacity-50 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg hover:shadow-xl relative overflow-hidden group"
+                      style={{
+                        backgroundColor: loading || paymentSucceeded ? "#ccc" : button,
+                        color: buttonForeground,
+                        opacity: loading || paymentSucceeded ? 0.7 : 1,
+                      }}
+                    >
+                      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-linear-to-r from-transparent via-white/20 to-transparent"></div>
 
-                      {/* Trust Indicators abaixo do botão */}
-                      <div className="mt-4 space-y-3">
-                        {/* SSL + Segurança */}
-                        <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
-                          <ShieldCheck className="h-4 w-4 text-green-600" />
-                          <span className="text-green-700 font-medium">Conexão 100% Segura e Criptografada</span>
-                        </div>
-
-                        {/* Trust Badges */}
-                        <div className="flex items-center justify-center gap-4 py-2">
-                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
-                              <path d="M12 2L3 7V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V7L12 2Z" fill="#10B981" opacity="0.2" />
-                              <path
-                                d="M12 2L3 7V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V7L12 2Z"
-                                stroke="#10B981"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                              <path d="M9 12L11 14L15 10" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            <span className="font-medium">SSL Seguro</span>
-                          </div>
-                          <div className="h-4 w-px bg-gray-300"></div>
-                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
-                              <rect x="2" y="5" width="20" height="14" rx="2" stroke="#6366F1" strokeWidth="2" />
-                              <path d="M2 10H22" stroke="#6366F1" strokeWidth="2" />
-                              <circle cx="7" cy="15" r="1" fill="#6366F1" />
-                            </svg>
-                            <span className="font-medium">Stripe Verified</span>
-                          </div>
-                          <div className="h-4 w-px bg-gray-300"></div>
-                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
-                              <path
-                                d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
-                                stroke="#059669"
-                                strokeWidth="2"
-                              />
-                              <path d="M8 12L11 15L16 9" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            <span className="font-medium">PCI Compliant</span>
-                          </div>
-                        </div>
-
-                        {/* Garantia */}
-                        <p className="text-xs text-center text-gray-500">Seus dados estão protegidos com criptografia de nível bancário</p>
-                      </div>
-                    </>
-                  )}
-                </div>
+                      <span className="relative flex items-center justify-center gap-2">
+                        {loading || paymentSucceeded ? (
+                          <>
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            {t.buttons.processing}
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="h-5 w-5" />
+                            <span>
+                              {method === "pix" ? t.buttons.submitPix : `${t.buttons.submit} - ${formatCurrency(totalAmount, offerData.currency)}`}
+                            </span>
+                          </>
+                        )}
+                      </span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -776,7 +715,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
             {errorMessage && (
               <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <div className="flex items-start gap-3">
-                  <svg className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div className="flex-1">
