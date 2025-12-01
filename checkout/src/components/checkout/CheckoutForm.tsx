@@ -1,23 +1,26 @@
 // src/components/checkout/CheckoutForm.tsx
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStripe, useElements, CardNumberElement } from "@stripe/react-stripe-js";
 import type { PaymentRequest, PaymentRequestPaymentMethodEvent } from "@stripe/stripe-js";
-import { Loader2, CheckCircle } from "lucide-react";
+import { Loader2, CheckCircle, Lock } from "lucide-react";
 
 import type { OfferData } from "../../pages/CheckoutSlugPage";
 import { OrderSummary } from "./OrderSummary";
 import { ContactInfo } from "./ContactInfo";
-import { AddressInfo } from "./AddressInfo";
 import { PaymentMethods } from "./PaymentMethods";
-import { OrderBump } from "./OrderBump";
 import { Banner } from "./Banner";
+
+// Lazy load componentes não críticos para melhorar performance inicial
+const AddressInfo = lazy(() => import("./AddressInfo").then((module) => ({ default: module.AddressInfo })));
+const OrderBump = lazy(() => import("./OrderBump").then((module) => ({ default: module.OrderBump })));
 import { API_URL } from "../../config/BackendUrl";
 import { useTheme } from "../../context/ThemeContext";
 import { useTranslation } from "../../i18n/I18nContext";
 import { getClientIP } from "../../service/getClientIP";
 import { getCookie } from "../../helper/getCookie";
 import { detectPlatform } from "../../utils/platformDetection";
+import { formatCurrency } from "../../helper/formatCurrency";
 
 interface CheckoutFormProps {
   offerData: OfferData;
@@ -133,9 +136,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
           fbp: fbCookies.fbp,
         }),
       });
-    } catch (err) {
-      console.error("❌ Erro ao enviar InitiateCheckout para backend:", err);
-    }
+    } catch (err) {}
   };
 
   // Atualiza o total baseado em bumps e quantidade
@@ -207,9 +208,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         setWalletLabel(label);
         setPaymentRequest(pr);
       })
-      .catch((error) => {
-        console.error("❌ [WALLET] Erro ao verificar disponibilidade:", error);
-      });
+      .catch((_error) => {});
 
     pr.on("paymentmethod", async (ev: PaymentRequestPaymentMethodEvent) => {
       try {
@@ -257,7 +256,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         const { clientSecret, error: backendError } = await res.json();
 
         if (backendError) {
-          console.error("❌ [APPLE PAY] Erro do backend:", backendError);
           ev.complete("fail");
           setErrorMessage(backendError.message);
           setLoading(false);
@@ -270,7 +268,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         });
 
         if (confirmError) {
-          console.error("❌ [APPLE PAY] Erro ao confirmar:", confirmError);
           ev.complete("fail");
           setErrorMessage(confirmError.message || "Erro no pagamento");
           setLoading(false);
@@ -293,14 +290,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
               setPaymentSucceeded(true);
             }
           } else {
-            console.warn("⚠️ [APPLE PAY] Status inesperado:", paymentIntent?.status);
             ev.complete("fail");
             setErrorMessage(`Pagamento não aprovado. Status: ${paymentIntent?.status}`);
             setLoading(false);
           }
         }
       } catch (err: any) {
-        console.error("❌ [APPLE PAY] Erro inesperado:", err);
         ev.complete("fail");
         setErrorMessage(err.message || "Erro inesperado");
         setLoading(false);
@@ -344,9 +339,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
               window.location.href = `${offerData.upsell?.redirectUrl}?${params.toString()}`;
               return;
             }
-          } catch (error) {
-            console.error("Falha ao gerar token de upsell, verificando fallback.", error);
-          }
+          } catch (error) {}
         }
 
         // 2. PRIORIDADE: Página de Obrigado Customizada do Cliente
@@ -513,7 +506,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         setLoading(false);
       }
     } catch (error: any) {
-      console.error("[ERROR] Erro no checkout:", error);
       setErrorMessage(error.message || t.messages.error);
       setLoading(false);
     }
@@ -547,44 +539,134 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         </div>
       )}
       <Banner imageUrl={offerData.bannerImageUrl} secondaryBannerImageUrl={offerData.secondaryBannerImageUrl} />
-      <div className="min-h-screen bg-white p-4">
-        <div className="max-w-lg mx-auto bg-white rounded-xl shadow-xl p-4 pt-0">
-          <form onSubmit={handleSubmit}>
-            <OrderSummary
-              productName={offerData.mainProduct.name}
-              productImageUrl={offerData.mainProduct.imageUrl}
-              totalAmountInCents={totalAmount}
-              basePriceInCents={offerData.mainProduct.priceInCents}
-              currency={offerData.currency}
-              quantity={quantity}
-              setQuantity={setQuantity}
-              originalPriceInCents={offerData.mainProduct.compareAtPriceInCents}
-              discountPercentage={offerData.mainProduct.discountPercentage}
-            />
+      <div className="min-h-screen bg-gray-50 py-4 md:py-8">
+        {/* Container principal com 2 colunas no desktop */}
+        <div className="max-w-7xl mx-auto px-4">
+          <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-6">
+            {/* OrderSummary no Mobile - Logo abaixo do banner */}
+            <div className="lg:hidden mb-6">
+              <OrderSummary
+                productName={offerData.mainProduct.name}
+                productImageUrl={offerData.mainProduct.imageUrl}
+                totalAmountInCents={totalAmount}
+                basePriceInCents={offerData.mainProduct.priceInCents}
+                currency={offerData.currency}
+                quantity={quantity}
+                setQuantity={setQuantity}
+                originalPriceInCents={offerData.mainProduct.compareAtPriceInCents}
+                discountPercentage={offerData.mainProduct.discountPercentage}
+              />
+            </div>
 
-            <ContactInfo showPhone={offerData.collectPhone} offerID={offerData._id} onEmailValidated={handleInitiateCheckout} />
-            {offerData.collectAddress && <AddressInfo />}
+            {/* Grid 2 colunas: mobile = 1 col, desktop = 2 cols */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+              {/* COLUNA ESQUERDA: Formulário de Checkout */}
+              <div className="space-y-6">
+                <ContactInfo showPhone={offerData.collectPhone} onEmailValidated={handleInitiateCheckout} offerID={offerData._id} />
 
-            <PaymentMethods method={method} setMethod={setMethod} paymentRequest={paymentRequest} walletLabel={walletLabel} />
-            <OrderBump bumps={offerData.orderBumps} selectedBumps={selectedBumps} onToggleBump={handleToggleBump} currency={offerData.currency} />
-            {method === "wallet" ? (
-              <></>
-            ) : (
-              <button
-                type="submit"
-                disabled={!stripe || loading || paymentSucceeded}
-                className="w-full mt-8 bg-button text-button-foreground font-bold py-3 px-4 rounded-lg text-lg transition-colors disabled:opacity-50 hover:opacity-90 cursor-pointer"
-                style={{
-                  backgroundColor: loading || paymentSucceeded ? "#ccc" : button,
-                  color: buttonForeground,
-                  opacity: loading || paymentSucceeded ? 0.7 : 1,
-                }}
-              >
-                {loading || paymentSucceeded ? t.buttons.processing : method === "pix" ? t.buttons.submitPix : t.buttons.submit}
-              </button>
+                {offerData.collectAddress && (
+                  <Suspense fallback={<div className="animate-pulse bg-gray-100 h-40 rounded-lg"></div>}>
+                    <AddressInfo />
+                  </Suspense>
+                )}
+
+                <PaymentMethods method={method} setMethod={setMethod} paymentRequest={paymentRequest} walletLabel={walletLabel} />
+
+                {/* Order Bumps aparecem na esquerda em mobile, escondidos em desktop */}
+                <div className="lg:hidden">
+                  <Suspense fallback={<div className="animate-pulse bg-gray-100 h-32 rounded-lg"></div>}>
+                    <OrderBump
+                      bumps={offerData.orderBumps}
+                      selectedBumps={selectedBumps}
+                      onToggleBump={handleToggleBump}
+                      currency={offerData.currency}
+                    />
+                  </Suspense>
+                </div>
+              </div>
+
+              {/* COLUNA DIREITA: Resumo do Pedido + Botão */}
+              <div className="lg:sticky lg:top-4 lg:self-start space-y-6">
+                {/* Resumo do Produto - Desktop Only */}
+                <div className="hidden lg:block ">
+                  <OrderSummary
+                    productName={offerData.mainProduct.name}
+                    productImageUrl={offerData.mainProduct.imageUrl}
+                    totalAmountInCents={totalAmount}
+                    basePriceInCents={offerData.mainProduct.priceInCents}
+                    currency={offerData.currency}
+                    quantity={quantity}
+                    setQuantity={setQuantity}
+                    originalPriceInCents={offerData.mainProduct.compareAtPriceInCents}
+                    discountPercentage={offerData.mainProduct.discountPercentage}
+                  />
+
+                  {/* Order Bumps aparecem aqui em desktop */}
+                  <div className="mt-6">
+                    <Suspense fallback={<div className="animate-pulse bg-gray-100 h-32 rounded-lg"></div>}>
+                      <OrderBump
+                        bumps={offerData.orderBumps}
+                        selectedBumps={selectedBumps}
+                        onToggleBump={handleToggleBump}
+                        currency={offerData.currency}
+                      />
+                    </Suspense>
+                  </div>
+                </div>
+
+                {/* Botão e Trust Badges - Mobile e Desktop */}
+
+                {method !== "wallet" && (
+                  <>
+                    <button
+                      type="submit"
+                      disabled={!stripe || loading || paymentSucceeded}
+                      className="w-full bg-button text-button-foreground font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 disabled:opacity-50 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg hover:shadow-xl relative overflow-hidden group"
+                      style={{
+                        backgroundColor: loading || paymentSucceeded ? "#ccc" : button,
+                        color: buttonForeground,
+                        opacity: loading || paymentSucceeded ? 0.7 : 1,
+                      }}
+                    >
+                      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-linear-to-r from-transparent via-white/20 to-transparent"></div>
+
+                      <span className="relative flex items-center justify-center gap-2">
+                        {loading || paymentSucceeded ? (
+                          <>
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            {t.buttons.processing}
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="h-5 w-5" />
+                            <span>
+                              {method === "pix" ? t.buttons.submitPix : `${t.buttons.submit} - ${formatCurrency(totalAmount, offerData.currency)}`}
+                            </span>
+                          </>
+                        )}
+                      </span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Mensagem de Erro (fora do grid, abaixo de tudo) */}
+            {errorMessage && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <svg className="h-5 w-5 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-red-700 text-sm font-medium">{errorMessage}</p>
+                    <button onClick={() => setErrorMessage(null)} className="text-red-600 text-xs underline mt-1 hover:text-red-800">
+                      Tentar novamente
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
-
-            {errorMessage && <div className="text-red-500 text-sm text-center mt-4">{errorMessage}</div>}
           </form>
         </div>
       </div>

@@ -67,6 +67,7 @@ const saleSchema = new Schema<ISale>(
       type: String,
       enum: ["succeeded", "pending", "refunded", "failed"],
       default: "pending",
+      index: true,
     },
 
     failureReason: { type: String, default: "" },
@@ -76,6 +77,8 @@ const saleSchema = new Schema<ISale>(
   },
   { timestamps: true }
 );
+
+saleSchema.index({ offerId: 1, status: 1, createdAt: -1 });
 
 const Sale: Model<ISale> = mongoose.models.Sale || model<ISale>("Sale", saleSchema);
 

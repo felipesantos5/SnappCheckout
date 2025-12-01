@@ -1,6 +1,6 @@
 import { useState, memo, useCallback, useMemo } from "react";
 import * as Collapsible from "@radix-ui/react-collapsible";
-import { ChevronDown, ShoppingCart } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import { useTranslation } from "../../i18n/I18nContext";
 import { formatCurrency } from "../../helper/formatCurrency";
@@ -18,17 +18,7 @@ interface OrderSummaryProps {
   discountPercentage?: number;
 }
 export const OrderSummary = memo<OrderSummaryProps>(
-  ({
-    productName,
-    productImageUrl,
-    currency,
-    totalAmountInCents,
-    basePriceInCents,
-    quantity,
-    setQuantity,
-    originalPriceInCents,
-    discountPercentage,
-  }) => {
+  ({ productName, productImageUrl, currency, totalAmountInCents, basePriceInCents, quantity, setQuantity, originalPriceInCents }) => {
     const [isOpen, setIsOpen] = useState(false);
     const { primary } = useTheme();
     const { t } = useTranslation();
@@ -41,10 +31,6 @@ export const OrderSummary = memo<OrderSummaryProps>(
     );
     const bumpsTotal = useMemo(() => totalAmountInCents - subtotal, [totalAmountInCents, subtotal]);
     const totalSmallText = useMemo(() => formatCurrency(totalAmountInCents, currency), [totalAmountInCents, currency]);
-    const totalOldPrice = useMemo(
-      () => (originalPriceInCents ? formatCurrency(subtotalOldPrice + bumpsTotal, currency) : null),
-      [originalPriceInCents, subtotalOldPrice, bumpsTotal, currency]
-    );
 
     const handleIncrease = useCallback(() => {
       setQuantity(quantity + 1);
@@ -58,67 +44,71 @@ export const OrderSummary = memo<OrderSummaryProps>(
 
     return (
       <Collapsible.Root open={isOpen} onOpenChange={setIsOpen} className="w-full bg-gray-50 rounded-lg shadow">
-        <Collapsible.Trigger className="w-full p-2 flex justify-between cursor-pointer">
-          <div className="flex items-center">
-            <ShoppingCart className="h-4 w-4 text-primary" />
-            <span className="text-sm font-semibold text-primary ml-2 whitespace-nowrap">
-              {isOpen ? t.orderSummary.hideTitle : t.orderSummary.title}
-            </span>
-            <ChevronDown className={`h-5 w-5 text-primary ml-1 transition-transform duration-300 ease-in-out ${isOpen ? "rotate-180" : ""}`} />
+        {/* Produto sempre visível (collapsed/expanded) */}
+        <div className="p-4">
+          <div className="flex items-start gap-3">
+            {productImageUrl && (
+              <OptimizedImage
+                src={productImageUrl}
+                alt={productName}
+                className="w-14 h-14 shrink-0 rounded border object-cover"
+                width={64}
+                aspectRatio="1/1"
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-gray-900 line-clamp-2">{productName}</h3>
+              <div className="mt-1 flex items-center justify-between">
+                <div className="flex flex-col">
+                  {originalPriceInCents && originalPriceInCents > basePriceInCents && (
+                    <span className="text-xs text-gray-500 line-through">{formatCurrency(originalPriceInCents, currency)}</span>
+                  )}
+                  <span className="text-base font-bold" style={{ color: primary }}>
+                    {formatCurrency(basePriceInCents, currency)}
+                  </span>
+                </div>
+                {!isOpen && (
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">{t.orderSummary.total}</p>
+                    <p className="text-lg font-bold" style={{ color: primary }}>
+                      {totalSmallText}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          {!isOpen && (
-            <div className="text-right">
-              {totalOldPrice && <p className="text-sm line-through text-gray-500">{totalOldPrice}</p>}
-              <p className="text-[18px] font-semibold" style={{ color: primary }}>
-                {totalSmallText}
-              </p>
-              {discountAmount > 0 && (
-                <p className="text-xs text-green-600 font-medium">
-                  {t.orderSummary.save} {formatCurrency(discountAmount, currency)}
-                </p>
-              )}
-            </div>
-          )}
-        </Collapsible.Trigger>
+          {/* Botão para expandir/colapsar detalhes */}
+          <Collapsible.Trigger className="w-full mt-3 pt-3 border-t border-gray-200 flex items-center justify-center gap-2 cursor-pointer group">
+            <span className="text-sm font-medium text-primary group-hover:underline">{isOpen ? t.orderSummary.hideTitle : t.orderSummary.title}</span>
+            <ChevronDown className={`h-4 w-4 text-primary transition-transform duration-300 ease-in-out ${isOpen ? "rotate-180" : ""}`} />
+          </Collapsible.Trigger>
+        </div>
 
+        {/* Detalhes expandíveis */}
         <Collapsible.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-          <div className="p-4 border-t border-gray-200 transition-opacity duration-300">
-            <div className="flex items-center">
-              {productImageUrl && (
-                <OptimizedImage src={productImageUrl} alt={productName} className="w-20 h-20 flex-shrink-0 border" width={80} aspectRatio="1/1" />
-              )}
-              <div className="ml-4 flex-1">
-                <h3 className="text-sm font-medium text-gray-800">{productName}</h3>
-                <div className="flex items-center justify-between mt-1 flex-wrap">
-                  <div className="flex flex-col">
-                    {originalPriceInCents && originalPriceInCents > basePriceInCents && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500 line-through">{formatCurrency(originalPriceInCents, currency)}</span>
-                        {discountPercentage && (
-                          <span className="text-xs font-semibold text-white bg-green-600 px-2 py-0.5 rounded">
-                            {discountPercentage}
-                            {t.product.discount}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <span className="text-lg font-bold text-gray-900">{formatCurrency(basePriceInCents, currency)}</span>
-                  </div>
-
-                  <div className="flex items-center border rounded">
-                    <button type="button" className="px-2 py-1 text-gray-600 disabled:opacity-50" onClick={handleDecrease} disabled={quantity <= 1}>
-                      —
-                    </button>
-                    <span className="px-3 py-1 border-l border-r">{quantity}</span>
-                    <button type="button" className="px-2 py-1 text-gray-600" onClick={handleIncrease}>
-                      +
-                    </button>
-                  </div>
-                </div>
+          <div className="px-4 pb-4 border-t border-gray-200">
+            {/* Seletor de quantidade */}
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">{t.product.quantity}</span>
+              <div className="flex items-center border rounded">
+                <button
+                  type="button"
+                  className="px-3 py-1.5 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                  onClick={handleDecrease}
+                  disabled={quantity <= 1}
+                >
+                  —
+                </button>
+                <span className="px-4 py-1.5 border-l border-r font-medium">{quantity}</span>
+                <button type="button" className="px-3 py-1.5 text-gray-600 hover:bg-gray-100" onClick={handleIncrease}>
+                  +
+                </button>
               </div>
             </div>
 
+            {/* Resumo de preços */}
             <div className="mt-4 border-t border-gray-200 pt-4 text-sm text-gray-600 space-y-1">
               {originalPriceInCents && originalPriceInCents > basePriceInCents ? (
                 <>

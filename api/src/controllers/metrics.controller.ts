@@ -118,11 +118,33 @@ export const handleTrackMetric = async (req: Request, res: Response) => {
             },
           };
 
-          // Envia para TODOS os pixels configurados
+          // Envia para TODOS os pixels configurados em paralelo com tratamento individual de erros
           console.log(`🔵 Enviando InitiateCheckout para ${pixels.length} pixel(s) [eventID: ${eventId}]`);
-          pixels.forEach((pixel) => {
-            sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventPayload)
-              .catch((err) => console.error(`Erro async FB initiate para pixel ${pixel.pixelId}:`, err));
+
+          // Promise.allSettled garante que todos os pixels sejam processados, mesmo se algum falhar
+          const results = await Promise.allSettled(
+            pixels.map((pixel, index) =>
+              sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventPayload)
+                .then(() => {
+                  console.log(`✅ InitiateCheckout enviado com sucesso para pixel ${index + 1}/${pixels.length}: ${pixel.pixelId}`);
+                })
+                .catch((err) => {
+                  console.error(`❌ Erro ao enviar InitiateCheckout para pixel ${index + 1}/${pixels.length} (${pixel.pixelId}):`, err);
+                  throw err; // Re-lança para que o Promise.allSettled capture como rejected
+                })
+            )
+          );
+
+          // Log do resumo final
+          const successful = results.filter(r => r.status === 'fulfilled').length;
+          const failed = results.filter(r => r.status === 'rejected').length;
+          console.log(`📊 InitiateCheckout: ${successful} sucesso, ${failed} falhas de ${pixels.length} pixels`);
+
+          // Log detalhado dos erros
+          results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+              console.error(`❌ Detalhes do erro pixel ${index + 1} (${pixels[index].pixelId}):`, result.reason);
+            }
           });
         }
       }
@@ -325,6 +347,57 @@ export const handleGetOffersRevenue = async (req: Request, res: Response) => {
 };
 
 // overview dashboard
+/**
+ * Retorna o faturamento total de uma oferta específica (histórico completo)
+ * Protegido: Apenas para o dono da oferta
+ */
+export const handleGetOfferTotalRevenue = async (req: Request, res: Response) => {
+  try {
+    const ownerId = req.userId!;
+    const offerId = req.query.offerId as string;
+
+    if (!offerId) {
+      return res.status(400).json({ error: "offerId é obrigatório" });
+    }
+
+    // Verifica se a oferta pertence ao usuário
+    const offer = await Offer.findOne({ _id: offerId, ownerId });
+    if (!offer) {
+      return res.status(404).json({ error: "Oferta não encontrada" });
+    }
+
+    // Busca TODAS as vendas aprovadas dessa oferta (sem filtro de data)
+    const sales = await Sale.find({
+      offerId: new mongoose.Types.ObjectId(offerId),
+      status: "succeeded",
+    })
+      .select("totalAmountInCents currency")
+      .lean();
+
+    // Calcula o faturamento total convertido para BRL
+    let totalRevenueInBRL = 0;
+    await Promise.all(
+      sales.map(async (sale) => {
+        const amountInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
+        totalRevenueInBRL += amountInBRL;
+      })
+    );
+
+    const totalSales = sales.length;
+
+    res.status(200).json({
+      offerId,
+      offerName: offer.name,
+      totalRevenue: totalRevenueInBRL, // Em centavos BRL
+      totalSales,
+      averageTicket: totalSales > 0 ? totalRevenueInBRL / totalSales : 0,
+    });
+  } catch (error) {
+    console.error("Erro ao buscar faturamento total da oferta:", error);
+    res.status(500).json({ error: { message: (error as Error).message } });
+  }
+};
+
 export const handleGetDashboardOverview = async (req: Request, res: Response) => {
   try {
     const ownerId = req.userId!;
@@ -368,10 +441,19 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
       offerIds = myOffers.map((o) => o._id);
     }
 
-    const [allSales, allMetrics] = await Promise.all([
+    const [allSales, allFailedSales, allMetrics] = await Promise.all([
+      // Vendas aprovadas
       Sale.find({
         ownerId: new mongoose.Types.ObjectId(ownerId),
         status: "succeeded",
+        createdAt: { $gte: startDate, $lte: endDate },
+        offerId: filterOfferId && filterOfferId !== "all" ? filterOfferId : { $exists: true },
+      }).lean(),
+
+      // Vendas falhadas (para calcular taxa de aprovação)
+      Sale.find({
+        ownerId: new mongoose.Types.ObjectId(ownerId),
+        status: "failed",
         createdAt: { $gte: startDate, $lte: endDate },
         offerId: filterOfferId && filterOfferId !== "all" ? filterOfferId : { $exists: true },
       }).lean(),
@@ -415,6 +497,11 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     const totalVisitors = views.length;
     const conversionRate = totalVisitors > 0 ? (totalSales / totalVisitors) * 100 : 0;
     const checkoutApprovalRate = checkoutsInitiatedCount > 0 ? (totalSales / checkoutsInitiatedCount) * 100 : 0;
+
+    // NOVA MÉTRICA: Taxa de Aprovação de Pagamentos (Aprovados / Total de Tentativas)
+    const totalFailedSales = allFailedSales.length;
+    const totalPaymentAttempts = totalSales + totalFailedSales; // Total de tentativas de pagamento
+    const paymentApprovalRate = totalPaymentAttempts > 0 ? (totalSales / totalPaymentAttempts) * 100 : 0;
 
     // --- GRÁFICOS (PREENCHIMENTO DE GAPS E FORMATAÇÃO) ---
     const dailyMap = new Map<string, { revenue: number; salesCount: number; visitorsCount: number; label: string }>();
@@ -561,10 +648,17 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     const previousStartDate = new Date(startDate.getTime() - periodDiffMs);
     const previousEndDate = new Date(startDate);
 
-    const [previousSales, previousMetrics] = await Promise.all([
+    const [previousSales, previousFailedSales, previousMetrics] = await Promise.all([
       Sale.find({
         ownerId: new mongoose.Types.ObjectId(ownerId),
         status: "succeeded",
+        createdAt: { $gte: previousStartDate, $lt: previousEndDate },
+        offerId: filterOfferId && filterOfferId !== "all" ? filterOfferId : { $exists: true },
+      }).lean(),
+
+      Sale.find({
+        ownerId: new mongoose.Types.ObjectId(ownerId),
+        status: "failed",
         createdAt: { $gte: previousStartDate, $lt: previousEndDate },
         offerId: filterOfferId && filterOfferId !== "all" ? filterOfferId : { $exists: true },
       }).lean(),
@@ -609,6 +703,11 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     const previousConversionRate = previousTotalVisitors > 0 ? (previousTotalSales / previousTotalVisitors) * 100 : 0;
     const previousCheckoutApprovalRate = previousCheckoutsInitiatedCount > 0 ? (previousTotalSales / previousCheckoutsInitiatedCount) * 100 : 0;
 
+    // Taxa de aprovação de pagamentos do período anterior
+    const previousTotalFailedSales = previousFailedSales.length;
+    const previousTotalPaymentAttempts = previousTotalSales + previousTotalFailedSales;
+    const previousPaymentApprovalRate = previousTotalPaymentAttempts > 0 ? (previousTotalSales / previousTotalPaymentAttempts) * 100 : 0;
+
     // Calcular porcentagens de mudança
     const calculateChangePercentage = (current: number, previous: number) => {
       if (previous === 0) return current > 0 ? 100 : 0;
@@ -626,6 +725,12 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
         totalOrders: totalSales,
         checkoutsInitiated: checkoutsInitiatedCount,
         checkoutApprovalRate,
+
+        // NOVA MÉTRICA: Taxa de Aprovação de Pagamentos
+        paymentApprovalRate, // % de pagamentos aprovados do total de tentativas
+        totalPaymentAttempts, // Total de tentativas (aprovadas + negadas)
+        totalFailedPayments: totalFailedSales, // Total de pagamentos negados
+
         // Comparações com período anterior
         totalRevenueChange: calculateChangePercentage(totalRevenueInBRL, previousTotalRevenueInBRL),
         extraRevenueChange: calculateChangePercentage(extraRevenueInBRL, previousExtraRevenueInBRL),
@@ -634,6 +739,7 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
         totalVisitorsChange: calculateChangePercentage(totalVisitors, previousTotalVisitors),
         conversionRateChange: calculateChangePercentage(conversionRate, previousConversionRate),
         checkoutApprovalRateChange: calculateChangePercentage(checkoutApprovalRate, previousCheckoutApprovalRate),
+        paymentApprovalRateChange: calculateChangePercentage(paymentApprovalRate, previousPaymentApprovalRate),
       },
       charts: {
         revenue: revenueChart,

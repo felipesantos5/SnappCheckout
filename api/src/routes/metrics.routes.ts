@@ -14,5 +14,6 @@ router.get("/", protectRoute, metricsController.handleGetSalesMetrics);
 router.get("/offers-ranking", protectRoute, metricsController.handleGetOffersRevenue);
 router.get("/funnel", protectRoute, metricsController.handleGetConversionFunnel);
 router.get("/overview", protectRoute, metricsController.handleGetDashboardOverview);
+router.get("/offer-total-revenue", protectRoute, metricsController.handleGetOfferTotalRevenue);
 
 export default router;

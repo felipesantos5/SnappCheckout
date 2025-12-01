@@ -25,12 +25,21 @@ interface FunnelData {
   conversionRate: number;
 }
 
+// interface TotalRevenueData {
+//   offerId: string;
+//   offerName: string;
+//   totalRevenue: number;
+//   totalSales: number;
+//   averageTicket: number;
+// }
+
 export default function OfferAnalyticsPage() {
   const { id } = useParams<{ id: string }>(); // ID da oferta vindo da URL
   const { token } = useAuth();
   const navigate = useNavigate();
 
   const [data, setData] = useState<FunnelData | null>(null);
+  // const [totalRevenueData, setTotalRevenueData] = useState<TotalRevenueData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -98,6 +107,31 @@ export default function OfferAnalyticsPage() {
 
     if (token && id) fetchData();
   }, [token, id, dateFilter, customDateRange]);
+
+  // Busca o faturamento total da oferta (histórico completo, sem filtro de data)
+  // useEffect(() => {
+  //   const fetchTotalRevenue = async () => {
+  //     if (!token || !id) return;
+
+  //     try {
+  //       const response = await fetch(`${API_URL}/metrics/offer-total-revenue?offerId=${id}`, {
+  //         headers: {
+  //           Authorization: `Bearer ${token}`,
+  //         },
+  //       });
+
+  //       if (!response.ok) throw new Error("Falha ao buscar faturamento total");
+
+  //       const totalData: TotalRevenueData = await response.json();
+  //       setTotalRevenueData(totalData);
+  //     } catch (err) {
+  //       console.error("Erro ao buscar faturamento total:", err);
+  //       // Não exibe erro para não quebrar a página, apenas não mostra o card
+  //     }
+  //   };
+
+  //   fetchTotalRevenue();
+  // }, [token, id]);
 
   if (loading) {
     return (
@@ -167,7 +201,6 @@ export default function OfferAnalyticsPage() {
           </div>
         </div>
       </div>
-
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -268,14 +301,6 @@ export default function OfferAnalyticsPage() {
                   <p className="text-sm text-muted-foreground">Pessoas que iniciaram mas não compraram</p>
                 </div>
                 <div className="ml-auto font-bold text-red-500">{data.initiatedCheckout - data.purchases}</div>
-              </div>
-
-              <div className="flex items-center">
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">ROI (Estimado)</p>
-                  <p className="text-sm text-muted-foreground">Baseado apenas na receita bruta</p>
-                </div>
-                <div className="ml-auto font-bold text-green-600">Positivo</div>
               </div>
             </div>
           </CardContent>

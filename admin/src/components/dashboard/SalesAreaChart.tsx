@@ -1,7 +1,6 @@
-import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 interface SalesChartProps {
@@ -17,9 +16,9 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function SalesAreaChart({ chartData }: SalesChartProps) {
-  const totalRevenue = useMemo(() => {
-    return chartData.reduce((acc, curr) => acc + curr.value, 0);
-  }, [chartData]);
+  // const totalRevenue = useMemo(() => {
+  //   return chartData.reduce((acc, curr) => acc + curr.value, 0);
+  // }, [chartData]);
 
   // Formata valor para o tooltip (BRL)
   const formatCurrency = (val: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(val);
@@ -68,10 +67,6 @@ export function SalesAreaChart({ chartData }: SalesChartProps) {
           </BarChart>
         </ChartContainer>
       </CardContent>
-
-      <CardFooter className="flex-col items-start gap-2 text-sm mt-auto mb-4">
-        <div className="text-muted-foreground leading-none">Total de {formatCurrency(totalRevenue)} no período exibido</div>
-      </CardFooter>
     </Card>
   );
 }

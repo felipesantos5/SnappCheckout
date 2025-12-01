@@ -41,8 +41,6 @@ export const sendConversionToUTMfy = async (payload: UTMfyPayload): Promise<void
     const amountInBRL = await convertToBRL(payload.amountInCents, payload.currency);
     const valueInReais = centsToUnits(amountInBRL);
 
-    console.log(`💱 Conversão UTMfy: ${payload.amountInCents / 100} ${payload.currency} = ${valueInReais} BRL`);
-
     // Faz a requisição para a UTMfy
     const response = await fetch(utmfyApiUrl, {
       method: "POST",
@@ -184,7 +182,7 @@ export const processUtmfyIntegration = async (
 
   // Adiciona URLs do novo array
   if (offer.utmfyWebhookUrls && offer.utmfyWebhookUrls.length > 0) {
-    webhookUrls.push(...offer.utmfyWebhookUrls.filter(url => url && url.startsWith("http")));
+    webhookUrls.push(...offer.utmfyWebhookUrls.filter((url) => url && url.startsWith("http")));
   }
 
   // Adiciona URL antiga se existir e não estiver no array novo (retrocompatibilidade)
@@ -230,8 +228,6 @@ export const processUtmfyIntegration = async (
     const totalAmountInBRL = await convertToBRL(sale.totalAmountInCents, currencyCode);
     const platformFeeInBRL = await convertToBRL(sale.platformFeeInCents, currencyCode);
     const producerAmountInBRL = totalAmountInBRL - platformFeeInBRL;
-
-    console.log(`💱 Conversão UTMfy: ${sale.totalAmountInCents / 100} ${currencyCode} = ${totalAmountInBRL / 100} BRL`);
 
     const utmfyPayload = {
       Id: crypto.randomUUID(),
@@ -294,9 +290,7 @@ export const processUtmfyIntegration = async (
 
     // Envia para todas as URLs configuradas em paralelo
     console.log(`📤 Enviando para ${webhookUrls.length} webhook(s) UTMfy...`);
-    await Promise.all(
-      webhookUrls.map(url => sendPurchaseToUTMfyWebhook(url, utmfyPayload))
-    );
+    await Promise.all(webhookUrls.map((url) => sendPurchaseToUTMfyWebhook(url, utmfyPayload)));
   } catch (error) {
     console.error("Erro na lógica do serviço UTMfy:", error);
   }

@@ -126,8 +126,6 @@ export async function convertToBRL(amountInCents: number, fromCurrency: string):
   // Converte para BRL
   const brlAmountInCents = Math.round(amountInCents * rate);
 
-  console.log(`💱 Conversão: ${amountInCents / 100} ${currency} = ${brlAmountInCents / 100} BRL (taxa: ${rate})`);
-
   return brlAmountInCents;
 }
 
