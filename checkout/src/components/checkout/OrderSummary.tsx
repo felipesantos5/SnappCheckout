@@ -91,7 +91,7 @@ export const OrderSummary = memo<OrderSummaryProps>(
           <div className="px-4 pb-4 border-t border-gray-200">
             {/* Seletor de quantidade */}
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">Quantidade:</span>
+              <span className="text-sm font-medium text-gray-700">{t.orderSummary.quantity}</span>
               <div className="flex items-center border rounded">
                 <button
                   type="button"
