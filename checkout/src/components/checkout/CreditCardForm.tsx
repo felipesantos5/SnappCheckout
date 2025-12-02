@@ -3,6 +3,7 @@ import { CardNumberElement, CardExpiryElement, CardCvcElement } from "@stripe/re
 import { Input } from "../ui/Input"; // Ainda usamos para o "Nome"
 import type { StripeElementStyle } from "@stripe/stripe-js";
 import { useTranslation } from "../../i18n/I18nContext";
+import { useTheme } from "../../context/ThemeContext";
 
 // ESTILO DOS ELEMENTOS STRIPE
 // Isso é crucial para o white-label.
@@ -32,13 +33,23 @@ const ELEMENT_OPTIONS = {
 
 // Wrapper customizado para aplicar o estilo do Tailwind
 const StripeElementWrapper: React.FC<{ children: React.ReactNode; label: string; id: string }> = ({ children, label, id }) => {
+  const { primary, textColor } = useTheme();
+
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700">
+      <label htmlFor={id} className="block text-sm font-medium" style={{ color: textColor }}>
         {label}
       </label>
       <div className="mt-1">
-        <div className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus-within:ring-blue-500 focus-within:border-blue-500">
+        <div
+          // AQUI: Usamos a variável CSS definida no style para o ring e o border
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm transition-all duration-200 focus-within:ring-1 focus-within:ring-(--theme-primary) focus-within:border-(--theme-primary) hover:border-(--theme-primary)"
+          style={
+            {
+              "--theme-primary": primary,
+            } as React.CSSProperties
+          }
+        >
           {children}
         </div>
       </div>
@@ -48,9 +59,10 @@ const StripeElementWrapper: React.FC<{ children: React.ReactNode; label: string;
 
 export const CreditCardForm: React.FC = () => {
   const { t } = useTranslation();
+  const { textColor } = useTheme();
 
   return (
-    <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+    <div className="space-y-4 p-4 border rounded-lg" style={{ color: textColor }}>
       {/* 1. Número do Cartão (Real) */}
       <StripeElementWrapper label={t.creditCard.cardNumber} id="card-number">
         <CardNumberElement id="card-number" options={ELEMENT_OPTIONS} />

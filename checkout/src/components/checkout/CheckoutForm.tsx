@@ -32,7 +32,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
   const stripe = useStripe();
   const elements = useElements();
   const navigate = useNavigate();
-  const { button, buttonForeground } = useTheme();
+  // --- NOVO: Pega cores do tema ---
+  const { button, buttonForeground, backgroundColor, textColor } = useTheme();
   const { t } = useTranslation();
 
   const [loading, setLoading] = useState(false);
@@ -531,20 +532,33 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
   return (
     <>
       {loading && (
-        <div className="fixed inset-0 bg-white/80 z-60 flex items-center justify-center backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center backdrop-blur-sm"
+          style={{ backgroundColor: `${backgroundColor}CC` }} // Cor de fundo com opacidade 80% (CC hex)
+        >
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-16 w-16 text-blue-600 animate-spin" />
-            <p className="text-gray-600 font-medium animate-pulse">{t.buttons.processing}</p>
+            {/* Texto de processamento usando a cor configurada */}
+            <p className="font-medium animate-pulse" style={{ color: textColor }}>
+              {t.buttons.processing}
+            </p>
           </div>
         </div>
       )}
       <Banner imageUrl={offerData.bannerImageUrl} secondaryBannerImageUrl={offerData.secondaryBannerImageUrl} />
-      <div className="min-h-screen bg-gray-50 py-4 md:py-8">
-        {/* Container principal com 2 colunas no desktop */}
+
+      {/* Container Principal com Fundo e Texto Customizados */}
+      <div className="min-h-screen pb-4 md:py-8" style={{ backgroundColor: backgroundColor, color: textColor }}>
+        {/* Container centralizado */}
         <div className="max-w-7xl mx-auto px-4">
-          <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-6">
+          {/* Formulário (Card) */}
+          <form
+            onSubmit={handleSubmit}
+            className="rounded-xl shadow-lg p-6"
+            style={{ backgroundColor: backgroundColor }} // Mantém consistência ou "flat" design se for igual
+          >
             {/* OrderSummary no Mobile - Logo abaixo do banner */}
-            <div className="lg:hidden mb-6">
+            <div className="lg:hidden mb-2">
               <OrderSummary
                 productName={offerData.mainProduct.name}
                 productImageUrl={offerData.mainProduct.imageUrl}

@@ -22,8 +22,13 @@ export interface OfferData {
   bannerImageUrl?: string;
   secondaryBannerImageUrl?: string;
   currency: string;
+
+  // CORES
   primaryColor: string;
   buttonColor: string;
+  backgroundColor: string; // NOVO
+  textColor: string; // NOVO
+
   facebookPixelId?: string; // Mantido para retrocompatibilidade
   facebookPixels?: Array<{ pixelId: string; accessToken: string }>; // Novo: array de pixels
   mainProduct: {
@@ -149,6 +154,10 @@ export function CheckoutSlugPage() {
     primary: primaryColor,
     button: buttonColor,
     buttonForeground: buttonTextColor,
+    // --- NOVO ---
+    backgroundColor: offerData?.backgroundColor || "#ffffff",
+    textColor: offerData?.textColor || "#374151",
+    // ------------
   };
 
   if (error) {

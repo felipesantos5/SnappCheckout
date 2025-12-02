@@ -43,6 +43,8 @@ export type CreateOfferPayload = {
   currency: string;
   primaryColor?: string;
   buttonColor?: string;
+  backgroundColor?: string;
+  textColor?: string;
   collectAddress?: boolean;
   collectPhone?: boolean;
   language?: string;

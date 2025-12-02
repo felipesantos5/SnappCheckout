@@ -1,4 +1,5 @@
 import React from "react";
+import { useTheme } from "../../context/ThemeContext";
 
 // Define os tipos das props
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -7,16 +8,23 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input: React.FC<InputProps> = ({ label, id, ...props }) => {
+  const { primary, textColor } = useTheme();
+
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700">
+      <label htmlFor={id} className="block text-sm font-medium text-gray-900" style={{ color: textColor }}>
         {label}
       </label>
       <div className="mt-1">
         <input
           id={id}
           {...props}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm transition-all duration-200 focus-within:ring-1 focus-within:ring-(--theme-primary) focus-within:border-(--theme-primary) hover:border-(--theme-primary)"
+          style={
+            {
+              "--theme-primary": primary,
+            } as React.CSSProperties
+          }
         />
       </div>
     </div>

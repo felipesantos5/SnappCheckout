@@ -40,6 +40,8 @@ interface ApiOfferData {
   collectPhone?: boolean;
   primaryColor: string;
   buttonColor: string;
+  backgroundColor?: string;
+  textColor?: string;
   utmfyWebhookUrl?: string;
   utmfyWebhookUrls?: string[];
   facebookPixelId?: string;
@@ -74,8 +76,12 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
     language: data.language,
     collectAddress: data.collectAddress,
     collectPhone: data.collectPhone ?? true,
+
     primaryColor: data.primaryColor,
     buttonColor: data.buttonColor,
+    backgroundColor: data.backgroundColor,
+    textColor: data.textColor,
+
     utmfyWebhookUrl: data.utmfyWebhookUrl,
     utmfyWebhookUrls: data.utmfyWebhookUrls || [],
     facebookPixelId: data.facebookPixelId || "",

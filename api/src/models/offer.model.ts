@@ -37,6 +37,8 @@ export interface IOffer extends Document {
   thankYouPageUrl?: string;
   primaryColor: string;
   buttonColor: string;
+  backgroundColor: string;
+  textColor: string;
 
   facebookPixelId?: string; // Mantido para retrocompatibilidade
   facebookAccessToken?: string; // Mantido para retrocompatibilidade
@@ -139,6 +141,14 @@ const offerSchema = new Schema<IOffer>(
     buttonColor: {
       type: String,
       default: "#2563EB",
+    },
+    backgroundColor: {
+      type: String,
+      default: "#ffffff",
+    },
+    textColor: {
+      type: String,
+      default: "#0a0a0a",
     },
     currency: {
       type: String,

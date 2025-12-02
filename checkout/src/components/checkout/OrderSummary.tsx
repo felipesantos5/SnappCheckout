@@ -17,10 +17,12 @@ interface OrderSummaryProps {
   originalPriceInCents?: number;
   discountPercentage?: number;
 }
+
 export const OrderSummary = memo<OrderSummaryProps>(
   ({ productName, productImageUrl, currency, totalAmountInCents, basePriceInCents, quantity, setQuantity, originalPriceInCents }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const { primary } = useTheme();
+    // Puxamos backgroundColor e textColor
+    const { primary, backgroundColor, textColor } = useTheme();
     const { t } = useTranslation();
 
     const subtotal = useMemo(() => basePriceInCents * quantity, [basePriceInCents, quantity]);
@@ -43,7 +45,13 @@ export const OrderSummary = memo<OrderSummaryProps>(
     }, [quantity, setQuantity]);
 
     return (
-      <Collapsible.Root open={isOpen} onOpenChange={setIsOpen} className="w-full bg-gray-50 rounded-lg shadow">
+      <Collapsible.Root
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        className="w-full rounded-lg shadow border"
+        // Cor de fundo e texto dinâmicas. Borda com opacidade para funcionar em dark mode
+        style={{ backgroundColor: backgroundColor, borderColor: `${textColor}20` }}
+      >
         {/* Produto sempre visível (collapsed/expanded) */}
         <div className="p-4">
           <div className="flex items-start gap-3">
@@ -57,19 +65,26 @@ export const OrderSummary = memo<OrderSummaryProps>(
               />
             )}
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-gray-900 line-clamp-2">{productName}</h3>
+              <h3 className="text-sm font-semibold line-clamp-2" style={{ color: textColor }}>
+                {productName}
+              </h3>
               <div className="mt-1 flex items-center justify-between">
                 <div className="flex flex-col">
                   {originalPriceInCents && originalPriceInCents > basePriceInCents && (
-                    <span className="text-xs text-gray-500 line-through">{formatCurrency(originalPriceInCents, currency)}</span>
+                    <span className="text-xs line-through" style={{ color: textColor, opacity: 0.6 }}>
+                      {formatCurrency(originalPriceInCents, currency)}
+                    </span>
                   )}
+                  {/* Preço em destaque usa cor Primária */}
                   <span className="text-base font-bold" style={{ color: primary }}>
                     {formatCurrency(basePriceInCents, currency)}
                   </span>
                 </div>
                 {!isOpen && (
                   <div className="text-right">
-                    <p className="text-xs text-gray-500">{t.orderSummary.total}</p>
+                    <p className="text-xs" style={{ color: textColor, opacity: 0.6 }}>
+                      {t.orderSummary.total}
+                    </p>
                     <p className="text-lg font-bold" style={{ color: primary }}>
                       {totalSmallText}
                     </p>
@@ -79,54 +94,66 @@ export const OrderSummary = memo<OrderSummaryProps>(
             </div>
           </div>
 
-          {/* Botão para expandir/colapsar detalhes */}
-          <Collapsible.Trigger className="w-full mt-3 pt-3 border-t border-gray-200 flex items-center justify-center gap-2 cursor-pointer group">
-            <span className="text-sm font-medium text-primary group-hover:underline">{isOpen ? t.orderSummary.hideTitle : t.orderSummary.title}</span>
-            <ChevronDown className={`h-4 w-4 text-primary transition-transform duration-300 ease-in-out ${isOpen ? "rotate-180" : ""}`} />
+          <Collapsible.Trigger
+            className="w-full mt-3 pt-3 border-t flex items-center justify-center gap-2 cursor-pointer group"
+            style={{ borderColor: `${textColor}20` }}
+          >
+            <span className="text-sm font-medium group-hover:underline" style={{ color: primary }}>
+              {isOpen ? t.orderSummary.hideTitle : t.orderSummary.title}
+            </span>
+            <ChevronDown
+              className={`h-4 w-4 transition-transform duration-300 ease-in-out ${isOpen ? "rotate-180" : ""}`}
+              style={{ color: primary }}
+            />
           </Collapsible.Trigger>
         </div>
 
         {/* Detalhes expandíveis */}
         <Collapsible.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-          <div className="px-4 pb-4 border-t border-gray-200">
+          <div className="px-4 pb-4 border-t" style={{ borderColor: `${textColor}20` }}>
             {/* Seletor de quantidade */}
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">{t.product.quantity}</span>
-              <div className="flex items-center border rounded">
+              <span className="text-sm font-medium" style={{ color: textColor }}>
+                {t.product.quantity}
+              </span>
+              <div className="flex items-center border rounded" style={{ borderColor: `${textColor}40` }}>
                 <button
                   type="button"
-                  className="px-3 py-1.5 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                  className="px-3 py-1.5 hover:bg-black/5 disabled:opacity-50"
+                  style={{ color: textColor }}
                   onClick={handleDecrease}
                   disabled={quantity <= 1}
                 >
                   —
                 </button>
-                <span className="px-4 py-1.5 border-l border-r font-medium">{quantity}</span>
-                <button type="button" className="px-3 py-1.5 text-gray-600 hover:bg-gray-100" onClick={handleIncrease}>
+                <span className="px-4 py-1.5 border-l border-r font-medium" style={{ color: textColor, borderColor: `${textColor}40` }}>
+                  {quantity}
+                </span>
+                <button type="button" className="px-3 py-1.5 hover:bg-black/5" style={{ color: textColor }} onClick={handleIncrease}>
                   +
                 </button>
               </div>
             </div>
 
             {/* Resumo de preços */}
-            <div className="mt-4 border-t border-gray-200 pt-4 text-sm text-gray-600 space-y-1">
+            <div className="mt-4 border-t pt-4 text-sm space-y-1" style={{ borderColor: `${textColor}20` }}>
               {originalPriceInCents && originalPriceInCents > basePriceInCents ? (
                 <>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between" style={{ color: textColor, opacity: 0.8 }}>
                     <span>{t.orderSummary.originalSubtotal}</span>
-                    <span className="line-through text-gray-400">{formatCurrency(subtotalOldPrice, currency)}</span>
+                    <span className="line-through opacity-60">{formatCurrency(subtotalOldPrice, currency)}</span>
                   </div>
-                  <div className="flex justify-between text-green-600 font-semibold">
+                  <div className="flex justify-between font-semibold text-green-600">
                     <span>{t.orderSummary.discount}</span>
                     <span>- {formatCurrency(discountAmount, currency)}</span>
                   </div>
-                  <div className="flex justify-between font-medium text-gray-900">
+                  <div className="flex justify-between font-medium" style={{ color: textColor }}>
                     <span>{t.orderSummary.subtotalWithDiscount}</span>
                     <span>{formatCurrency(subtotal, currency)}</span>
                   </div>
                 </>
               ) : (
-                <div className="flex justify-between">
+                <div className="flex justify-between" style={{ color: textColor, opacity: 0.8 }}>
                   <span>{t.orderSummary.subtotal}</span>
                   <span>{formatCurrency(subtotal, currency)}</span>
                 </div>
@@ -139,8 +166,8 @@ export const OrderSummary = memo<OrderSummaryProps>(
                 </div>
               )}
 
-              <div className="flex justify-between mt-2 pt-2 border-t border-gray-300 text-base font-bold text-gray-900">
-                <span>{t.orderSummary.total}</span>
+              <div className="flex justify-between mt-2 pt-2 border-t text-base font-bold" style={{ borderColor: `${textColor}20` }}>
+                <span style={{ color: textColor }}>{t.orderSummary.total}</span>
                 <span style={{ color: primary }}>{formatCurrency(totalAmountInCents, currency)}</span>
               </div>
             </div>

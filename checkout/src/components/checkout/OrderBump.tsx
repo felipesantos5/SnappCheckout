@@ -28,6 +28,8 @@ interface OrderBumpProps {
 // Componente individual de bump memoizado
 const BumpItem = memo<{ bump: Bump; isSelected: boolean; onToggle: () => void; currency: string; primary: string; t: any }>(
   ({ bump, isSelected, onToggle, currency, primary, t }) => {
+    const { textColor } = useTheme();
+
     const handleCheckboxClick = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
     }, []);
@@ -36,7 +38,7 @@ const BumpItem = memo<{ bump: Bump; isSelected: boolean; onToggle: () => void; c
       <div
         onClick={onToggle}
         className={`w-full mt-6 p-5 pb-4 rounded-lg border-2 transition-all cursor-pointer ${
-          isSelected ? "border-green-500 bg-green-50 shadow-md" : "border-gray-300 bg-white hover:border-gray-400 hover:shadow-sm border-dashed"
+          isSelected ? "border-green-500 shadow-md" : "border-gray-300 hover:border-gray-400 hover:shadow-sm border-dashed"
         }`}
       >
         <div className="flex items-start gap-2">
@@ -54,16 +56,16 @@ const BumpItem = memo<{ bump: Bump; isSelected: boolean; onToggle: () => void; c
                   <OptimizedImage src={bump.imageUrl} alt={bump.name} className="w-16 h-16 border border-gray-200" width={80} aspectRatio="1/1" />
                 </div>
               )}
-              <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+              <div className="flex flex-col gap-1.5 flex-1 min-w-0" style={{ color: textColor }}>
                 {!bump.headline ? (
                   <></>
                 ) : (
-                  <label htmlFor={`order-bump-${bump._id}`} className="font-semibold text-[13px] text-gray-800 cursor-pointer block wrap-break-word">
+                  <label htmlFor={`order-bump-${bump._id}`} className="font-semibold text-[13px] cursor-pointer block wrap-break-word">
                     {bump.name}
                   </label>
                 )}
                 {bump.description && (
-                  <div className="text-xs text-gray-600 mb-3 wrap-break-word markdown-content">
+                  <div className="text-xs mb-3 wrap-break-word markdown-content">
                     <ReactMarkdown
                       components={{
                         p: ({ children }) => <p className="mb-1">{children}</p>,
@@ -93,7 +95,9 @@ const BumpItem = memo<{ bump: Bump; isSelected: boolean; onToggle: () => void; c
                   onChange={onToggle}
                   onClick={handleCheckboxClick}
                 />
-                <p className="font-medium">{t.orderBump.action}</p>
+                <p className="font-medium" style={{ color: textColor }}>
+                  {t.orderBump.action}
+                </p>
               </div>
             </div>
           </div>

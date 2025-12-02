@@ -201,8 +201,13 @@ const offerFormSchema = z.object({
   language: z.string().default("pt"),
   collectAddress: z.boolean().default(false),
   collectPhone: z.boolean().default(true),
+
+  // Cores
   primaryColor: colorSchema,
   buttonColor: colorSchema,
+  backgroundColor: colorSchema, // NOVO
+  textColor: colorSchema, // NOVO
+
   mainProduct: productSchema,
   utmfyWebhookUrl: optionalUrl, // Mantido para retrocompatibilidade
   utmfyWebhookUrls: z.array(z.string().url({ message: "URL inválida." }).or(z.literal(""))).optional(),
@@ -273,8 +278,11 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         url: "",
         authToken: "",
       },
+      // Cores - Valores padrão
       primaryColor: "#374151",
       buttonColor: "#2563EB",
+      backgroundColor: "#ffffff", // NOVO - Fundo branco por padrão
+      textColor: "#374151", // NOVO - Texto cinza escuro
       orderBumps: [],
     },
   });
@@ -290,7 +298,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
     remove: removeUtmfyUrl,
   } = useFieldArray({
     control: form.control,
-    name: "utmfyWebhookUrls" as "orderBumps", // Type assertion para contornar limitação do react-hook-form
+    name: "utmfyWebhookUrls" as "orderBumps",
   });
 
   const {
@@ -299,7 +307,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
     remove: removeFacebookPixel,
   } = useFieldArray({
     control: form.control,
-    name: "facebookPixels" as "orderBumps", // Type assertion para contornar limitação do react-hook-form
+    name: "facebookPixels" as "orderBumps",
   });
 
   async function onSubmit(values: OfferFormData) {
@@ -321,12 +329,9 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         orderBumps: data.orderBumps?.map(cleanSubDoc),
         upsell: {
           ...data.upsell,
-          // Se tiver preço, multiplica por 100. Se não, envia 0.
           price: data.upsell?.price ? Math.round(data.upsell.price * 100) : 0,
         },
-        // Filtrar URLs vazias
         utmfyWebhookUrls: data.utmfyWebhookUrls?.filter((url) => url && url.trim() !== ""),
-        // Filtrar pixels vazios (com pixelId e accessToken válidos)
         facebookPixels: data.facebookPixels?.filter(
           (pixel) => pixel.pixelId && pixel.pixelId.trim() !== "" && pixel.accessToken && pixel.accessToken.trim() !== ""
         ),
@@ -535,6 +540,30 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   </FormItem>
                 )}
               />
+              {/* --- NOVOS CAMPOS --- */}
+              <FormField
+                control={form.control}
+                name="backgroundColor"
+                render={({ field }: any) => (
+                  <FormItem>
+                    <FormLabel>Cor do Fundo</FormLabel>
+                    <ColorInput field={field} />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="textColor"
+                render={({ field }: any) => (
+                  <FormItem>
+                    <FormLabel>Cor do Texto</FormLabel>
+                    <ColorInput field={field} />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {/* --------------------- */}
             </div>
 
             <Separator />
@@ -857,7 +886,6 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                           <FormControl>
                             <Input placeholder="Ex: 1234567890" {...field} />
                           </FormControl>
-                          {/* nao revemor esse formdescription */}
                           <FormDescription className="text-xs">ㅤ</FormDescription>
                           <FormMessage />
                         </FormItem>
