@@ -1,5 +1,5 @@
 // src/components/forms/ImageUpload.tsx
-import { useState } from "react";
+import { useState, useId } from "react"; // 1. Importe o useId
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,10 @@ interface ImageUploadProps {
 export function ImageUpload({ value, onChange }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const { token } = useAuth(); // Pega o token para autenticar o upload
+  const { token } = useAuth();
+
+  // 2. Gere um ID único para esta instância do componente
+  const uniqueId = useId();
 
   const uploadFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -28,19 +31,16 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
     setIsUploading(true);
 
     const formData = new FormData();
-    formData.append("image", file); // 'image' é o nome do campo que o multer espera
+    formData.append("image", file);
 
     try {
       const response = await axios.post(`${API_URL}/upload`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
-          // O Axios (configurado no AuthContext) já deve enviar o token,
-          // mas podemos garantir:
           Authorization: `Bearer ${token}`,
         },
       });
 
-      // Sucesso! Chama o onChange do formulário com a nova URL
       onChange(response.data.imageUrl);
       toast.success("Imagem enviada com sucesso!");
     } catch (error) {
@@ -87,7 +87,6 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
     await uploadFile(file);
   };
 
-  // Limpa a imagem (apenas limpa a URL no formulário)
   const handleRemove = () => {
     onChange("");
   };
@@ -95,7 +94,6 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
   return (
     <div className="w-full">
       {value ? (
-        // --- 1. Estado "Com Imagem" (Preview) ---
         <div className="relative w-full h-40 rounded-md border-dashed border-2 p-2">
           <img src={value} alt="Preview" className="w-full h-full object-contain rounded-md" />
           <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={handleRemove}>
@@ -103,7 +101,6 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
           </Button>
         </div>
       ) : (
-        // --- 2. Estado "Sem Imagem" (Upload) ---
         <div
           className={`w-full h-40 rounded-md border-dashed border-2 flex items-center justify-center p-4 transition-colors ${
             isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25"
@@ -119,12 +116,14 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
               <p className="text-sm text-muted-foreground">Enviando...</p>
             </div>
           ) : (
-            <label htmlFor="file-upload" className="flex flex-col items-center gap-2 cursor-pointer w-full h-full justify-center">
+            // 3. Use o ID único aqui no htmlFor
+            <label htmlFor={uniqueId} className="flex flex-col items-center gap-2 cursor-pointer w-full h-full justify-center">
               <Upload className={`h-8 w-8 ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
               <p className={`text-sm ${isDragging ? "text-primary font-medium" : "text-muted-foreground"}`}>
                 {isDragging ? "Solte a imagem aqui" : "Clique ou arraste para enviar"}
               </p>
-              <Input id="file-upload" type="file" className="sr-only" onChange={handleUpload} accept="image/png, image/jpeg, image/webp" />
+              {/* 4. Use o ID único aqui no id do input */}
+              <Input id={uniqueId} type="file" className="sr-only" onChange={handleUpload} accept="image/png, image/jpeg, image/webp" />
             </label>
           )}
         </div>
