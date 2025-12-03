@@ -30,6 +30,9 @@ interface DashboardData {
     totalOrders: number;
     checkoutsInitiated: number;
     checkoutApprovalRate: number;
+    paymentApprovalRate: number; // Taxa real de aprovação de pagamentos (aprovados / total de tentativas)
+    totalPaymentAttempts: number; // Total de tentativas (aprovadas + negadas)
+    totalFailedPayments: number; // Total de pagamentos negados
     totalRevenueChange?: number;
     extraRevenueChange?: number;
     totalOrdersChange?: number;
@@ -37,6 +40,7 @@ interface DashboardData {
     totalVisitorsChange?: number;
     conversionRateChange?: number;
     checkoutApprovalRateChange?: number;
+    paymentApprovalRateChange?: number;
   };
   charts: {
     revenue: { date: string; value: number }[];
@@ -375,7 +379,7 @@ export function DashboardOverview() {
             title="Conversão do Checkout"
             value={`${metrics?.kpis.conversionRate.toFixed(1)}%`}
             icon={TrendingUp}
-            subtext={`Aprovação do Checkout ${metrics?.kpis.checkoutApprovalRate.toFixed(1)}%`}
+            subtext={`Aprovação do Checkout ${metrics?.kpis.paymentApprovalRate?.toFixed(1) || 0}%`}
             chartData={metrics?.charts.conversionRate}
             color="#eab308"
             changePercentage={metrics?.kpis.conversionRateChange}
