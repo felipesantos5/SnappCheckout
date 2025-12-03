@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
-import { ConnectStripeCard } from "@/components/ConnectStripeCard";
+// import { ConnectStripeCard } from "@/components/ConnectStripeCard";
 import { API_URL } from "@/config/BackendUrl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

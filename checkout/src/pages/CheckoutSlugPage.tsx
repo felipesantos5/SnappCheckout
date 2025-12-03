@@ -82,7 +82,7 @@ export function CheckoutSlugPage() {
       sessionStorage.setItem(storageKey, newId);
       return newId;
     })()
-  ).current;
+  );
 
   // Carrega os Facebook Pixels se estiverem configurados
   // Coleta todos os IDs (novo array + campo antigo para retrocompatibilidade)
@@ -231,7 +231,7 @@ export function CheckoutSlugPage() {
   return (
     <I18nProvider language={offerData.language || "pt"}>
       <ThemeContext.Provider value={themeValues}>
-        <CheckoutPage offerData={offerData} checkoutSessionId={checkoutSessionId} generateEventId={generateEventId} />
+        <CheckoutPage offerData={offerData} checkoutSessionId={checkoutSessionId.current} generateEventId={generateEventId} />
       </ThemeContext.Provider>
     </I18nProvider>
   );

@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import type { Sale } from "@/types/sale";
 import { formatCurrency } from "@/helper/formatCurrency";
 import { formatDate } from "@/helper/formatDate";
-import { getCountryFlag, getCountryName } from "@/helper/getCountryFlag";
+import { getCountryName } from "@/helper/getCountryFlag";
 import { CountryFlag } from "../CountryFlag";
 
 type DateRangeFilter = "all" | "today" | "week" | "month" | "custom";
