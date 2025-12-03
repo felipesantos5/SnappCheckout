@@ -50,11 +50,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
   const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
   const [walletLabel, setWalletLabel] = useState<string | null>(null);
 
-  // REF para controlar se InitiateCheckout já foi disparado
-  const initiateCheckoutFired = useRef(false);
-
   // Armazena event_ids gerados para cada evento
-  const initiateCheckoutEventId = useRef<string | null>(null);
   const addPaymentInfoEventId = useRef<string | null>(null);
 
   const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -68,77 +64,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
       utm_content: urlParams.get("utm_content") || null,
     };
   }, [urlParams]);
-
-  // Função para disparar InitiateCheckout quando o email for validado
-  const handleInitiateCheckout = async () => {
-    if (initiateCheckoutFired.current) return; // Evita disparo duplicado
-    initiateCheckoutFired.current = true;
-
-    // Gera um event_id único para InitiateCheckout baseado no checkoutSessionId
-    const eventId = `${checkoutSessionId}_initiate_checkout`;
-    initiateCheckoutEventId.current = eventId;
-
-    // Calcula o valor total incluindo bumps selecionados e quantidade
-    const totalValue = totalAmount / 100;
-
-    // Coleta IDs de todos os produtos (mainProduct + bumps selecionados)
-    const contentIds = [offerData.mainProduct._id];
-    selectedBumps.forEach((bumpId) => {
-      contentIds.push(bumpId);
-    });
-
-    // Coleta dados do formulário
-    const emailInput = document.getElementById("email") as HTMLInputElement;
-    const nameInput = document.getElementById("name") as HTMLInputElement;
-    const phoneInput = document.getElementById("phone") as HTMLInputElement;
-
-    const email = emailInput?.value || "";
-    const fullName = nameInput?.value || "";
-    const phone = phoneInput?.value || "";
-
-    // Coleta cookies do Facebook
-    const fbCookies = {
-      fbc: getCookie("_fbc"),
-      fbp: getCookie("_fbp"),
-    };
-
-    // 1. Dispara evento no Facebook Pixel (Frontend)
-    if (window.fbq) {
-      window.fbq(
-        "track",
-        "InitiateCheckout",
-        {
-          content_name: offerData.mainProduct.name,
-          content_ids: contentIds,
-          content_type: "product",
-          value: totalValue,
-          currency: offerData.currency.toUpperCase(),
-          num_items: quantity,
-        },
-        { eventID: eventId }
-      );
-    }
-
-    // 2. Envia evento para o backend (CAPI) com TODOS os dados
-    try {
-      await fetch(`${API_URL}/metrics/track`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          offerId: offerData._id,
-          type: "initiate_checkout",
-          email: email,
-          phone: phone,
-          name: fullName,
-          eventId: eventId, // event_id para deduplicação
-          totalAmount: totalAmount, // Valor total em centavos
-          contentIds: contentIds, // IDs de todos os produtos
-          fbc: fbCookies.fbc,
-          fbp: fbCookies.fbp,
-        }),
-      });
-    } catch (err) {}
-  };
 
   // Atualiza o total baseado em bumps e quantidade
   useEffect(() => {
@@ -464,7 +389,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
           fbc: fbCookies.fbc,
           fbp: fbCookies.fbp,
           // Envia os event_ids para o backend usar no CAPI
-          initiateCheckoutEventId: initiateCheckoutEventId.current,
           addPaymentInfoEventId: addPaymentInfoEventId.current,
           purchaseEventId: purchaseEventId,
         },
@@ -576,7 +500,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
               {/* COLUNA ESQUERDA: Formulário de Checkout */}
               <div className="space-y-6">
-                <ContactInfo showPhone={offerData.collectPhone} onEmailValidated={handleInitiateCheckout} offerID={offerData._id} />
+                <ContactInfo showPhone={offerData.collectPhone} offerID={offerData._id} />
 
                 {offerData.collectAddress && (
                   <Suspense fallback={<div className="animate-pulse bg-gray-100 h-40 rounded-lg"></div>}>

@@ -145,6 +145,50 @@ export function CheckoutSlugPage() {
     fetchOffer();
   }, [slug]);
 
+  // Dispara evento InitiateCheckout quando a oferta carrega
+  useEffect(() => {
+    if (!offerData || trackedSlugRef.current !== slug) return;
+
+    // Gera um event_id único para InitiateCheckout baseado no checkoutSessionId
+    const eventId = `${checkoutSessionId.current}_initiate_checkout`;
+
+    // Calcula o valor total do produto principal
+    const totalValue = offerData.mainProduct.priceInCents / 100;
+
+    // ID do produto principal
+    const contentIds = [offerData.mainProduct._id];
+
+    // 1. Dispara evento no Facebook Pixel (Frontend)
+    if (window.fbq) {
+      window.fbq(
+        "track",
+        "InitiateCheckout",
+        {
+          content_name: offerData.mainProduct.name,
+          content_ids: contentIds,
+          content_type: "product",
+          value: totalValue,
+          currency: offerData.currency.toUpperCase(),
+          num_items: 1,
+        },
+        { eventID: eventId }
+      );
+    }
+
+    // 2. Envia evento para o backend (CAPI)
+    fetch(`${API_URL}/metrics/track`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        offerId: offerData._id,
+        type: "initiate_checkout",
+        eventId: eventId,
+        totalAmount: offerData.mainProduct.priceInCents,
+        contentIds: contentIds,
+      }),
+    }).catch((err) => console.log("Track initiate_checkout error", err));
+  }, [offerData, slug, checkoutSessionId]);
+
   // ... (resto do código de renderização igual)
   const primaryColor = offerData?.primaryColor || "#000000";
   const buttonColor = offerData?.buttonColor || "#2563eb";

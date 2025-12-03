@@ -6,14 +6,12 @@ import { useTheme } from "../../context/ThemeContext";
 interface ContactInfoProps {
   showPhone?: boolean;
   offerID: string;
-  onEmailValidated?: () => void;
 }
 
-export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, onEmailValidated }) => {
+export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true }) => {
   const { t } = useTranslation();
   const { textColor } = useTheme(); // Hook do tema
   const [phone, setPhone] = useState("");
-  const [hasTrackedInitiate, setHasTrackedInitiate] = useState(false);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
@@ -33,16 +31,6 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, onEm
     setPhone(value);
   };
 
-  const handleEmailBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const emailValue = e.target.value;
-    if (emailValue && emailValue.includes("@") && !hasTrackedInitiate) {
-      setHasTrackedInitiate(true);
-      if (onEmailValidated) {
-        onEmailValidated();
-      }
-    }
-  };
-
   return (
     <div className="w-full mt-4">
       <h2
@@ -52,7 +40,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, onEm
         {t.contact.title}
       </h2>
       <div className="space-y-4">
-        <Input label={t.contact.email} id="email" onBlur={handleEmailBlur} type="email" required placeholder={t.contact.emailPlaceholder} />
+        <Input label={t.contact.email} id="email" type="email" required placeholder={t.contact.emailPlaceholder} />
         <Input label={t.contact.name} id="name" type="text" required placeholder={t.contact.namePlaceholder} />
         {showPhone && (
           <Input
