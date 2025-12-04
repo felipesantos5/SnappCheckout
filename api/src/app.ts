@@ -9,6 +9,8 @@ import stripeWebhookRouter from "./webhooks/stripe/stripe-webhook.routes";
 
 const app: Express = express();
 
+app.set("trust proxy", 1);
+
 // Configuração de segurança com Helmet
 app.use(
   helmet({
