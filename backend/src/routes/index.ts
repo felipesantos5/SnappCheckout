@@ -4,11 +4,13 @@ import authRoutes from "./auth.routes";
 import productRoutes from "./product.routes";
 import offerRoutes from "./offer.routes";
 import paymentRoutes from "./payment.routes";
+import payPalRoutes from "./paypal.routes";
 import uploadRoutes from "./upload.routes"; // 1. Importe
 import saleRoutes from "./sale.routes";
 import stripeRoutes from "./stripe.routes";
 import metricsRoutes from "./metrics.routes";
 import healthRoutes from "./health.routes";
+import settingsRoutes from "./settings.routes";
 import { getUpsellScript } from "../controllers/script.controller";
 
 const router = Router();
@@ -35,6 +37,10 @@ router.use("/sales", saleRoutes);
 router.use("/metrics", metricsRoutes);
 
 router.use("/health", healthRoutes);
+
+router.use("/paypal", payPalRoutes);
+
+router.use("/settings", settingsRoutes);
 
 router.get("/v1/upsell.js", getUpsellScript);
 

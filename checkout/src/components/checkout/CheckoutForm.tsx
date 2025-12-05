@@ -10,6 +10,7 @@ import { OrderSummary } from "./OrderSummary";
 import { ContactInfo } from "./ContactInfo";
 import { PaymentMethods } from "./PaymentMethods";
 import { Banner } from "./Banner";
+import { PayPalPayment } from "./PayPalPayment";
 
 // Lazy load componentes não críticos para melhorar performance inicial
 const AddressInfo = lazy(() => import("./AddressInfo").then((module) => ({ default: module.AddressInfo })));
@@ -43,7 +44,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
   const [paymentSucceeded, setPaymentSucceeded] = useState(false);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
 
-  const [method, setMethod] = useState<"creditCard" | "pix" | "wallet">("creditCard");
+  const [method, setMethod] = useState<"creditCard" | "pix" | "wallet" | "paypal">("creditCard");
   const [selectedBumps, setSelectedBumps] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [totalAmount, setTotalAmount] = useState(offerData.mainProduct.priceInCents);
@@ -242,7 +243,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
   // --- LÓGICA DE SUCESSO E REDIRECIONAMENTO ---
   useEffect(() => {
-    if (paymentSucceeded && paymentIntentId) {
+    if (paymentSucceeded && (paymentIntentId || method === "paypal")) {
       const timer = setTimeout(async () => {
         // 1. PRIORIDADE: Upsell Habilitado
         if (offerData.upsell?.enabled) {
@@ -296,7 +297,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleCardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) {
       setErrorMessage("Sistema de pagamento não carregado. Recarregue a página.");
@@ -477,7 +478,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         <div className="max-w-7xl mx-auto px-4">
           {/* Formulário (Card) */}
           <form
-            onSubmit={handleSubmit}
+            onSubmit={handleCardSubmit}
             className="rounded-xl shadow-lg p-6"
             style={{ backgroundColor: backgroundColor }} // Mantém consistência ou "flat" design se for igual
           >
@@ -508,7 +509,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                   </Suspense>
                 )}
 
-                <PaymentMethods method={method} setMethod={setMethod} paymentRequest={paymentRequest} walletLabel={walletLabel} />
+                <PaymentMethods
+                  method={method}
+                  setMethod={setMethod}
+                  paymentRequest={paymentRequest}
+                  walletLabel={walletLabel}
+                  paypalEnabled={offerData.paypalEnabled}
+                />
 
                 {/* Order Bumps aparecem na esquerda em mobile, escondidos em desktop */}
                 <div className="lg:hidden">
@@ -554,38 +561,48 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
                 {/* Botão e Trust Badges - Mobile e Desktop */}
 
-                {method !== "wallet" && (
-                  <>
-                    <button
-                      type="submit"
-                      disabled={!stripe || loading || paymentSucceeded}
-                      className="w-full bg-button text-button-foreground font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 disabled:opacity-50 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg hover:shadow-xl relative overflow-hidden group"
-                      style={{
-                        backgroundColor: loading || paymentSucceeded ? "#ccc" : button,
-                        color: buttonForeground,
-                        opacity: loading || paymentSucceeded ? 0.7 : 1,
-                      }}
-                    >
-                      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-linear-to-r from-transparent via-white/20 to-transparent"></div>
-
-                      <span className="relative flex items-center justify-center gap-2">
-                        {loading || paymentSucceeded ? (
-                          <>
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                            {t.buttons.processing}
-                          </>
-                        ) : (
-                          <>
-                            <Lock className="h-5 w-5" />
-                            <span>
-                              {method === "pix" ? t.buttons.submitPix : `${t.buttons.submit} - ${formatCurrency(totalAmount, offerData.currency)}`}
-                            </span>
-                          </>
-                        )}
-                      </span>
-                    </button>
-                  </>
-                )}
+                {method === "paypal" ? (
+                  <PayPalPayment
+                    amount={totalAmount}
+                    currency={offerData.currency}
+                    offerId={offerData._id}
+                    customerData={{
+                      name: (document.getElementById("name") as HTMLInputElement)?.value || "",
+                      email: (document.getElementById("email") as HTMLInputElement)?.value || "",
+                      phone: (document.getElementById("phone") as HTMLInputElement)?.value || "",
+                    }}
+                    onSuccess={() => setPaymentSucceeded(true)}
+                    onError={(msg) => setErrorMessage(msg)}
+                  />
+                ) : method !== "wallet" ? (
+                  <button
+                    type="submit"
+                    disabled={!stripe || loading || paymentSucceeded}
+                    className="w-full font-bold py-4 px-6 rounded-md text-lg transition-all duration-300 disabled:opacity-50 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg hover:shadow-xl relative overflow-hidden group"
+                    style={{
+                      backgroundColor: loading || paymentSucceeded ? "#ccc" : button,
+                      color: buttonForeground,
+                      opacity: loading || paymentSucceeded ? 0.7 : 1,
+                    }}
+                  >
+                    <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-linear-to-r from-transparent via-white/20 to-transparent"></div>
+                    <span className="relative flex items-center justify-center gap-2">
+                      {loading || paymentSucceeded ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          {t.buttons.processing}
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-5 w-5" />
+                          <span>
+                            {method === "pix" ? t.buttons.submitPix : `${t.buttons.submit} - ${formatCurrency(totalAmount, offerData.currency)}`}
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  </button>
+                ) : null}
               </div>
             </div>
 

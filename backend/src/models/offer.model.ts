@@ -61,6 +61,7 @@ export interface IOffer extends Document {
   };
   customId?: string;
   collectPhone: boolean;
+  paypalEnabled: boolean;
 
   mainProduct: IProductSubDocument;
   orderBumps: IProductSubDocument[];
@@ -170,6 +171,10 @@ const offerSchema = new Schema<IOffer>(
     collectPhone: {
       type: Boolean,
       default: true,
+    },
+    paypalEnabled: {
+      type: Boolean,
+      default: false,
     },
     mainProduct: {
       type: productSubSchema,

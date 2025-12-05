@@ -200,7 +200,9 @@ const offerFormSchema = z.object({
   currency: z.string().default("BRL"),
   language: z.string().default("pt"),
   collectAddress: z.boolean().default(false),
+
   collectPhone: z.boolean().default(true),
+  paypalEnabled: z.boolean().default(false),
 
   // Cores
   primaryColor: colorSchema,
@@ -255,7 +257,9 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
       thankYouPageUrl: "",
       currency: "BRL",
       language: "pt",
+
       collectAddress: false,
+      paypalEnabled: false,
       utmfyWebhookUrl: "",
       utmfyWebhookUrls: [],
       facebookPixelId: "",
@@ -595,6 +599,21 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                     <div className="space-y-1 leading-none">
                       <FormLabel>Coletar Telefone</FormLabel>
                       <FormDescription>Útil para recuperação de carrinho.</FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="paypalEnabled"
+                render={({ field }: any) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-card">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Habilitar PayPal</FormLabel>
+                      <FormDescription>Permitir pagamentos via PayPal.</FormDescription>
                     </div>
                   </FormItem>
                 )}

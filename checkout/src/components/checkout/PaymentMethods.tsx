@@ -1,3 +1,4 @@
+// src/components/checkout/PaymentMethods.tsx
 import React from "react";
 import { CreditCardForm } from "./CreditCardForm";
 import { useTranslation } from "../../i18n/I18nContext";
@@ -6,17 +7,20 @@ import { PaymentRequestButtonElement } from "@stripe/react-stripe-js";
 import type { PaymentRequest } from "@stripe/stripe-js";
 import { AppleyPayIcon } from "../icons/appleyPay";
 import { GooglePayIcon } from "../icons/googlePay";
+import { PayPalIcon } from "../icons/paypal"; // <--- NOVO
 
-export type PaymentMethodType = "creditCard" | "pix" | "wallet";
+// --- ALTERAÇÃO AQUI: Adicionado "paypal" ---
+export type PaymentMethodType = "creditCard" | "pix" | "wallet" | "paypal";
 
 interface PaymentMethodsProps {
   method: PaymentMethodType;
   setMethod: (method: PaymentMethodType) => void;
   paymentRequest: PaymentRequest | null;
   walletLabel: string | null;
+  paypalEnabled?: boolean;
 }
 
-export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMethod, paymentRequest, walletLabel }) => {
+export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMethod, paymentRequest, walletLabel, paypalEnabled }) => {
   const { t } = useTranslation();
   const { textColor, backgroundColor, primary } = useTheme();
 
@@ -33,14 +37,12 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMetho
         onClick={() => setMethod(value)}
         className="border rounded-lg p-4 cursor-pointer transition-all duration-200"
         style={{
-          // Se selecionado, usa uma borda da cor primária e um fundo sutil (primary com 5% de opacidade)
-          // Se não, usa borda baseada na cor do texto (20% opacidade) e fundo transparente/base
           borderColor: isSelected ? primary : `${textColor}30`,
-          backgroundColor: isSelected ? `${primary}10` : backgroundColor, // Fundo sutil colorido se selecionado
+          backgroundColor: isSelected ? `${primary}10` : backgroundColor,
           borderWidth: isSelected ? "2px" : "1px",
         }}
       >
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center relative">
           <div className="flex items-center">
             <input
               type="radio"
@@ -48,8 +50,6 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMetho
               checked={isSelected}
               onChange={() => setMethod(value)}
               className="h-4 w-4 cursor-pointer"
-              // O input radio nativo é difícil de estilizar cor via style inline,
-              // mas o 'accent-color' css property funciona bem
               style={{ accentColor: primary }}
             />
             <label className="ml-3 block text-sm font-medium cursor-pointer" style={{ color: textColor }}>
@@ -76,13 +76,16 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMetho
           </div>
         </PaymentOption>
 
-        {/* Opção 2: Carteira Digital (Só aparece se disponível) */}
+        {/* Opção 2: PayPal (NOVO) */}
+        {paypalEnabled && <PaymentOption value="paypal" title="PayPal" icon={<PayPalIcon className="h-6" />} />}
+
+        {/* Opção 3: Carteira Digital (Só aparece se disponível) */}
         {paymentRequest && walletLabel && (
           <div className="space-y-2">
             <PaymentOption
               value="wallet"
               title={walletLabel}
-              icon={<span className="">{walletLabel === "Apple Pay" ? <AppleyPayIcon /> : <GooglePayIcon />}</span>}
+              icon={<span className="">{walletLabel === "Apple Pay" ? <AppleyPayIcon className="h-6 w-auto" /> : <GooglePayIcon className="h-6 w-auto" />}</span>}
             />
             {method === "wallet" && (
               <div className="mt-2 animate-fade-in">
@@ -95,7 +98,7 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMetho
         )}
       </div>
 
-      {/* Formulário do Cartão (Só aparece se "creditCard" selecionado) */}
+      {/* Formulário do Cartão */}
       <div className="mt-6">{method === "creditCard" && <CreditCardForm />}</div>
     </div>
   );

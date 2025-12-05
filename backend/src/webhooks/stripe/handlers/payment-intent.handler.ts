@@ -313,6 +313,10 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
 
     // A: FACEBOOK CAPI (PURCHASE) - BLINDADO COM TRY/CATCH
     // Se der erro aqui, NÃO trava o resto do código
+    //
+    // ⚠️ IMPORTANTE: Este código envia APENAS 1 evento de Purchase por venda
+    // O valor total já inclui produto principal + order bumps somados
+    // Os content_ids incluem todos os produtos (principal + bumps)
     try {
       // Coletar todos os pixels (novo array + campos antigos para retrocompatibilidade)
       const pixels: Array<{ pixelId: string; accessToken: string }> = [];
@@ -334,7 +338,10 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       }
 
       if (pixels.length > 0) {
-        const totalValue = paymentIntent.amount / 100; // Stripe usa centavos
+        const totalValue = paymentIntent.amount / 100; // Stripe usa centavos (JÁ INCLUI produto + order bumps)
+
+        console.log(`💰 Valor total da compra: ${totalValue} ${offer.currency?.toUpperCase()} (produto principal + ${items.length - 1} order bump(s))`);
+        console.log(`📦 Itens na compra:`, items.map(i => ({ name: i.name, price: i.priceInCents / 100, isOrderBump: i.isOrderBump })));
 
         // Dados do Metadata (vindos do frontend)
         const userAgent = metadata.userAgent || "";
@@ -362,7 +369,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
           country
         );
 
-        console.log(`🔵 Enviando evento Facebook Purchase para ${pixels.length} pixel(s) com dados completos:`, {
+        console.log(`🔵 Enviando evento Facebook Purchase ÚNICO para ${pixels.length} pixel(s) com dados completos:`, {
           hasEmail: !!userData.em,
           hasPhone: !!userData.ph,
           hasName: !!(userData.fn && userData.ln),
@@ -374,6 +381,8 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
           hasCountry: !!userData.country,
           hasEventId: !!metadata.purchaseEventId,
           eventId: metadata.purchaseEventId,
+          totalValue: totalValue, // Valor TOTAL incluindo order bumps
+          itemCount: items.length, // Total de itens (produto + bumps)
         });
 
         const eventData = {
@@ -409,7 +418,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
         // Log do resumo final
         const successful = results.filter(r => r.status === 'fulfilled').length;
         const failed = results.filter(r => r.status === 'rejected').length;
-        console.log(`📊 Purchase: ${successful} sucesso, ${failed} falhas de ${pixels.length} pixels`);
+        console.log(`📊 Purchase ÚNICO: ${successful} sucesso, ${failed} falhas de ${pixels.length} pixels | Valor: ${totalValue} ${offer.currency?.toUpperCase()} | Itens: ${items.length}`);
 
         // Log detalhado dos erros
         results.forEach((result, index) => {

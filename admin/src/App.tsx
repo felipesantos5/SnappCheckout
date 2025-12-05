@@ -12,6 +12,7 @@ import { StripeReturnPage } from "./pages/dashboard/StripeReturnPage";
 import { StripeRefreshPage } from "./pages/dashboard/StripeRefreshPage";
 import { DashboardOverview } from "./pages/dashboard/DashboardOverview";
 import OfferAnalyticsPage from "./pages/dashboard/OfferAnalyticsPage";
+import SettingsPage from "./pages/dashboard/SettingsPage";
 
 function App() {
   return (
@@ -37,6 +38,8 @@ function App() {
         {/* (Elas batem com as URLs do backend stripe.controller.ts) */}
         <Route path="dashboard/stripe-return" element={<StripeReturnPage />} />
         <Route path="dashboard/stripe-refresh" element={<StripeRefreshPage />} />
+
+        <Route path="settings" element={<SettingsPage />} />
 
         <Route path="*" element={<div>Página não encontrada</div>} />
       </Route>

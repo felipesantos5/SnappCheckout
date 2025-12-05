@@ -1,4 +1,4 @@
-import { ChartNoAxesCombined, ShoppingBasket, User, ChartColumnIncreasing, Moon, Sun } from "lucide-react";
+import { ChartNoAxesCombined, ShoppingBasket, User, ChartColumnIncreasing, Moon, Sun, Settings } from "lucide-react";
 import logo from "../assets/logo.png";
 import logoWhite from "../assets/logo-white.png";
 import { useEffect, useState } from "react";
@@ -47,6 +47,11 @@ const items = [
     title: "Criar Oferta",
     url: "/offers/new",
     icon: ShoppingBasket,
+  },
+  {
+    title: "Configurações",
+    url: "/settings",
+    icon: Settings,
   },
 ];
 

@@ -1,5 +1,5 @@
-export const GooglePayIcon: React.FC<React.SVGProps<SVGSVGElement>> = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="40px" height="40px" viewBox="0 -11 70 70" fill="none">
+export const GooglePayIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -11 70 70" fill="none" {...props} className="h-10 absolute -top-[10px] right-0">
     <rect x="0.5" y="0.5" width="69" height="47" rx="5.5" fill="white" stroke="#D9D9D9" />
     <path
       fill-rule="evenodd"

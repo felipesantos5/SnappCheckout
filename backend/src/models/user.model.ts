@@ -9,6 +9,8 @@ export interface IUser extends Document {
   passwordHash: string;
   stripeAccountId?: string; // <-- NOVO: Armazena o ID da conta (ex: acct_...)
   stripeOnboardingComplete: boolean; // <-- NOVO: Controla se o onboarding foi concluído
+  paypalClientId?: string; // <-- NOVO: PayPal Client ID
+  paypalClientSecret?: string; // <-- NOVO: PayPal Client Secret
   // Métodos
   comparePassword(password: string): Promise<boolean>;
 }
@@ -43,6 +45,17 @@ const userSchema = new Schema<IUser>(
     stripeOnboardingComplete: {
       type: Boolean,
       default: false, // Começa como falso
+    },
+
+    // --- NOVOS CAMPOS PAYPAL ---
+    paypalClientId: {
+      type: String,
+      default: "",
+    },
+    paypalClientSecret: {
+      type: String,
+      default: "",
+      select: false, // Não retorna por padrão por segurança
     },
   },
   {

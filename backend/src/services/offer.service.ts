@@ -49,6 +49,7 @@ export type CreateOfferPayload = {
   collectPhone?: boolean;
   language?: string;
   upsellLink?: string;
+  paypalEnabled: boolean;
   utmfyWebhookUrl?: string;
   facebookPixelId?: string;
   facebookAccessToken?: string;
