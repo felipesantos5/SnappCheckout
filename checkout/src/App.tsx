@@ -11,14 +11,16 @@ import { CheckoutSlugPage } from "./pages/CheckoutSlugPage";
 
 // Loading fallback simples
 const PageLoader = () => (
-  <div style={{
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '100vh',
-    fontSize: '16px',
-    color: '#666'
-  }}>
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      minHeight: "100vh",
+      fontSize: "16px",
+      color: "#666",
+    }}
+  >
     Carregando...
   </div>
 );
@@ -31,15 +33,7 @@ function App() {
         <Route path="/success" element={<SuccessPage />} />
         <Route path="/upsell" element={<TestUpsellPage />} />
 
-        <Route
-          path="/"
-          element={
-            <div>
-              <h1>Página Inicial</h1>
-              <p>Vá para /c/[seu_slug] para ver um checkout.</p>
-            </div>
-          }
-        />
+        <Route path="/" element={<div></div>} />
         <Route
           path="*"
           element={
