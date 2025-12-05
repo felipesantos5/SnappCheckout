@@ -80,6 +80,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
     setTotalAmount(newTotal);
   }, [selectedBumps, quantity, offerData]);
 
+  // Reseta método de pagamento se PayPal não estiver habilitado
+  useEffect(() => {
+    if (method === "paypal" && !offerData.paypalEnabled) {
+      setMethod("creditCard");
+    }
+  }, [method, offerData.paypalEnabled]);
+
   // Configuração simplificada da Carteira Digital - Deixa o Stripe decidir tudo
   useEffect(() => {
     if (!stripe) {
@@ -561,7 +568,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
                 {/* Botão e Trust Badges - Mobile e Desktop */}
 
-                {method === "paypal" ? (
+                {method === "paypal" && offerData.paypalEnabled ? (
                   <PayPalPayment
                     amount={totalAmount}
                     currency={offerData.currency}
