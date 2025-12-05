@@ -569,18 +569,19 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                 {/* Botão e Trust Badges - Mobile e Desktop */}
 
                 {method === "paypal" && offerData.paypalEnabled ? (
-                  <PayPalPayment
-                    amount={totalAmount}
-                    currency={offerData.currency}
-                    offerId={offerData._id}
-                    customerData={{
-                      name: (document.getElementById("name") as HTMLInputElement)?.value || "",
-                      email: (document.getElementById("email") as HTMLInputElement)?.value || "",
-                      phone: (document.getElementById("phone") as HTMLInputElement)?.value || "",
-                    }}
-                    onSuccess={() => setPaymentSucceeded(true)}
-                    onError={(msg) => setErrorMessage(msg)}
-                  />
+                  // <PayPalPayment
+                  //   amount={totalAmount}
+                  //   currency={offerData.currency}
+                  //   offerId={offerData._id}
+                  //   customerData={{
+                  //     name: (document.getElementById("name") as HTMLInputElement)?.value || "",
+                  //     email: (document.getElementById("email") as HTMLInputElement)?.value || "",
+                  //     phone: (document.getElementById("phone") as HTMLInputElement)?.value || "",
+                  //   }}
+                  //   onSuccess={() => setPaymentSucceeded(true)}
+                  //   onError={(msg) => setErrorMessage(msg)}
+                  // />
+                  <></>
                 ) : method !== "wallet" ? (
                   <button
                     type="submit"
