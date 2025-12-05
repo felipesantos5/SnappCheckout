@@ -137,6 +137,7 @@ export const listOffersByOwner = async (ownerId: string): Promise<any[]> => {
         return {
           ...offer.toObject(),
           salesCount,
+          checkoutStarted: offer.checkoutStarted || 0, // Inclui o contador de checkout iniciado
         };
       })
     );
@@ -274,5 +275,22 @@ export const duplicateOffer = async (id: string, ownerId: string): Promise<IOffe
     return duplicatedOffer;
   } catch (error) {
     throw new Error(`Falha ao duplicar oferta: ${(error as Error).message}`);
+  }
+};
+
+/**
+ * Incrementa o contador de checkout iniciado
+ */
+export const incrementCheckoutStarted = async (offerId: string): Promise<boolean> => {
+  try {
+    if (!offerId.match(/^[0-9a-fA-F]{24}$/)) {
+      return false;
+    }
+
+    const result = await Offer.updateOne({ _id: offerId }, { $inc: { checkoutStarted: 1 } });
+
+    return result.modifiedCount > 0;
+  } catch (error) {
+    throw new Error(`Falha ao incrementar checkoutStarted: ${(error as Error).message}`);
   }
 };

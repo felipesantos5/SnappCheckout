@@ -174,7 +174,7 @@ export const handleGetConversionFunnel = async (req: Request, res: Response) => 
       return res.status(400).json({ error: "Datas inválidas." });
     }
 
-    const offers = await Offer.find({ ownerId }).select("_id name slug").lean();
+    const offers = await Offer.find({ ownerId }).select("_id name slug checkoutStarted").lean();
     if (!offers.length) return res.status(200).json([]);
 
     const offerIds = offers.map((offer) => offer._id);
@@ -202,7 +202,8 @@ export const handleGetConversionFunnel = async (req: Request, res: Response) => 
       const offerSales = allSales.filter((s) => s.offerId && s.offerId.toString() === currentOfferId);
 
       const views = offerMetrics.filter((m) => m.type === "view").length;
-      const initiatedCheckout = offerMetrics.filter((m) => m.type === "initiate_checkout").length;
+      // Usa o campo checkoutStarted diretamente do modelo Offer ao invés das métricas
+      const initiatedCheckout = (offer as any).checkoutStarted || 0;
       const purchases = offerSales.length;
 
       let revenueInBRL = 0;

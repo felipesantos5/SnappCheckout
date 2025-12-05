@@ -129,3 +129,26 @@ export const handleDuplicateOffer = async (req: Request, res: Response) => {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
 };
+
+/**
+ * Controller para INCREMENTAR o contador de checkout iniciado (endpoint público)
+ */
+export const handleIncrementCheckoutStarted = async (req: Request, res: Response) => {
+  try {
+    const { offerId } = req.body;
+
+    if (!offerId) {
+      return res.status(400).json({ error: { message: "offerId é obrigatório." } });
+    }
+
+    const updated = await offerService.incrementCheckoutStarted(offerId);
+
+    if (!updated) {
+      return res.status(404).json({ error: { message: "Oferta não encontrada." } });
+    }
+
+    res.status(200).json({ message: "Checkout iniciado registrado com sucesso." });
+  } catch (error) {
+    res.status(500).json({ error: { message: (error as Error).message } });
+  }
+};

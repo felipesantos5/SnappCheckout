@@ -1,17 +1,39 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Input } from "../ui/Input";
 import { useTranslation } from "../../i18n/I18nContext";
 import { useTheme } from "../../context/ThemeContext";
+import { API_URL } from "../../config/BackendUrl";
 
 interface ContactInfoProps {
   showPhone?: boolean;
   offerID: string;
 }
 
-export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true }) => {
+export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, offerID }) => {
   const { t } = useTranslation();
   const { textColor } = useTheme(); // Hook do tema
   const [phone, setPhone] = useState("");
+  const checkoutStartedSent = useRef(false); // Flag para evitar múltiplas chamadas
+
+  const handleEmailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const email = e.target.value;
+
+    // Só dispara quando o email tem pelo menos 3 caracteres antes do @ e contém @
+    // Exemplo: "abc@" já seria suficiente para contar como checkout iniciado
+    if (email.length >= 4 && email.includes("@") && !checkoutStartedSent.current) {
+      checkoutStartedSent.current = true;
+
+      try {
+        await fetch(`${API_URL}/offers/checkout-started`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ offerId: offerID }),
+        });
+      } catch (error) {
+        console.error("Erro ao registrar checkout iniciado:", error);
+      }
+    }
+  };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
@@ -40,7 +62,14 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true }) =>
         {t.contact.title}
       </h2>
       <div className="space-y-4">
-        <Input label={t.contact.email} id="email" type="email" required placeholder={t.contact.emailPlaceholder} />
+        <Input
+          label={t.contact.email}
+          id="email"
+          type="email"
+          required
+          placeholder={t.contact.emailPlaceholder}
+          onChange={handleEmailChange}
+        />
         <Input label={t.contact.name} id="name" type="text" required placeholder={t.contact.namePlaceholder} />
         {showPhone && (
           <Input

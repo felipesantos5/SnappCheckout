@@ -28,9 +28,12 @@ router.delete("/:id", protectRoute, offerController.handleDeleteOffer);
 // POST /api/offers/:id/duplicate (Duplica uma oferta)
 router.post("/:id/duplicate", protectRoute, offerController.handleDuplicateOffer);
 
-// --- Rota Pública (Checkout) ---
+// --- Rotas Públicas (Checkout) ---
 
 // GET /api/offers/slug/:slug
 router.get("/slug/:slug", offerController.handleGetOfferBySlug);
+
+// POST /api/offers/checkout-started (Incrementa contador de checkout iniciado)
+router.post("/checkout-started", offerController.handleIncrementCheckoutStarted);
 
 export default router;

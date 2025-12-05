@@ -65,6 +65,8 @@ export interface IOffer extends Document {
   mainProduct: IProductSubDocument;
   orderBumps: IProductSubDocument[];
 
+  checkoutStarted: number; // Contador de checkouts iniciados
+
   createdAt?: Date;
   updatedAt?: Date;
   __v?: number;
@@ -180,6 +182,10 @@ const offerSchema = new Schema<IOffer>(
       authToken: { type: String, default: "" },
     },
     customId: { type: String, default: "" },
+    checkoutStarted: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );
