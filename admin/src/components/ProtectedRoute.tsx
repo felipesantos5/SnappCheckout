@@ -1,7 +1,7 @@
 // src/components/ProtectedRoute.tsx
-// src/components/ProtectedRoute.tsx
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -9,8 +9,11 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   if (isLoading) {
-    // TODO: Criar um componente de "Loading" (spinner)
-    return <div>Carregando...</div>;
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
   }
 
   if (!token && !isLoading) {
