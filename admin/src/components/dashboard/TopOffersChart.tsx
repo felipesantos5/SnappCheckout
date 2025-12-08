@@ -35,12 +35,12 @@ export function TopOffersChart({ data }: TopOffersChartProps) {
   }
 
   return (
-    <Card className="h-full">
+    <Card>
       <CardHeader className="pb-2 sm:pb-4">
         <CardTitle className="text-base sm:text-lg">Top Ofertas</CardTitle>
         <CardDescription className="text-xs sm:text-sm">Receita por oferta</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col justify-between h-full pb-3 sm:pb-4">
+      <CardContent className="pb-3 sm:pb-4">
         <div className="h-[180px] sm:h-[280px] flex items-center justify-center">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>

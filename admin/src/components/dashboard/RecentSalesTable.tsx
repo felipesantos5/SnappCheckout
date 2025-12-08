@@ -102,17 +102,17 @@ export function RecentSalesTable() {
 
   return (
     <Card className="w-full shadow-md border-gray-200 dark:border-gray-700 gap-0">
-      <CardHeader className="pb-0">
-        <div className="flex justify-between gap-3 sm:gap-4">
-          <div>
+      <CardHeader className="pb-0 px-3 sm:px-6 pt-3 sm:pt-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between gap-3 sm:gap-4">
+          <div className="min-w-0 flex-shrink-0">
             <CardTitle className="text-base sm:text-xl font-bold text-foreground">Vendas Recentes</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Gerencie suas transações.</CardDescription>
+            <CardDescription className="text-xs sm:text-sm truncate">Gerencie suas transações.</CardDescription>
           </div>
 
           {/* Área de Filtros */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Select value={filterType} onValueChange={(val) => setFilterType(val as DateRangeFilter)}>
-              <SelectTrigger className="w-[130px] sm:w-40 h-8 sm:h-10 text-xs sm:text-sm">
+              <SelectTrigger className="w-[140px] sm:w-40 h-8 sm:h-10 text-xs sm:text-sm">
                 <SelectValue placeholder="Período" />
               </SelectTrigger>
               <SelectContent>
@@ -127,8 +127,8 @@ export function RecentSalesTable() {
             {filterType === "custom" && (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant={"outline"} className={cn("w-full sm:w-60 justify-start text-left font-normal h-8 sm:h-10 text-xs sm:text-sm", !dateRange && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <Button variant={"outline"} className={cn("w-auto sm:w-60 justify-start text-left font-normal h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3", !dateRange && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
                     {dateRange?.from ? (
                       dateRange.to ? (
                         <>
@@ -138,11 +138,11 @@ export function RecentSalesTable() {
                         format(dateRange.from, "dd/MM", { locale: ptBR })
                       )
                     ) : (
-                      <span>Selecione a data</span>
+                      <span>Selecione</span>
                     )}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0" align="end">
                   <Calendar
                     initialFocus
                     mode="range"
