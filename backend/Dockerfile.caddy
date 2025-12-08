@@ -1,0 +1,5 @@
+# backend/Dockerfile.caddy
+FROM caddy:2-alpine
+
+# Copia o arquivo de configuração para dentro da imagem
+COPY Caddyfile /etc/caddy/Caddyfile

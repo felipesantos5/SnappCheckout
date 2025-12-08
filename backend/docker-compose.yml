@@ -55,16 +55,13 @@ services:
       - app_network
 
   # [CORRIGIDO] Caddy - Configurado para TCP Passthrough via Traefik (Coolify)
-  caddy:
-    image: caddy:2-alpine
+caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
     restart: unless-stopped
-    # NÃO USAMOS 'ports' AQUI PARA EVITAR CONFLITO E ERRO "PORT ALLOCATED"
-    expose:
-      - "80"
-      - "443"
-      - "443/udp"
+    # Removemos a linha "./Caddyfile..." pois o arquivo já foi copiado no build
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     environment:
@@ -73,7 +70,7 @@ services:
       - api
     networks:
       - app_network
-      - coolify # CRUCIAL: Conecta na rede do Proxy do Coolify
+      - coolify
     
     # Healthcheck
     healthcheck:
