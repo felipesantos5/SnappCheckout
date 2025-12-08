@@ -2,7 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Link2, Image as ImageIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link2, Image as ImageIcon, ExternalLink, Globe, DollarSign, Phone, MapPin, CreditCard } from "lucide-react";
 import type { OfferFormData } from "../forms/OfferForm";
 
 const formatCurrency = (amount: number, currency: string = "BRL") => {
@@ -10,6 +11,13 @@ const formatCurrency = (amount: number, currency: string = "BRL") => {
     style: "currency",
     currency: currency,
   }).format(amount);
+};
+
+// Mapeamento de códigos de idioma para nomes amigáveis
+const languageNames: Record<string, string> = {
+  pt: "Português",
+  en: "English",
+  es: "Español",
 };
 
 interface CheckoutOfferSummaryProps {
@@ -36,26 +44,84 @@ export function CheckoutOfferSummary({ offer, slug }: CheckoutOfferSummaryProps)
     } as any);
   }
 
+  // URL do checkout
+  const checkoutUrl = slug ? `${import.meta.env.VITE_CHECKOUT_URL || 'https://pay.snappcheckout.com'}/${slug}` : null;
+
   return (
     <Card className="w-full">
-      <CardHeader>
-        <CardTitle>{offer.name}</CardTitle>
-        {slug && (
-          <CardDescription className="flex items-center gap-2 pt-1">
-            <Link2 className="h-4 w-4" />
-            <span className="font-mono">/{slug}</span>
-          </CardDescription>
-        )}
+      <CardHeader className="relative">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <CardTitle className="truncate">{offer.name}</CardTitle>
+            {slug && (
+              <CardDescription className="flex items-center gap-2 pt-1">
+                <Link2 className="h-4 w-4 shrink-0" />
+                <span className="font-mono truncate">/{slug}</span>
+              </CardDescription>
+            )}
+          </div>
+          {/* Botão para abrir oferta */}
+          {checkoutUrl && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              onClick={() => window.open(checkoutUrl, '_blank')}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Abrir Checkout</span>
+              <span className="sm:hidden">Abrir</span>
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* 1. Informações Gerais */}
         <div>
-          <h3 className="text-lg font-semibold mb-2">Configurações Gerais</h3>
-          <div className="flex items-center gap-6">
-            <div className="flex-1 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Moeda</span>
-                <Badge variant="outline">{offer.currency}</Badge>
+          <h3 className="text-lg font-semibold mb-3">Configurações Gerais</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {/* Moeda */}
+            <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-xs text-muted-foreground">Moeda</p>
+                <p className="font-medium">{offer.currency}</p>
+              </div>
+            </div>
+            
+            {/* Idioma */}
+            <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+              <Globe className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-xs text-muted-foreground">Idioma</p>
+                <p className="font-medium">{languageNames[offer.language || 'pt'] || offer.language}</p>
+              </div>
+            </div>
+
+            {/* Coleta Telefone */}
+            <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-xs text-muted-foreground">Telefone</p>
+                <p className="font-medium">{offer.collectPhone ? 'Sim' : 'Não'}</p>
+              </div>
+            </div>
+
+            {/* Coleta Endereço */}
+            <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-xs text-muted-foreground">Endereço</p>
+                <p className="font-medium">{offer.collectAddress ? 'Sim' : 'Não'}</p>
+              </div>
+            </div>
+
+            {/* PayPal */}
+            <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+              <CreditCard className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-xs text-muted-foreground">PayPal</p>
+                <p className="font-medium">{offer.paypalEnabled ? 'Ativo' : 'Inativo'}</p>
               </div>
             </div>
           </div>
