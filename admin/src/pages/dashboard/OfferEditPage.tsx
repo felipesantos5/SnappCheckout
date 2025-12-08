@@ -34,6 +34,7 @@ interface ApiOfferData {
   bannerImageUrl?: string;
   secondaryBannerImageUrl?: string;
   thankYouPageUrl?: string;
+  customDomain?: string;
   currency: string;
   language: string;
   collectAddress: boolean;
@@ -73,6 +74,7 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
     bannerImageUrl: data.bannerImageUrl,
     secondaryBannerImageUrl: data.secondaryBannerImageUrl,
     thankYouPageUrl: data.thankYouPageUrl,
+    customDomain: data.customDomain,
     currency: data.currency,
     language: data.language,
     collectAddress: data.collectAddress,

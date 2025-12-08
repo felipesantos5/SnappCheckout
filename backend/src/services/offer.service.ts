@@ -54,6 +54,7 @@ export type CreateOfferPayload = {
   facebookPixelId?: string;
   facebookAccessToken?: string;
   thankYouPageUrl?: string;
+  customDomain?: string; // Domínio customizado para a oferta
   upsell?: {
     enabled: boolean;
     name: string;
