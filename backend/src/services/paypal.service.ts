@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const { PAYPAL_API_URL } = process.env;
+const PAYPAL_API_URL = process.env.PAYPAL_API_URL || "https://api-m.sandbox.paypal.com";
 
 // Gera o token de acesso (OAuth 2.0)
 const generateAccessToken = async (clientId: string, clientSecret: string) => {

@@ -65,7 +65,7 @@ export interface OfferData {
 export function CheckoutSlugPage() {
   const { slug } = useParams<{ slug: string }>();
   const [offerData, setOfferData] = useState<OfferData | null>(null);
-  const [abTestId, setAbTestId] = useState<string | null>(null); // NEW: Track A/B test ID
+  // const [abTestId, setAbTestId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -121,7 +121,7 @@ export function CheckoutSlugPage() {
     const fetchOffer = async () => {
       setIsLoading(true);
       setError(null);
-      setAbTestId(null);
+      // setAbTestId(null);
 
       try {
         // 1. Tenta buscar como teste A/B primeiro
@@ -131,7 +131,7 @@ export function CheckoutSlugPage() {
           const data = await response.json();
           // data contém: { offer: OfferData, abTestId: string }
           setOfferData(data.offer);
-          setAbTestId(data.abTestId);
+          // setAbTestId(data.abTestId);
 
           // O tracking de view já é feito pelo backend quando randomiza
           // Apenas marca como rastreado para evitar duplicação no InitiateCheckout

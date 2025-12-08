@@ -2,12 +2,12 @@
 import React, { useState } from "react";
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { API_URL } from "../../config/BackendUrl";
-// import { toast } from "sonner";
 
 interface PayPalPaymentProps {
   amount: number; // Em centavos
   currency: string;
   offerId: string;
+  paypalClientId: string; // Client ID do PayPal do merchant
   customerData: {
     name: string;
     email: string;
@@ -17,30 +17,29 @@ interface PayPalPaymentProps {
   onError: (error: string) => void;
 }
 
-export const PayPalPayment: React.FC<PayPalPaymentProps> = ({ amount, currency, offerId, customerData, onSuccess, onError }) => {
+export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
+  amount,
+  currency,
+  offerId,
+  paypalClientId,
+  customerData,
+  onSuccess,
+  onError,
+}) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Validação simples antes de abrir o PayPal
-  const validateForm = () => {
-    // if (!customerData.email || !customerData.name) {
-    //   // toast.error("Por favor, preencha nome e e-mail antes de continuar.");
-    //   console.log(`erro aqui`);
-    //   return false;
-    // }
-    return true;
-  };
-
+  // Configurações do SDK PayPal usando o Client ID do merchant
   const paypalOptions = {
-    clientId: "test", // ClientId de teste - será substituído pelas credenciais do backend
+    clientId: paypalClientId,
     currency: currency.toUpperCase(),
     intent: "capture" as const,
   };
 
   return (
     <PayPalScriptProvider options={paypalOptions}>
-      <div className="w-full mt-4 relative z-0">
+      <div className="w-full relative z-0">
         {isProcessing && (
-          <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">
+          <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center rounded-lg">
             <span className="text-sm font-semibold">Processando...</span>
           </div>
         )}
@@ -49,12 +48,6 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({ amount, currency, 
           style={{ layout: "vertical", height: 48, label: "pay" }}
           disabled={isProcessing}
           forceReRender={[amount, currency]} // Recarrega se o preço mudar (ex: cupom)
-          onClick={(_data, actions) => {
-            if (!validateForm()) {
-              return actions.reject();
-            }
-            return actions.resolve();
-          }}
           createOrder={async (_data, _actions) => {
             setIsProcessing(true);
             try {
@@ -76,7 +69,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({ amount, currency, 
               const order = await response.json();
               return order.id; // Retorna o ID da ordem para o script do PayPal
             } catch (error: any) {
-              console.error(error);
+              console.error("PayPal createOrder error:", error);
               onError(error.message);
               setIsProcessing(false);
               return ""; // Retorna vazio para cancelar
@@ -102,7 +95,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({ amount, currency, 
                 throw new Error(result.message || "Pagamento não aprovado.");
               }
             } catch (error: any) {
-              console.error(error);
+              console.error("PayPal capture error:", error);
               onError(error.message);
             } finally {
               setIsProcessing(false);
@@ -110,10 +103,9 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({ amount, currency, 
           }}
           onCancel={() => {
             setIsProcessing(false);
-            // toast.info("Pagamento cancelado.");
           }}
           onError={(err) => {
-            console.error("PayPal Error:", err);
+            console.error("PayPal SDK Error:", err);
             onError("Ocorreu um erro na conexão com o PayPal.");
             setIsProcessing(false);
           }}

@@ -10,7 +10,7 @@ import { OrderSummary } from "./OrderSummary";
 import { ContactInfo } from "./ContactInfo";
 import { PaymentMethods } from "./PaymentMethods";
 import { Banner } from "./Banner";
-// import { PayPalPayment } from "./PayPalPayment";
+import { PayPalPayment } from "./PayPalPayment";
 
 // Lazy load componentes não críticos para melhorar performance inicial
 const AddressInfo = lazy(() => import("./AddressInfo").then((module) => ({ default: module.AddressInfo })));
@@ -50,6 +50,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
   const [totalAmount, setTotalAmount] = useState(offerData.mainProduct.priceInCents);
   const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
   const [walletLabel, setWalletLabel] = useState<string | null>(null);
+  const [paypalClientId, setPaypalClientId] = useState<string | null>(null);
 
   // Armazena event_ids gerados para cada evento
   const addPaymentInfoEventId = useRef<string | null>(null);
@@ -86,6 +87,20 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
       setMethod("creditCard");
     }
   }, [method, offerData.paypalEnabled]);
+
+  // Busca o PayPal Client ID quando PayPal está habilitado
+  useEffect(() => {
+    if (offerData.paypalEnabled && offerData._id) {
+      fetch(`${API_URL}/paypal/client-id/${offerData._id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.clientId) {
+            setPaypalClientId(data.clientId);
+          }
+        })
+        .catch((err) => console.error("Failed to fetch PayPal client ID:", err));
+    }
+  }, [offerData.paypalEnabled, offerData._id]);
 
   // Configuração simplificada da Carteira Digital - Deixa o Stripe decidir tudo
   useEffect(() => {
@@ -568,20 +583,20 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
                 {/* Botão e Trust Badges - Mobile e Desktop */}
 
-                {method === "paypal" && offerData.paypalEnabled ? (
-                  // <PayPalPayment
-                  //   amount={totalAmount}
-                  //   currency={offerData.currency}
-                  //   offerId={offerData._id}
-                  //   customerData={{
-                  //     name: (document.getElementById("name") as HTMLInputElement)?.value || "",
-                  //     email: (document.getElementById("email") as HTMLInputElement)?.value || "",
-                  //     phone: (document.getElementById("phone") as HTMLInputElement)?.value || "",
-                  //   }}
-                  //   onSuccess={() => setPaymentSucceeded(true)}
-                  //   onError={(msg) => setErrorMessage(msg)}
-                  // />
-                  <></>
+                {method === "paypal" && offerData.paypalEnabled && paypalClientId ? (
+                  <PayPalPayment
+                    amount={totalAmount}
+                    currency={offerData.currency}
+                    offerId={offerData._id}
+                    paypalClientId={paypalClientId}
+                    customerData={{
+                      name: (document.getElementById("name") as HTMLInputElement)?.value || "",
+                      email: (document.getElementById("email") as HTMLInputElement)?.value || "",
+                      phone: (document.getElementById("phone") as HTMLInputElement)?.value || "",
+                    }}
+                    onSuccess={() => setPaymentSucceeded(true)}
+                    onError={(msg) => setErrorMessage(msg)}
+                  />
                 ) : method !== "wallet" ? (
                   <button
                     type="submit"
