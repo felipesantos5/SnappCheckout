@@ -1206,11 +1206,17 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
           </div>
         </FormSection>
 
-        <div className="">
-          <Button type="submit" size="lg" className="w-full shadow-lg mt-4 h-12" disabled={isLoading}>
-            {isLoading ? "Salvando..." : isEditMode ? "Atualizar Configurações" : "Salvar Oferta"}
-          </Button>
+        {/* Botão Flutuante Fixo */}
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-4 md:left-64">
+          <div className="max-w-4xl mx-auto">
+            <Button type="submit" size="lg" className="w-full shadow-lg h-12 font-semibold" disabled={isLoading}>
+              {isLoading ? "Salvando..." : isEditMode ? "Atualizar Configurações" : "Salvar Oferta"}
+            </Button>
+          </div>
         </div>
+        
+        {/* Espaçamento para compensar o botão fixo */}
+        <div className="h-24" />
       </form>
     </Form>
   );
