@@ -14,7 +14,6 @@
     "test:debug": "playwright test --debug"
   },
   "dependencies": {
-    "@paypal/react-paypal-js": "^8.9.2",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@stripe/react-stripe-js": "^5.3.0",
     "@stripe/stripe-js": "^8.4.0",
