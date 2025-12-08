@@ -6,11 +6,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # REMOVIDO: ports "4242:4242" (Não precisa expor pra internet, o Caddy conversa internamente)
-    # Se você precisar acessar a API diretamente sem passar pelo Caddy, pode manter,
-    # mas o ideal é deixar fechado e usar o proxy.
-    expose:
-      - "4242"
+    ports:
+      - "4242:4242"
     env_file: .env
     environment:
       - TZ=America/Sao_Paulo
@@ -20,22 +17,22 @@ services:
       - mongodb
     networks:
       - app_network
-      - coolify # Adicionado para garantir comunicação se necessário
+    # [NOVO] Configuração do Healthcheck
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4242/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      interval: 30s       # Verifica a cada 30 segundos
+      timeout: 10s        # Se demorar mais de 10s, considera falha
+      retries: 3          # Precisa falhar 3 vezes seguidas para marcar unhealthy
+      start_period: 40s   # Dá 40s de carência pro Node iniciar antes de testar
+    # [NOVO] Etiqueta para o autoheal saber que deve vigiar este container
     labels:
       - "autoheal=true"
 
   mongodb:
     image: mongo:6.0
     restart: unless-stopped
-    # REMOVIDO: ports externo. Mongo não deve ficar exposto na internet por segurança.
-    expose:
-      - "27017"
+    ports:
+      - "127.0.0.1:27017:27017"
     environment:
       - MONGO_INITDB_ROOT_USERNAME=root
       - MONGO_INITDB_ROOT_PASSWORD=${DB_PASSWORD}
@@ -44,70 +41,20 @@ services:
     networks:
       - app_network
 
+  # [NOVO] Serviço Vigilante - Reinicia containers Unhealthy automaticamente
   autoheal:
     image: willfarrell/autoheal
     restart: always
     environment:
-      - AUTOHEAL_CONTAINER_LABEL=all
+      - AUTOHEAL_CONTAINER_LABEL=all  # Monitora todos que tiverem a label, ou use 'all' para todos
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
     networks:
       - app_network
 
-  # [CORRIGIDO] Caddy - Configurado para TCP Passthrough via Traefik (Coolify)
-caddy:
-    build:
-      context: .
-      dockerfile: Dockerfile.caddy
-    restart: unless-stopped
-    # Removemos a linha "./Caddyfile..." pois o arquivo já foi copiado no build
-    volumes:
-      - caddy_data:/data
-      - caddy_config:/config
-    environment:
-      - TZ=America/Sao_Paulo
-    depends_on:
-      - api
-    networks:
-      - app_network
-      - coolify
-    
-    # Healthcheck
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    
-    # [IMPORTANTE] Labels para o Traefik fazer o roteamento sem conflito de porta
-    labels:
-      - "autoheal=true"
-      - "traefik.enable=true"
-      - "traefik.docker.network=coolify"
-      
-      # Regra 1: HTTP (Porta 80) - Redirecionamentos e Healthcheck
-      - "traefik.http.routers.caddy-http.entrypoints=http"
-      - "traefik.http.routers.caddy-http.rule=HostRegexp(`{host:.+}`)"
-      - "traefik.http.routers.caddy-http.priority=1"
-      - "traefik.http.services.caddy-http.loadbalancer.server.port=80"
-
-      # Regra 2: HTTPS (Porta 443) - TCP Passthrough (A Mágica do SSL Customizado)
-      # Isso pega qualquer domínio HTTPS e joga "cru" para o Caddy gerar o certificado
-      - "traefik.tcp.routers.caddy-https.entrypoints=https"
-      - "traefik.tcp.routers.caddy-https.rule=HostSNIRegexp(`{host:.+}`)"
-      - "traefik.tcp.routers.caddy-https.tls.passthrough=true"
-      - "traefik.tcp.routers.caddy-https.priority=1"
-      - "traefik.tcp.services.caddy-https.loadbalancer.server.port=443"
-
 networks:
   app_network:
     driver: bridge
-  # Rede externa criada pelo Coolify
-  coolify:
-    external: true
 
 volumes:
   mongo_data:
-  caddy_data:
-  caddy_config:
