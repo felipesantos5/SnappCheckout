@@ -1,0 +1,47 @@
+# Caddyfile para Domínios Customizados
+# Configuração do servidor Caddy como proxy reverso com SSL automático
+
+{
+    # Email para notificações do Let's Encrypt
+    email admin@snappcheckout.com
+    
+    # On-Demand TLS: Endpoint de validação
+    # O Caddy vai perguntar ao backend se o domínio é autorizado antes de emitir certificado
+    # NOTA: Usa "api" como hostname porque estamos dentro do Docker network
+    on_demand_tls {
+        ask http://api:4242/api/domains/ask
+    }
+}
+
+# Catch-all para qualquer domínio HTTPS
+# Vai aceitar qualquer domínio que apontar para este servidor
+https:// {
+    tls {
+        on_demand
+    }
+    
+    # Headers para log e debugging
+    header X-Proxied-By "Caddy"
+    
+    # Proxy reverso para o checkout na Vercel
+    reverse_proxy https://pay.snappcheckout.com {
+        # Importante: Manter o Host original para o backend identificar
+        header_up Host pay.snappcheckout.com
+        
+        # Headers customizados para identificar o domínio do cliente
+        header_up X-Custom-Domain {host}
+        header_up X-Forwarded-Host {host}
+        header_up X-Real-IP {remote_host}
+        
+        # Configurações de transporte
+        transport http {
+            tls
+            tls_server_name pay.snappcheckout.com
+        }
+    }
+}
+
+# Rota de health check para monitoramento
+:80 {
+    respond /health "OK" 200
+}

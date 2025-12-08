@@ -29,6 +29,7 @@ export interface IOffer extends Document {
   ownerId: Schema.Types.ObjectId;
   name: string;
   slug: string;
+  customDomain?: string; // Domínio customizado (ex: checkout.cliente.com.br)
   bannerImageUrl?: string;
   secondaryBannerImageUrl?: string;
   currency: string;
@@ -88,6 +89,13 @@ const offerSchema = new Schema<IOffer>(
       type: String,
       required: true,
       unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    customDomain: {
+      type: String,
+      unique: true,
+      sparse: true, // Permite múltiplos nulls
       lowercase: true,
       trim: true,
     },

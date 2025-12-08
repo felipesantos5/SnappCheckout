@@ -52,9 +52,39 @@ services:
     networks:
       - app_network
 
+  # [NOVO] Caddy - Proxy reverso com SSL automático para domínios customizados
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - TZ=America/Sao_Paulo
+    depends_on:
+      - api
+    networks:
+      - app_network
+    # Healthcheck para o Caddy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "autoheal=true"
+
 networks:
   app_network:
     driver: bridge
 
 volumes:
   mongo_data:
+  caddy_data:    # Armazena certificados SSL
+  caddy_config:  # Armazena configuração do Caddy

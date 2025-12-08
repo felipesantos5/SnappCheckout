@@ -12,6 +12,7 @@ import metricsRoutes from "./metrics.routes";
 import healthRoutes from "./health.routes";
 import settingsRoutes from "./settings.routes";
 import abTestRoutes from "./abtest.routes";
+import domainRoutes from "./domain.routes";
 import { getUpsellScript } from "../controllers/script.controller";
 
 const router = Router();
@@ -46,7 +47,9 @@ router.use("/settings", settingsRoutes);
 // Rotas para Testes A/B
 router.use("/abtests", abTestRoutes);
 
+// Rotas para Domínios Customizados (Caddy + Checkout)
+router.use("/domains", domainRoutes);
+
 router.get("/v1/upsell.js", getUpsellScript);
 
 export default router;
-
