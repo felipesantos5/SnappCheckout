@@ -202,8 +202,8 @@ export const handleGetConversionFunnel = async (req: Request, res: Response) => 
       const offerSales = allSales.filter((s) => s.offerId && s.offerId.toString() === currentOfferId);
 
       const views = offerMetrics.filter((m) => m.type === "view").length;
-      // Usa o campo checkoutStarted diretamente do modelo Offer ao invés das métricas
-      const initiatedCheckout = (offer as any).checkoutStarted || 0;
+      // Conta os checkouts iniciados do CheckoutMetric filtrado por data
+      const initiatedCheckout = offerMetrics.filter((m) => m.type === "initiate_checkout").length;
       const purchases = offerSales.length;
 
       let revenueInBRL = 0;
