@@ -114,7 +114,7 @@ const PayPalErrorHelpModal: React.FC<{
             <RefreshCw className="w-4 h-4" />
             Tentar novamente
           </button>
-          
+
           {onSwitchMethod && (
             <button
               onClick={onSwitchMethod}
@@ -152,7 +152,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
   const handlePayPalError = useCallback((error: any) => {
     console.error("PayPal Error:", error);
     setHasError(true);
-    
+
     // Se for primeiro erro, mostrar modal de ajuda
     if (retryCount.current < 2) {
       setShowHelpModal(true);
@@ -168,25 +168,25 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
     setHasError(false);
     setIsLoading(true);
     buttonsRendered.current = false;
-    
+
     // Remove o script antigo para forçar recarregamento
     const oldScript = document.getElementById("paypal-sdk-script");
     if (oldScript) {
       oldScript.remove();
     }
-    
+
     // Remove o objeto paypal global
     if (window.paypal) {
       delete window.paypal;
     }
-    
+
     // Limpar o container
     if (paypalContainerRef.current) {
       paypalContainerRef.current.innerHTML = "";
     }
-    
+
     setScriptLoaded(false);
-    
+
     // Recarrega após um pequeno delay
     setTimeout(() => {
       // O useEffect vai recarregar o script
@@ -209,7 +209,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
 
     const script = document.createElement("script");
     script.id = scriptId;
-    script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=${currency.toUpperCase()}&intent=capture`;
+    script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=${currency.toUpperCase()}&intent=capture&disable-funding=card`;
     script.async = true;
 
     script.onload = () => {
@@ -322,7 +322,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
             <span className="text-sm text-gray-500">Carregando PayPal...</span>
           </div>
         )}
-        
+
         {hasError && !showHelpModal && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex items-start gap-3">
@@ -347,7 +347,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
             </div>
           </div>
         )}
-        
+
         <div ref={paypalContainerRef} className={isLoading || hasError ? "hidden" : ""} />
       </div>
 
