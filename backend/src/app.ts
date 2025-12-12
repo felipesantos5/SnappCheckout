@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import "dotenv/config";
 import mainRouter from "./routes";
 import stripeWebhookRouter from "./webhooks/stripe/stripe-webhook.routes";
+import paypalWebhookRouter from "./webhooks/paypal/paypal-webhook.routes";
 
 const app: Express = express();
 
@@ -48,6 +49,7 @@ const globalLimiter = rateLimit({
 app.use(globalLimiter);
 
 app.use("/api/webhooks/stripe", stripeWebhookRouter);
+app.use("/api/webhooks/paypal", paypalWebhookRouter);
 
 // Middleware para parsear JSON
 app.use(express.json());
