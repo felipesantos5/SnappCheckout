@@ -1,7 +1,7 @@
 // src/components/forms/OfferForm.tsx
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useForm, useFieldArray, type Path } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Trash2, ChevronDown, Settings, CreditCard, Box, Layers, ArrowUpCircle, Link as LinkIcon, Code, Copy, Check, Plus, Globe, HelpCircle } from "lucide-react";
+import { Trash2, ChevronDown, Settings, CreditCard, Box, Layers, ArrowUpCircle, Link as LinkIcon, Code, Copy, Check, Plus, Globe, HelpCircle, Eye, EyeOff } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 import { API_URL } from "@/config/BackendUrl";
 import { MoneyInput } from "./MoneyInput";
@@ -48,7 +48,7 @@ const FormSection = ({ title, icon, description, children, defaultOpen = false, 
             {description && <p className="text-sm text-muted-foreground hidden md:block">{description}</p>}
           </div>
         </div>
-        <div className={`transition-transform duration-200 text-muted-foreground ${isOpen ? "rotate-180" : ""}`}>
+        <div className={`transition - transform duration - 200 text - muted - foreground ${isOpen ? "rotate-180" : ""} `}>
           <ChevronDown className="h-5 w-5" />
         </div>
       </div>
@@ -69,7 +69,7 @@ const UpsellScriptOnlyDialog = () => {
 
   // Usa a URL do backend da variável de ambiente
   const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4242";
-  const scriptCode = `<script src="${backendUrl}/api/v1/upsell.js" async></script>`.trim();
+  const scriptCode = `< script src = "${backendUrl}/api/v1/upsell.js" async ></script > `.trim();
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(scriptCode);
@@ -110,13 +110,13 @@ const UpsellButtonsOnlyDialog = () => {
   const [copied, setCopied] = useState(false);
 
   const buttonsCode = `
-<button class="chk-buy" style="background:#3CB371; color:white; font-weight:700; padding:10px; width:100%; max-width:500px; border-radius: 10px; font-size:16px; border:0; margin-bottom:16px;">
-  SIM, QUERO COMPRAR
-</button>
+  < button class="chk-buy" style = "background:#3CB371; color:white; font-weight:700; padding:10px; width:100%; max-width:500px; border-radius: 10px; font-size:16px; border:0; margin-bottom:16px;" >
+    SIM, QUERO COMPRAR
+</button >
 
-<button class="chk-refuse" style="background:unset;color:red; padding:10px; width:100%; max-width:500px; border:0; text-decoration: underline;">
-  NÃO, OBRIGADO
-</button>
+  <button class="chk-refuse" style="background:unset;color:red; padding:10px; width:100%; max-width:500px; border:0; text-decoration: underline;">
+    NÃO, OBRIGADO
+  </button>
 `.trim();
 
   const copyToClipboard = () => {
@@ -156,9 +156,9 @@ const UpsellButtonsOnlyDialog = () => {
 // --- MODAL: INSTRUÇÕES DE CONFIGURAÇÃO DNS ---
 const DnsInstructionsDialog = ({ domain }: { domain?: string }) => {
   const [copiedCname, setCopiedCname] = useState(false);
-  
+
   const cnameTarget = "proxy.snappcheckout.com";
-  
+
   const copyCnameToClipboard = () => {
     navigator.clipboard.writeText(cnameTarget);
     setCopiedCname(true);
@@ -184,7 +184,7 @@ const DnsInstructionsDialog = ({ domain }: { domain?: string }) => {
             Siga os passos abaixo para apontar seu domínio para o checkout.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-6 mt-4">
           {/* Passo 1 */}
           <div className="space-y-2">
@@ -237,7 +237,7 @@ const DnsInstructionsDialog = ({ domain }: { domain?: string }) => {
               <h4 className="font-semibold">Aguarde a propagação</h4>
             </div>
             <p className="text-sm text-muted-foreground ml-8">
-              A propagação DNS pode levar de alguns minutos até 24 horas. Após isso, seu checkout estará disponível 
+              A propagação DNS pode levar de alguns minutos até 24 horas. Após isso, seu checkout estará disponível
               {domain && <span className="font-medium"> em <code className="bg-muted px-1 rounded">https://{domain}</code></span>}.
             </p>
           </div>
@@ -245,7 +245,7 @@ const DnsInstructionsDialog = ({ domain }: { domain?: string }) => {
           {/* Aviso Cloudflare */}
           <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-4 rounded-lg">
             <p className="text-sm text-amber-800 dark:text-amber-200">
-              <strong>⚠️ Cloudflare:</strong> Se você usa Cloudflare, deixe o proxy <strong>desativado</strong> (nuvem cinza) 
+              <strong>⚠️ Cloudflare:</strong> Se você usa Cloudflare, deixe o proxy <strong>desativado</strong> (nuvem cinza)
               para que o certificado SSL seja emitido corretamente.
             </p>
           </div>
@@ -430,7 +430,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
     setIsLoading(true);
 
     const transformPrices = (data: OfferFormOutput) => {
-      const cleanSubDoc = (doc: { priceInCents: number; compareAtPriceInCents?: number; _id?: string; [key: string]: any }) => {
+      const cleanSubDoc = (doc: { priceInCents: number; compareAtPriceInCents?: number; _id?: string;[key: string]: any }) => {
         const { _id, ...rest } = doc;
         const priceInCents = Math.round(doc.priceInCents * 100);
         const compareAtPriceInCents =
@@ -458,7 +458,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
 
     try {
       if (isEditMode) {
-        await axios.put(`${API_URL}/offers/${offerId}`, dataToSubmit);
+        await axios.put(`${API_URL} /offers/${offerId} `, dataToSubmit);
       } else {
         await axios.post(`${API_URL}/offers`, dataToSubmit);
       }
@@ -1145,15 +1145,57 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   <FormField
                     control={form.control}
                     name="membershipWebhook.authToken"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Token de Autenticação</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="Bearer Token" {...field} value={field.value || ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const [showToken, setShowToken] = React.useState(false);
+                      const [copied, setCopied] = React.useState(false);
+
+                      const handleCopy = async () => {
+                        if (field.value) {
+                          await navigator.clipboard.writeText(field.value);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }
+                      };
+
+                      return (
+                        <FormItem>
+                          <FormLabel>Token de Autenticação</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                type={showToken ? "text" : "password"}
+                                placeholder="Bearer Token"
+                                {...field}
+                                value={field.value || ""}
+                                className="pr-20"
+                              />
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                  onClick={() => setShowToken(!showToken)}
+                                >
+                                  {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                  onClick={handleCopy}
+                                  disabled={!field.value}
+                                >
+                                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                 </div>
               )}
@@ -1177,10 +1219,10 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   <FormItem className="flex-1">
                     <FormLabel>Domínio</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="checkout.seudominio.com.br" 
-                        {...field} 
-                        value={field.value || ""} 
+                      <Input
+                        placeholder="checkout.seudominio.com.br"
+                        {...field}
+                        value={field.value || ""}
                       />
                     </FormControl>
                     <FormDescription>
@@ -1194,11 +1236,11 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                 <DnsInstructionsDialog domain={form.watch("customDomain")} />
               </div>
             </div>
-            
+
             {form.watch("customDomain") && (
               <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 p-4 rounded-lg">
                 <p className="text-sm text-green-800 dark:text-green-200">
-                  <strong>✅ Domínio configurado:</strong> Após apontar o DNS, 
+                  <strong>✅ Domínio configurado:</strong> Após apontar o DNS,
                   seu checkout estará disponível em <code className="font-medium">https://{form.watch("customDomain")}</code>
                 </p>
               </div>
@@ -1214,7 +1256,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
             </Button>
           </div>
         </div>
-        
+
         {/* Espaçamento para compensar o botão fixo */}
         <div className="h-24" />
       </form>
