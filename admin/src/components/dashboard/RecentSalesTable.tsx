@@ -20,6 +20,8 @@ import { formatCurrency } from "@/helper/formatCurrency";
 import { formatDate } from "@/helper/formatDate";
 import { getCountryName } from "@/helper/getCountryFlag";
 import { CountryFlag } from "../CountryFlag";
+import { StripeIcon } from "../icons/stripe";
+import { PaypalIcon } from "../icons/paypal";
 
 type DateRangeFilter = "all" | "today" | "week" | "month" | "custom";
 
@@ -170,20 +172,21 @@ export function RecentSalesTable() {
                 <TableHead>Oferta / Itens</TableHead>
                 <TableHead className="text-center">Tipo</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-10">Plataforma</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center">
+                  <TableCell colSpan={8} className="h-32 text-center">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
                     <p className="text-sm text-gray-500 mt-2">Carregando transações...</p>
                   </TableCell>
                 </TableRow>
               ) : paginatedSales.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                     Nenhuma venda encontrada neste período.
                   </TableCell>
                 </TableRow>
@@ -298,6 +301,14 @@ export function RecentSalesTable() {
                         >
                           {sale.status === "succeeded" ? "Aprovada" : sale.status === "refunded" ? "Reembolsada" : "Pendente"}
                         </Badge>
+                      </TableCell>
+
+                      <TableCell className="text-center">
+                        {sale.paymentMethod === "paypal" ? (
+                          <PaypalIcon />
+                        ) : (
+                          <StripeIcon />
+                        )}
                       </TableCell>
 
                       <TableCell className="text-right font-bold text-foreground">{formatCurrency(sale.totalAmountInCents, sale.currency)}</TableCell>

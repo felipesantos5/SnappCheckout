@@ -29,6 +29,7 @@ interface Sale {
   isUpsell: boolean;
   ip?: string;
   country?: string;
+  paymentMethod?: "stripe" | "paypal";
 }
 
 // Helper para formatar data e hora
@@ -116,6 +117,7 @@ export function SalesHistoryTable({ offerId }: SalesHistoryTableProps) {
             <TableHead>Cliente</TableHead>
             <TableHead>Oferta</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Plataforma</TableHead>
             <TableHead>Valor</TableHead>
             <TableHead className="text-right">Data</TableHead>
           </TableRow>
@@ -162,6 +164,20 @@ export function SalesHistoryTable({ offerId }: SalesHistoryTableProps) {
                   </TooltipProvider>
                 ) : (
                   <Badge variant="secondary">{sale.status}</Badge>
+                )}
+              </TableCell>
+
+              <TableCell className="text-center">
+                {sale.paymentMethod === "paypal" ? (
+                  <svg className="h-6 w-6 mx-auto" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7.076 21.337H2.470a0.641 0.641 0 01-0.633-0.74L4.944 3.72a0.773 0.773 0 010.761-0.654h6.95c2.3 0 3.91 0.487 4.787 1.447 0.817 0.894 1.11 2.213 0.869 3.918l-0.014 0.087c-0.514 3.289-2.278 4.96-5.239 4.96H9.65a0.641 0.641 0 00-0.633 0.54l-0.752 4.768-0.213 1.35a0.334 0.334 0 01-0.33 0.284L7.076 21.337z" fill="#253B80"/>
+                    <path d="M17.588 8.604c-0.586 3.762-2.575 5.67-5.918 5.67H9.645a0.772 0.772 0 00-0.762 0.65l-0.966 6.121a0.405 0.405 0 000.4 0.343h2.862a0.677 0.677 0 000.669-0.571l0.028-0.142 0.53-3.36 0.034-0.184a0.677 0.677 0 010.669-0.571h0.42c2.728 0 4.866-1.108 5.489-4.314 0.26-1.338 0.125-2.455-0.563-3.24-0.208-0.237-0.466-0.432-0.768-0.586l0.054 0.184z" fill="#179BD7"/>
+                    <path d="M16.544 8.05a5.65 5.65 0 00-0.696-0.155 8.783 8.783 0 00-1.397-0.1h-4.237a0.676 0.676 0 00-0.669 0.571L8.67 13.565l-0.027 0.172a0.772 0.772 0 010.762-0.65h1.587c3.343 0 5.96-1.358 6.726-5.286 0.023-0.116 0.042-0.229 0.058-0.338-0.192-0.101-0.397-0.19-0.619-0.264a5.99 5.99 0 00-0.614-0.15z" fill="#222D65"/>
+                  </svg>
+                ) : (
+                  <svg className="h-6 w-6 mx-auto" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.664 2.084-1.664 1.753 0 3.104.962 3.104.962l1.138-1.913s-1.425-1.165-4.088-1.165c-3.215 0-5.42 1.863-5.42 4.357 0 1.988 1.544 3.333 3.79 4.08 1.805.593 2.826 1.165 2.826 2.235 0 .93-.759 1.759-2.132 1.759-1.816 0-3.53-1.094-3.53-1.094l-1.283 1.913s1.735 1.378 4.611 1.378c3.354 0 5.536-1.752 5.536-4.426 0-2.168-1.563-3.41-3.28-4.013z" fill="#6772E5"/>
+                  </svg>
                 )}
               </TableCell>
 
