@@ -10,6 +10,7 @@ process.on("uncaughtException", (error) => {
 
 process.on("unhandledRejection", (reason, promise) => {
   console.error("CRITICAL ERROR: Unhandled Rejection at:", promise, "reason:", reason);
+  process.exit(1)
   // Dependendo da gravidade, pode valer a pena sair também, ou apenas logar
 });
 
