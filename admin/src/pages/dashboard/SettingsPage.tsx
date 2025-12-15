@@ -4,11 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import axios from "axios";
 import { API_URL } from "@/config/BackendUrl";
-import { Loader2, Save, Key, Bell } from "lucide-react";
+import { Loader2, Save, Key } from "lucide-react";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
