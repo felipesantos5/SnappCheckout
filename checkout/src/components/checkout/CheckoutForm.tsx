@@ -576,7 +576,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                 />
 
                 {/* Order Bumps aparecem na esquerda em mobile, escondidos em desktop */}
-                <div className="lg:hidden">
+                <div className="lg:hidden mb-2">
                   <Suspense fallback={<div className="animate-pulse bg-gray-100 h-32 rounded-lg"></div>}>
                     <OrderBump
                       bumps={offerData.orderBumps}
