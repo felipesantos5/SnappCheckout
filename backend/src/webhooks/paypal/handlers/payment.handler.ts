@@ -39,18 +39,12 @@ export const handlePaymentCaptureCompleted = async (event: PayPalWebhookEvent): 
     const captureId = capture.id;
     const paypalOrderId = capture.supplementary_data?.related_ids?.order_id;
 
-    console.log(`✅ [PayPal] Pagamento capturado: ${captureId}`);
-    console.log(`   - Order ID: ${paypalOrderId}`);
-    console.log(`   - Valor: ${capture.amount.value} ${capture.amount.currency_code}`);
-
     // 1. Verificar idempotência - evita processar o mesmo pagamento duas vezes
     const existingSale = await Sale.findOne({
       $or: [{ stripePaymentIntentId: `PAYPAL_${captureId}` }, { stripePaymentIntentId: `PAYPAL_${paypalOrderId}` }],
     });
 
     if (existingSale) {
-      console.log(`ℹ️ [PayPal] Venda já processada: ${existingSale._id}`);
-
       // Se a venda existe mas não foi enviada para o Husky, tenta enviar novamente
       if (existingSale.status === "succeeded") {
         await retrySendAccessWebhook(existingSale);

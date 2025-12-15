@@ -175,15 +175,12 @@ export const captureOrder = async (req: Request, res: Response) => {
 
       await newSale.save();
 
-      console.log(`✅ [PayPal] Venda ${newSale._id} salva com sucesso.`);
-
       // =================================================================
       // INTEGRAÇÕES EXTERNAS
       // =================================================================
 
       // A: Webhook de Área de Membros (Husky/MemberKit)
       try {
-        console.log(`📤 [PayPal] Enviando webhook de acesso para Husky...`);
         await sendAccessWebhook(offer as any, newSale, items, customerData?.phone || "");
       } catch (webhookError: any) {
         console.error(`⚠️ [PayPal] Erro ao enviar webhook Husky:`, webhookError.message);

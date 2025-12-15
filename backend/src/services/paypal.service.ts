@@ -4,10 +4,6 @@ const PAYPAL_API_URL = process.env.PAYPAL_API_URL || "https://api-m.sandbox.payp
 
 // Gera o token de acesso (OAuth 2.0)
 const generateAccessToken = async (clientId: string, clientSecret: string) => {
-  console.log(`[PayPal] Generating access token...`);
-  console.log(`[PayPal] API URL: ${PAYPAL_API_URL}`);
-  console.log(`[PayPal] Client ID (first 10 chars): ${clientId?.substring(0, 10)}...`);
-  
   try {
     const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
     const response = await axios.post(`${PAYPAL_API_URL}/v1/oauth2/token`, "grant_type=client_credentials", {
@@ -16,7 +12,6 @@ const generateAccessToken = async (clientId: string, clientSecret: string) => {
         "Content-Type": "application/x-www-form-urlencoded",
       },
     });
-    console.log(`[PayPal] Access token generated successfully`);
     return response.data.access_token;
   } catch (error: any) {
     console.error(`[PayPal] Failed to generate access token:`, error.response?.data || error.message);
