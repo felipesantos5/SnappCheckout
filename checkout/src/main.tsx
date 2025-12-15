@@ -4,7 +4,7 @@ import App from "./App";
 import "./index.css";
 import { BrowserRouter } from "react-router-dom";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
-import { Toaster } from "./components/ui/Toaster";
+// import { Toaster } from "./components/ui/Toaster";
 
 
 createRoot(document.getElementById("root")!).render(
@@ -12,7 +12,7 @@ createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <BrowserRouter>
         <App />
-        <Toaster />
+        {/* <Toaster /> */}
       </BrowserRouter>
     </ErrorBoundary>
   </StrictMode>
