@@ -299,6 +299,9 @@ export const processUtmfyIntegration = async (
 /**
  * Processa a integração com UTMfy para pagamentos PayPal
  * Versão adaptada de processUtmfyIntegration que não depende de Stripe.PaymentIntent
+ * 
+ * IMPORTANTE: Esta função segue o mesmo padrão de dados da versão Stripe
+ * para garantir consistência nos webhooks enviados à UTMfy
  *
  * @param offer - A oferta do produto
  * @param sale - A venda salva no banco
@@ -315,6 +318,7 @@ export const processUtmfyIntegrationForPayPal = async (
   customerData: { email?: string; name?: string; phone?: string },
   metadata: {
     quantity?: string;
+    isUpsell?: string; // Consistente com Stripe
     ip?: string;
     userAgent?: string;
     utm_source?: string;
@@ -344,9 +348,10 @@ export const processUtmfyIntegrationForPayPal = async (
 
   try {
     const quantity = parseInt(metadata.quantity || "1", 10);
+    const isUpsell = metadata.isUpsell === "true"; // Consistente com Stripe
     const owner = (offer as any).ownerId;
 
-    // Mapeamento de produtos para o formato UTMfy
+    // Mapeamento de produtos para o formato UTMfy (igual ao Stripe)
     const utmfyProducts = items.map((item) => {
       let id = item._id ? item._id.toString() : crypto.randomUUID();
       if (!item.isOrderBump && !item._id) {
@@ -355,14 +360,14 @@ export const processUtmfyIntegrationForPayPal = async (
       return { Id: id, Name: item.name };
     });
 
-    // Cálculo de preço original (com comparação de preços)
+    // Cálculo de preço original (igual ao Stripe - considera isUpsell)
     let originalTotalInCents = 0;
     items.forEach((item) => {
       const price = item.compareAtPriceInCents && item.compareAtPriceInCents > item.priceInCents ? item.compareAtPriceInCents : item.priceInCents;
       if (item.isOrderBump) {
         originalTotalInCents += price;
       } else {
-        originalTotalInCents += price * quantity;
+        originalTotalInCents += price * (isUpsell ? 1 : quantity);
       }
     });
 
@@ -375,15 +380,25 @@ export const processUtmfyIntegrationForPayPal = async (
     const platformFeeInBRL = await convertToBRL(sale.platformFeeInCents, currencyCode);
     const producerAmountInBRL = totalAmountInBRL - platformFeeInBRL;
 
+    // ID único para o comprador - usa o saleId para consistência
+    // No Stripe usamos paymentIntent.customer || UUID
+    // Aqui usamos o saleId pois é o identificador único da transação
+    const buyerId = (sale as any)._id?.toString() || crypto.randomUUID();
+
+    // PaymentDate - usa a data de criação da venda (igual ao Stripe que usa paymentIntent.created)
+    const paymentDate = (sale as any).createdAt 
+      ? new Date((sale as any).createdAt).toISOString() 
+      : new Date().toISOString();
+
     const utmfyPayload = {
       Id: crypto.randomUUID(),
-      IsTest: false, // PayPal não tem modo de teste como Stripe
+      IsTest: false, // PayPal em produção (Sandbox seria detectado no ambiente)
       Event: "Purchase_Order_Confirmed",
       CreatedAt: new Date().toISOString(),
       Data: {
         Products: utmfyProducts,
         Buyer: {
-          Id: paypalOrderId,
+          Id: buyerId, // Consistente: usa sale._id como identificador
           Email: sale.customerEmail || customerData.email || "",
           Name: sale.customerName || customerData.name || "",
           PhoneNumber: customerData.phone || null,
@@ -397,9 +412,9 @@ export const processUtmfyIntegrationForPayPal = async (
           { Value: centsToUnits(producerAmountInBRL), Source: "PRODUCER" },
         ],
         Purchase: {
-          PaymentId: paypalOrderId,
+          PaymentId: crypto.randomUUID(), // Consistente com Stripe: usa UUID
           Recurrency: 1,
-          PaymentDate: new Date().toISOString(),
+          PaymentDate: paymentDate, // Consistente: usa data de criação da venda
           // VALORES SEMPRE EM BRL (conforme requisito da UTMfy)
           OriginalPrice: {
             Value: centsToUnits(originalTotalInBRL),
