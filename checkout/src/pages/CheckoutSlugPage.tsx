@@ -8,7 +8,7 @@ import { I18nProvider } from "../i18n/I18nContext";
 import type { Language } from "../i18n/translations";
 import { SkeletonLoader } from "../components/ui/SkeletonLoader";
 import { useFacebookPixel } from "../hooks/useFacebookPixel";
-import { useAutoNotifications } from "../hooks/useAutoNotifications";
+// import { useAutoNotifications } from "../hooks/useAutoNotifications";
 
 export interface OfferData {
   _id: string;
@@ -116,10 +116,10 @@ export function CheckoutSlugPage() {
   const { generateEventId } = useFacebookPixel(pixelIds);
 
   // Hook para notificações automáticas de prova social
-  useAutoNotifications({
-    config: offerData?.autoNotifications,
-    productName: offerData?.mainProduct?.name || 'produto',
-  });
+  // useAutoNotifications({
+  //   config: offerData?.autoNotifications,
+  //   productName: offerData?.mainProduct?.name || 'produto',
+  // });
 
   // Controle para evitar fetch duplicado (React StrictMode executa useEffect 2x)
   const fetchingRef = useRef<boolean>(false);
