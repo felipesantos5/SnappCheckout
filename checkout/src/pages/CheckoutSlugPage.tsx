@@ -8,16 +8,14 @@ import { I18nProvider } from "../i18n/I18nContext";
 import type { Language } from "../i18n/translations";
 import { SkeletonLoader } from "../components/ui/SkeletonLoader";
 import { useFacebookPixel } from "../hooks/useFacebookPixel";
-// import { useAutoNotifications } from "../hooks/useAutoNotifications";
-// import { logger } from "../utils/logger";
+import { useAutoNotifications } from "../hooks/useAutoNotifications";
 
-// ... (Interfaces OfferData mantidas iguais) ...
 export interface OfferData {
   _id: string;
   slug: string;
   name: string;
   thankYouPageUrl?: string;
-  backRedirectUrl?: string; // URL para redirecionar quando o cliente tentar voltar
+  backRedirectUrl?: string;
   language?: Language;
   collectAddress?: boolean;
   collectPhone?: boolean;
@@ -29,11 +27,11 @@ export interface OfferData {
   // CORES
   primaryColor: string;
   buttonColor: string;
-  backgroundColor: string; // NOVO
-  textColor: string; // NOVO
+  backgroundColor: string;
+  textColor: string;
 
-  facebookPixelId?: string; // Mantido para retrocompatibilidade
-  facebookPixels?: Array<{ pixelId: string; accessToken: string }>; // Novo: array de pixels
+  facebookPixelId?: string;
+  facebookPixels?: Array<{ pixelId: string; accessToken: string }>;
   mainProduct: {
     _id: string;
     name: string;
@@ -118,10 +116,10 @@ export function CheckoutSlugPage() {
   const { generateEventId } = useFacebookPixel(pixelIds);
 
   // Hook para notificações automáticas de prova social
-  // useAutoNotifications({
-  //   config: offerData?.autoNotifications,
-  //   productName: offerData?.mainProduct?.name || 'produto',
-  // });
+  useAutoNotifications({
+    config: offerData?.autoNotifications,
+    productName: offerData?.mainProduct?.name || 'produto',
+  });
 
   // Controle para evitar fetch duplicado (React StrictMode executa useEffect 2x)
   const fetchingRef = useRef<boolean>(false);
