@@ -458,7 +458,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
 
     try {
       if (isEditMode) {
-        await axios.put(`${API_URL} /offers/${offerId} `, dataToSubmit);
+        await axios.put(`${API_URL}/offers/${offerId}`, dataToSubmit);
       } else {
         await axios.post(`${API_URL}/offers`, dataToSubmit);
       }
