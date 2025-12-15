@@ -1,5 +1,5 @@
 // src/components/checkout/PaymentMethods.tsx
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { CreditCardForm } from "./CreditCardForm";
 import { useTranslation } from "../../i18n/I18nContext";
 import { useTheme } from "../../context/ThemeContext";
@@ -7,7 +7,10 @@ import { PaymentRequestButtonElement } from "@stripe/react-stripe-js";
 import type { PaymentRequest } from "@stripe/stripe-js";
 import { AppleyPayIcon } from "../icons/appleyPay";
 import { GooglePayIcon } from "../icons/googlePay";
-import { PayPalIcon } from "../icons/paypal"; // <--- NOVO
+import { PayPalIcon } from "../icons/paypal";
+
+// Lazy load PayPal para evitar carregar o SDK quando não necessário
+const PayPalPayment = lazy(() => import("./PayPalPayment").then((module) => ({ default: module.PayPalPayment })));
 
 // --- ALTERAÇÃO AQUI: Adicionado "paypal" ---
 export type PaymentMethodType = "creditCard" | "pix" | "wallet" | "paypal";
@@ -18,9 +21,36 @@ interface PaymentMethodsProps {
   paymentRequest: PaymentRequest | null;
   walletLabel: string | null;
   paypalEnabled?: boolean;
+  // Props para PayPal
+  paypalClientId?: string | null;
+  paypalAmount?: number;
+  paypalCurrency?: string;
+  paypalOfferId?: string;
+  paypalAbTestId?: string | null;
+  paypalCustomerData?: { name: string; email: string; phone: string };
+  paypalPurchaseEventId?: string; // Event ID para deduplicação Facebook
+  paypalSelectedOrderBumps?: string[]; // Order bumps selecionados
+  onPaypalSuccess?: (saleId: string, purchaseEventId: string) => void;
+  onPaypalError?: (msg: string) => void;
 }
 
-export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMethod, paymentRequest, walletLabel, paypalEnabled }) => {
+export const PaymentMethods: React.FC<PaymentMethodsProps> = ({
+  method,
+  setMethod,
+  paymentRequest,
+  walletLabel,
+  paypalEnabled,
+  paypalClientId,
+  paypalAmount,
+  paypalCurrency,
+  paypalOfferId,
+  paypalAbTestId,
+  paypalCustomerData,
+  paypalPurchaseEventId,
+  paypalSelectedOrderBumps,
+  onPaypalSuccess,
+  onPaypalError,
+}) => {
   const { t } = useTranslation();
   const { textColor, backgroundColor, primary } = useTheme();
 
@@ -78,14 +108,14 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMetho
 
         {/* Opção 2: PayPal (NOVO) */}
         {paypalEnabled && (
-          <PaymentOption 
-            value="paypal" 
-            title="PayPal" 
+          <PaymentOption
+            value="paypal"
+            title="PayPal"
             icon={
               <div className="h-8 flex items-center">
                 <PayPalIcon className="h-7 w-auto" />
               </div>
-            } 
+            }
           />
         )}
 
@@ -118,6 +148,27 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({ method, setMetho
 
       {/* Formulário do Cartão */}
       <div className="mt-6">{method === "creditCard" && <CreditCardForm />}</div>
+
+      {/* Botão PayPal */}
+      {method === "paypal" && paypalEnabled && paypalClientId && paypalAmount && paypalCurrency && paypalOfferId && paypalPurchaseEventId && onPaypalSuccess && onPaypalError && (
+        <div className="mt-6">
+          <Suspense fallback={<div className="animate-pulse bg-gray-100 h-12 rounded-lg" />}>
+            <PayPalPayment
+              amount={paypalAmount}
+              currency={paypalCurrency}
+              offerId={paypalOfferId}
+              paypalClientId={paypalClientId}
+              abTestId={paypalAbTestId ?? null}
+              purchaseEventId={paypalPurchaseEventId}
+              selectedOrderBumps={paypalSelectedOrderBumps || []}
+              customerData={paypalCustomerData || { name: "", email: "", phone: "" }}
+              onSuccess={onPaypalSuccess}
+              onError={onPaypalError}
+              onSwitchPaymentMethod={() => setMethod("creditCard")}
+            />
+          </Suspense>
+        </div>
+      )}
     </div>
   );
 };

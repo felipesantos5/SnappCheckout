@@ -14,8 +14,6 @@ import { Banner } from "./Banner";
 // Lazy load componentes não críticos para melhorar performance inicial
 const AddressInfo = lazy(() => import("./AddressInfo").then((module) => ({ default: module.AddressInfo })));
 const OrderBump = lazy(() => import("./OrderBump").then((module) => ({ default: module.OrderBump })));
-// PayPal é lazy loaded para evitar carregar o SDK quando PayPal está desabilitado
-const PayPalPayment = lazy(() => import("./PayPalPayment").then((module) => ({ default: module.PayPalPayment })));
 import { API_URL } from "../../config/BackendUrl";
 import { useTheme } from "../../context/ThemeContext";
 import { useTranslation } from "../../i18n/I18nContext";
@@ -159,7 +157,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         setWalletLabel(label);
         setPaymentRequest(pr);
       })
-      .catch((_error) => {});
+      .catch((_error) => { });
 
     pr.on("paymentmethod", async (ev: PaymentRequestPaymentMethodEvent) => {
       try {
@@ -291,7 +289,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
               window.location.href = `${offerData.upsell?.redirectUrl}?${params.toString()}`;
               return;
             }
-          } catch (error) {}
+          } catch (error) { }
         }
 
         // 2. PRIORIDADE: Página de Obrigado Customizada do Cliente
@@ -345,15 +343,15 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
     // Coleta dados de endereço (se collectAddress estiver ativado)
     const addressData = offerData.collectAddress
       ? {
-          zipCode: (document.getElementById("address-zipCode") as HTMLInputElement)?.value || "",
-          street: (document.getElementById("address-street") as HTMLInputElement)?.value || "",
-          number: (document.getElementById("address-number") as HTMLInputElement)?.value || "",
-          complement: (document.getElementById("address-complement") as HTMLInputElement)?.value || "",
-          neighborhood: (document.getElementById("address-neighborhood") as HTMLInputElement)?.value || "",
-          city: (document.getElementById("address-city") as HTMLInputElement)?.value || "",
-          state: (document.getElementById("address-state") as HTMLInputElement)?.value || "",
-          country: (document.getElementById("address-country") as HTMLInputElement)?.value || "",
-        }
+        zipCode: (document.getElementById("address-zipCode") as HTMLInputElement)?.value || "",
+        street: (document.getElementById("address-street") as HTMLInputElement)?.value || "",
+        number: (document.getElementById("address-number") as HTMLInputElement)?.value || "",
+        complement: (document.getElementById("address-complement") as HTMLInputElement)?.value || "",
+        neighborhood: (document.getElementById("address-neighborhood") as HTMLInputElement)?.value || "",
+        city: (document.getElementById("address-city") as HTMLInputElement)?.value || "",
+        state: (document.getElementById("address-state") as HTMLInputElement)?.value || "",
+        country: (document.getElementById("address-country") as HTMLInputElement)?.value || "",
+      }
       : null;
 
     // Validações básicas
@@ -542,6 +540,39 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                   paymentRequest={paymentRequest}
                   walletLabel={walletLabel}
                   paypalEnabled={offerData.paypalEnabled}
+                  paypalClientId={paypalClientId}
+                  paypalAmount={totalAmount}
+                  paypalCurrency={offerData.currency}
+                  paypalOfferId={offerData._id}
+                  paypalAbTestId={abTestId}
+                  paypalCustomerData={{
+                    name: (document.getElementById("name") as HTMLInputElement)?.value || "",
+                    email: (document.getElementById("email") as HTMLInputElement)?.value || "",
+                    phone: (document.getElementById("phone") as HTMLInputElement)?.value || "",
+                  }}
+                  paypalPurchaseEventId={`${checkoutSessionId}_paypal_purchase`}
+                  paypalSelectedOrderBumps={selectedBumps}
+                  onPaypalSuccess={(saleId, purchaseEventId) => {
+                    // Dispara evento Purchase do Facebook Pixel para PayPal
+                    // Usa o mesmo event_id enviado ao backend CAPI para deduplicação
+                    if (window.fbq) {
+                      window.fbq(
+                        "track",
+                        "Purchase",
+                        {
+                          content_name: offerData.mainProduct.name,
+                          content_ids: [offerData.mainProduct._id],
+                          content_type: "product",
+                          value: totalAmount / 100,
+                          currency: offerData.currency.toUpperCase(),
+                          order_id: saleId,
+                        },
+                        { eventID: purchaseEventId }
+                      );
+                    }
+                    setPaymentSucceeded(true);
+                  }}
+                  onPaypalError={(msg) => setErrorMessage(msg)}
                 />
 
                 {/* Order Bumps aparecem na esquerda em mobile, escondidos em desktop */}
@@ -587,26 +618,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                 </div>
 
                 {/* Botão e Trust Badges - Mobile e Desktop */}
-
-                {method === "paypal" && offerData.paypalEnabled && paypalClientId ? (
-                  <Suspense fallback={<div className="animate-pulse bg-gray-100 h-12 rounded-lg" />}>
-                    <PayPalPayment
-                      amount={totalAmount}
-                      currency={offerData.currency}
-                      offerId={offerData._id}
-                      paypalClientId={paypalClientId}
-                      abTestId={abTestId}
-                      customerData={{
-                        name: (document.getElementById("name") as HTMLInputElement)?.value || "",
-                        email: (document.getElementById("email") as HTMLInputElement)?.value || "",
-                        phone: (document.getElementById("phone") as HTMLInputElement)?.value || "",
-                      }}
-                      onSuccess={() => setPaymentSucceeded(true)}
-                      onError={(msg) => setErrorMessage(msg)}
-                      onSwitchPaymentMethod={() => setMethod("creditCard")}
-                    />
-                  </Suspense>
-                ) : method !== "wallet" ? (
+                {method !== "wallet" && method !== "paypal" && (
                   <button
                     type="submit"
                     disabled={!stripe || loading || paymentSucceeded}
@@ -634,7 +646,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                       )}
                     </span>
                   </button>
-                ) : null}
+                )}
               </div>
             </div>
 

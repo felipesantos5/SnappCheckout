@@ -82,7 +82,7 @@ export const createOrder = async (req: Request, res: Response) => {
 
 export const captureOrder = async (req: Request, res: Response) => {
   try {
-    const { orderId, offerId, customerData, abTestId, selectedOrderBumps } = req.body;
+    const { orderId, offerId, customerData, abTestId, selectedOrderBumps, purchaseEventId } = req.body;
 
     if (!offerId) {
       return res.status(400).json({ error: "offerId é obrigatório." });
@@ -192,7 +192,7 @@ export const captureOrder = async (req: Request, res: Response) => {
 
       // B: Facebook CAPI (Purchase Event)
       try {
-        await sendFacebookPurchaseForPayPal(offer, newSale, items, clientIp, customerData);
+        await sendFacebookPurchaseForPayPal(offer, newSale, items, clientIp, customerData, purchaseEventId);
       } catch (fbError: any) {
         console.error(`⚠️ [PayPal] Erro ao enviar evento Facebook:`, fbError.message);
       }
@@ -215,7 +215,8 @@ const sendFacebookPurchaseForPayPal = async (
   sale: any,
   items: any[],
   clientIp: string,
-  customerData: any
+  customerData: any,
+  purchaseEventId?: string
 ): Promise<void> => {
   // Coletar todos os pixels
   const pixels: Array<{ pixelId: string; accessToken: string }> = [];
@@ -246,10 +247,14 @@ const sendFacebookPurchaseForPayPal = async (
     customerData?.name || sale.customerName
   );
 
+  // Usa purchaseEventId do frontend se disponível (para deduplicação com Pixel)
+  // Fallback para o formato antigo se não receber do frontend
+  const eventId = purchaseEventId || `paypal_purchase_${sale._id}`;
+
   const eventData = {
     event_name: "Purchase" as const,
     event_time: Math.floor(Date.now() / 1000),
-    event_id: `paypal_purchase_${sale._id}`,
+    event_id: eventId,
     action_source: "website" as const,
     user_data: userData,
     custom_data: {

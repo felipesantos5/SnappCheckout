@@ -11,12 +11,14 @@ interface PayPalPaymentProps {
   offerId: string;
   paypalClientId: string;
   abTestId?: string | null;
+  purchaseEventId: string; // Event ID para deduplicação Facebook Pixel/CAPI
+  selectedOrderBumps: string[]; // IDs dos order bumps selecionados
   customerData: {
     name: string;
     email: string;
     phone: string;
   };
-  onSuccess: () => void;
+  onSuccess: (saleId: string, purchaseEventId: string) => void;
   onError: (error: string) => void;
   onSwitchPaymentMethod?: () => void; // Callback opcional para trocar método de pagamento
 }
@@ -135,6 +137,8 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
   offerId,
   paypalClientId,
   abTestId,
+  purchaseEventId,
+  selectedOrderBumps,
   customerData,
   onSuccess,
   onError,
@@ -283,13 +287,15 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
                   offerId: offerId,
                   customerData: customerData,
                   abTestId: abTestId ?? null,
+                  purchaseEventId: purchaseEventId, // Event ID para deduplicação Facebook
+                  selectedOrderBumps: selectedOrderBumps, // Order bumps selecionados
                 }),
               });
 
               const result = await response.json();
 
               if (result.success) {
-                onSuccess();
+                onSuccess(result.saleId, purchaseEventId);
               } else {
                 throw new Error(result.message || "Pagamento não aprovado.");
               }
@@ -312,7 +318,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
       console.error("Failed to render PayPal buttons:", error);
       handlePayPalError(error);
     }
-  }, [scriptLoaded, amount, currency, offerId, customerData, onSuccess, handlePayPalError, abTestId]);
+  }, [scriptLoaded, amount, currency, offerId, customerData, onSuccess, handlePayPalError, abTestId, purchaseEventId, selectedOrderBumps]);
 
   return (
     <>

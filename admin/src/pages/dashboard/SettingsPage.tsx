@@ -72,33 +72,6 @@ export default function SettingsPage() {
 
       <div className="space-y-6">
         {/* Card de Notificações */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-primary" />
-              <CardTitle>Notificações</CardTitle>
-            </div>
-            <CardDescription>Configure como você deseja receber notificações de vendas</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="automaticNotifications" className="text-base font-medium">
-                  Notificações Automáticas
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Receba notificações automáticas por email quando uma venda for realizada
-                </p>
-              </div>
-              <Switch
-                id="automaticNotifications"
-                checked={automaticNotifications}
-                onCheckedChange={setAutomaticNotifications}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Card de Credenciais PayPal */}
         <Card>
           <CardHeader>
