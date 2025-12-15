@@ -332,7 +332,7 @@ export function DashboardOverview() {
           <SalesWorldMap data={metrics?.topCountries || []} />
         </div>
       </div>
-      <RecentSalesTable />
+      <RecentSalesTable period={period} customDateRange={customDateRange} />
     </div>
   );
 }

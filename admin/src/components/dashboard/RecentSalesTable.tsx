@@ -1,17 +1,14 @@
 import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { format, subDays, isWithinInterval, startOfDay, endOfDay, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { subDays, isWithinInterval, startOfDay, endOfDay, parseISO } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar"; // Certifique-se de ter este componente
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ShoppingBag, Info } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, ShoppingBag, Info } from "lucide-react";
 import { API_URL } from "@/config/BackendUrl";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -22,26 +19,22 @@ import { getCountryName } from "@/helper/getCountryFlag";
 import { CountryFlag } from "../CountryFlag";
 import { StripeIcon } from "../icons/stripe";
 import { PaypalIcon } from "../icons/paypal";
+import type { DateRange } from "react-day-picker";
 
-type DateRangeFilter = "all" | "today" | "week" | "month" | "custom";
+interface RecentSalesTableProps {
+  period?: string; // "1" (hoje), "7", "30", "90", "custom"
+  customDateRange?: DateRange;
+}
 
-export function RecentSalesTable() {
+export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesTableProps) {
   const [sales, setSales] = useState<Sale[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Estados de Paginação
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10; // Reduzi para 10 para caber melhor com detalhes
+  const itemsPerPage = 10;
 
-  // Estados de Filtro
-  const [filterType, setFilterType] = useState<DateRangeFilter>("week"); // Padrão: Última semana
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: subDays(new Date(), 7),
-    to: new Date(),
-  });
-
-  // Fetch Inicial (Idealmente, filtros devem ser passados para o Backend para performance)
-  // Por enquanto, faremos a filtragem no Client-Side conforme os dados que temos.
+  // Fetch Inicial
   useEffect(() => {
     const fetchSales = async () => {
       setIsLoading(true);
@@ -66,31 +59,31 @@ export function RecentSalesTable() {
     fetchSales();
   }, []);
 
-  // --- Lógica de Filtragem ---
+  // --- Lógica de Filtragem (baseada nas props do Dashboard) ---
   const filteredSales = useMemo(() => {
-    if (filterType === "all") return sales;
-
     const now = new Date();
     let start = startOfDay(now);
     let end = endOfDay(now);
 
-    if (filterType === "today") {
-      // Já configurado acima
-    } else if (filterType === "week") {
-      start = startOfDay(subDays(now, 7));
-    } else if (filterType === "month") {
-      start = startOfDay(subDays(now, 30));
-    } else if (filterType === "custom") {
-      if (!dateRange.from) return sales;
-      start = startOfDay(dateRange.from);
-      end = endOfDay(dateRange.to || dateRange.from);
+    if (period === "1") {
+      // Hoje
+      start = startOfDay(now);
+    } else if (period === "7") {
+      start = startOfDay(subDays(now, 6));
+    } else if (period === "30") {
+      start = startOfDay(subDays(now, 29));
+    } else if (period === "90") {
+      start = startOfDay(subDays(now, 89));
+    } else if (period === "custom" && customDateRange?.from) {
+      start = startOfDay(customDateRange.from);
+      end = endOfDay(customDateRange.to || customDateRange.from);
     }
 
     return sales.filter((sale) => {
       const saleDate = parseISO(sale.createdAt);
       return isWithinInterval(saleDate, { start, end });
     });
-  }, [sales, filterType, dateRange]);
+  }, [sales, period, customDateRange]);
 
   // --- Paginação dos Filtrados ---
   const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
@@ -100,64 +93,14 @@ export function RecentSalesTable() {
   // Resetar página quando filtro muda
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterType, dateRange]);
+  }, [period, customDateRange]);
 
   return (
     <Card className="w-full shadow-md border-gray-200 dark:border-gray-700 gap-0">
       <CardHeader className="pb-0 px-3 sm:px-6 pt-3 sm:pt-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between gap-3 sm:gap-4">
-          <div className="min-w-0 flex-shrink-0">
-            <CardTitle className="text-base sm:text-xl font-bold text-foreground">Vendas Recentes</CardTitle>
-            <CardDescription className="text-xs sm:text-sm truncate">Gerencie suas transações.</CardDescription>
-          </div>
-
-          {/* Área de Filtros */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Select value={filterType} onValueChange={(val) => setFilterType(val as DateRangeFilter)}>
-              <SelectTrigger className="w-[140px] sm:w-40 h-8 sm:h-10 text-xs sm:text-sm">
-                <SelectValue placeholder="Período" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Hoje</SelectItem>
-                <SelectItem value="week">Últimos 7 dias</SelectItem>
-                <SelectItem value="month">Últimos 30 dias</SelectItem>
-                <SelectItem value="custom">Personalizado</SelectItem>
-                <SelectItem value="all">Todo o período</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {filterType === "custom" && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant={"outline"} className={cn("w-auto sm:w-60 justify-start text-left font-normal h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3", !dateRange && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        <>
-                          {format(dateRange.from, "dd/MM", { locale: ptBR })} - {format(dateRange.to, "dd/MM", { locale: ptBR })}
-                        </>
-                      ) : (
-                        format(dateRange.from, "dd/MM", { locale: ptBR })
-                      )
-                    ) : (
-                      <span>Selecione</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
-                    onSelect={(range: any) => setDateRange(range)}
-                    numberOfMonths={1}
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
-            )}
-          </div>
+        <div className="min-w-0">
+          <CardTitle className="text-base sm:text-xl font-bold text-foreground">Vendas Recentes</CardTitle>
+          <CardDescription className="text-xs sm:text-sm truncate">Gerencie suas transações.</CardDescription>
         </div>
       </CardHeader>
 
@@ -304,11 +247,13 @@ export function RecentSalesTable() {
                       </TableCell>
 
                       <TableCell className="text-center">
+
                         {sale.paymentMethod === "paypal" ? (
                           <PaypalIcon />
                         ) : (
-                          <StripeIcon />
+                          <StripeIcon className="w-10" />
                         )}
+
                       </TableCell>
 
                       <TableCell className="text-right font-bold text-foreground">{formatCurrency(sale.totalAmountInCents, sale.currency)}</TableCell>
