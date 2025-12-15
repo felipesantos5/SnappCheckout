@@ -1236,8 +1236,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
           </div>
         </FormSection>
 
-        {/* --- 7. DOMÍNIO CUSTOMIZADO --- */}
-        <FormSection
+        {/* <FormSection
           title="Domínio Customizado"
           icon={<Globe className="w-5 h-5" />}
           description="Use seu próprio domínio para o checkout."
@@ -1279,7 +1278,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
               </div>
             )}
           </div>
-        </FormSection>
+        </FormSection> */}
 
         {/* --- NOTIFICAÇÕES AUTOMÁTICAS --- */}
         <FormSection

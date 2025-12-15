@@ -234,9 +234,9 @@ export default function PaymentsPage() {
         <Card className="border-[#635BFF]/30 hover:border-[#635BFF]/50 transition-colors">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-medium flex items-center gap-2">
+              <div className="">
                 <StripeIcon />
-              </CardTitle>
+              </div>
               <CreditCard className="h-5 w-5 text-[#635BFF]" />
             </div>
           </CardHeader>
@@ -298,10 +298,9 @@ export default function PaymentsPage() {
         <Card className="border-[#003087]/30 hover:border-[#003087]/50 transition-colors">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-medium flex items-center gap-2">
+              <div className="w-28">
                 <PaypalIcon />
-                <span>PayPal</span>
-              </CardTitle>
+              </div>
               <Wallet className="h-5 w-5 text-[#003087]" />
             </div>
           </CardHeader>
