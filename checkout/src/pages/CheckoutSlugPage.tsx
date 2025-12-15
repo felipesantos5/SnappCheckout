@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, lazy, Suspense } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import CheckoutPage from "./CheckoutPage";
 import { getContrast } from "polished";
@@ -8,13 +8,7 @@ import { I18nProvider } from "../i18n/I18nContext";
 import type { Language } from "../i18n/translations";
 import { SkeletonLoader } from "../components/ui/SkeletonLoader";
 import { useFacebookPixel } from "../hooks/useFacebookPixel";
-
-// Lazy load do componente de notificações para isolamento total
-const AutoNotifications = lazy(() =>
-  import("../components/AutoNotifications")
-    .then(mod => ({ default: mod.AutoNotifications }))
-    .catch(() => ({ default: () => null })) // Se falhar, retorna componente vazio
-);
+import { useAutoNotifications } from "../hooks/useAutoNotifications";
 
 export interface OfferData {
   _id: string;
@@ -121,7 +115,11 @@ export function CheckoutSlugPage() {
 
   const { generateEventId } = useFacebookPixel(pixelIds);
 
-  // Notificações automáticas - componente isolado que nunca quebra a aplicação
+  // Hook para notificações automáticas de prova social
+  useAutoNotifications({
+    config: offerData?.autoNotifications,
+    productName: offerData?.mainProduct?.name || 'produto',
+  });
 
   // Controle para evitar fetch duplicado (React StrictMode executa useEffect 2x)
   const fetchingRef = useRef<boolean>(false);
@@ -329,13 +327,6 @@ export function CheckoutSlugPage() {
     <I18nProvider language={offerData.language || "pt"}>
       <ThemeContext.Provider value={themeValues}>
         <CheckoutPage offerData={offerData} checkoutSessionId={checkoutSessionId.current} generateEventId={generateEventId} abTestId={abTestId} />
-        {/* Componente de notificações isolado - se falhar, não afeta nada */}
-        <Suspense fallback={null}>
-          <AutoNotifications
-            config={offerData.autoNotifications}
-            productName={offerData.mainProduct?.name || 'produto'}
-          />
-        </Suspense>
       </ThemeContext.Provider>
     </I18nProvider>
   );

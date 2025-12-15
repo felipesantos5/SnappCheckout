@@ -1,6 +1,5 @@
 // src/hooks/useAutoNotifications.ts
 import { useEffect, useRef } from 'react';
-import { notificationNames } from '../data/notificationNames';
 
 interface AutoNotificationsConfig {
   enabled: boolean;
@@ -70,6 +69,8 @@ export function useAutoNotifications({ config, productName }: UseAutoNotificatio
       // Carrega os nomes de forma assíncrona e segura
       const loadNames = async (): Promise<string[]> => {
         try {
+          const { notificationNames } = await import('../data/notificationNames');
+          
           if (!notificationNames) return FALLBACK_NAMES;
           
           const region = config.region || 'pt';
