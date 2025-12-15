@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Trash2, ChevronDown, Settings, CreditCard, Box, Layers, ArrowUpCircle, Link as LinkIcon, Code, Copy, Check, Plus, Globe, HelpCircle, Eye, EyeOff } from "lucide-react";
+import { Trash2, ChevronDown, Settings, CreditCard, Box, Layers, ArrowUpCircle, Link as LinkIcon, Code, Copy, Check, Plus, Globe, HelpCircle, Eye, EyeOff, Bell } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 import { API_URL } from "@/config/BackendUrl";
 import { MoneyInput } from "./MoneyInput";
@@ -283,6 +283,14 @@ const membershipWebhookSchema = z.object({
   authToken: z.string().optional(),
 });
 
+const autoNotificationsSchema = z.object({
+  enabled: z.boolean().default(false),
+  genderFilter: z.enum(['all', 'male', 'female']).default('all'),
+  region: z.enum(['pt', 'en', 'es', 'fr']).default('pt'),
+  intervalSeconds: z.coerce.number().min(1).default(10),
+  soundEnabled: z.boolean().default(true),
+});
+
 const colorSchema = z
   .string()
   .regex(/^#[0-9a-fA-F]{6}$/, { message: "Cor inválida" })
@@ -343,6 +351,7 @@ const offerFormSchema = z.object({
     ),
   upsell: upsellSchema,
   membershipWebhook: membershipWebhookSchema,
+  autoNotifications: autoNotificationsSchema,
   orderBumps: z.array(productSchema).optional(),
 });
 
@@ -401,6 +410,13 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
       buttonColor: "#2563EB",
       backgroundColor: "#ffffff", // NOVO - Fundo branco por padrão
       textColor: "#374151", // NOVO - Texto cinza escuro
+      autoNotifications: {
+        enabled: false,
+        genderFilter: 'all' as const,
+        region: 'pt' as const,
+        intervalSeconds: 10,
+        soundEnabled: true,
+      },
       orderBumps: [],
     },
   });
@@ -1261,6 +1277,125 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   seu checkout estará disponível em <code className="font-medium">https://{form.watch("customDomain")}</code>
                 </p>
               </div>
+            )}
+          </div>
+        </FormSection>
+
+        {/* --- NOTIFICAÇÕES AUTOMÁTICAS --- */}
+        <FormSection
+          title="Notificações Automáticas"
+          icon={<Bell className="w-5 h-5" />}
+          description="Exiba notificações de 'vendas' para aumentar a prova social."
+        >
+          <div className="space-y-6">
+            <FormField
+              control={form.control}
+              name="autoNotifications.enabled"
+              render={({ field }: any) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-card">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>Ativar Notificações Automáticas</FormLabel>
+                    <FormDescription>
+                      Exibe toasts simulando compras de outros clientes a cada 10 segundos.
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {form.watch("autoNotifications.enabled") && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="autoNotifications.genderFilter"
+                    render={({ field }: any) => (
+                      <FormItem>
+                        <FormLabel>Filtro de Gênero dos Nomes</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Selecione o filtro" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="all">Todos os Nomes</SelectItem>
+                            <SelectItem value="male">Apenas Masculinos</SelectItem>
+                            <SelectItem value="female">Apenas Femininos</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="autoNotifications.region"
+                    render={({ field }: any) => (
+                      <FormItem>
+                        <FormLabel>Região dos Nomes</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Selecione a região" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="pt">🇧🇷 Português (Brasil)</SelectItem>
+                            <SelectItem value="en">🇺🇸 English (USA)</SelectItem>
+                            <SelectItem value="es">🇪🇸 Español (España)</SelectItem>
+                            <SelectItem value="fr">🇫🇷 Français (France)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                  <FormField
+                    control={form.control}
+                    name="autoNotifications.intervalSeconds"
+                    render={({ field }: any) => (
+                      <FormItem>
+                        <FormLabel>Intervalo entre Notificações (segundos)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={60}
+                            placeholder="10"
+                            {...field}
+                            value={field.value || 10}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="autoNotifications.soundEnabled"
+                    render={({ field }: any) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-card mt-6">
+                        <FormControl>
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Ativar Som</FormLabel>
+                          <FormDescription>Tocar um som quando a notificação aparecer.</FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </>
             )}
           </div>
         </FormSection>

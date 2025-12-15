@@ -8,6 +8,7 @@ import { I18nProvider } from "../i18n/I18nContext";
 import type { Language } from "../i18n/translations";
 import { SkeletonLoader } from "../components/ui/SkeletonLoader";
 import { useFacebookPixel } from "../hooks/useFacebookPixel";
+import { useAutoNotifications } from "../hooks/useAutoNotifications";
 // import { logger } from "../utils/logger";
 
 // ... (Interfaces OfferData mantidas iguais) ...
@@ -57,6 +58,13 @@ export interface OfferData {
     name: string;
     price: number;
     redirectUrl: string;
+  };
+  autoNotifications?: {
+    enabled: boolean;
+    genderFilter: 'all' | 'male' | 'female';
+    region: 'pt' | 'en' | 'es' | 'fr';
+    intervalSeconds: number;
+    soundEnabled: boolean;
   };
   ownerId: {
     stripeAccountId: string;
@@ -108,6 +116,12 @@ export function CheckoutSlugPage() {
   }, [offerData]);
 
   const { generateEventId } = useFacebookPixel(pixelIds);
+
+  // Hook para notificações automáticas de prova social
+  useAutoNotifications({
+    config: offerData?.autoNotifications,
+    productName: offerData?.mainProduct?.name || 'produto',
+  });
 
   // Controle para evitar fetch duplicado (React StrictMode executa useEffect 2x)
   const fetchingRef = useRef<boolean>(false);

@@ -37,6 +37,13 @@ export interface IOffer extends Document {
   collectAddress: boolean;
   thankYouPageUrl?: string;
   backRedirectUrl?: string; // URL para redirecionar quando o cliente tentar voltar
+  autoNotifications?: {
+    enabled: boolean;
+    genderFilter: 'all' | 'male' | 'female';
+    region: 'pt' | 'en' | 'es' | 'fr';
+    intervalSeconds: number;
+    soundEnabled: boolean;
+  };
   primaryColor: string;
   buttonColor: string;
   backgroundColor: string;
@@ -141,6 +148,13 @@ const offerSchema = new Schema<IOffer>(
     backRedirectUrl: {
       type: String,
       default: "",
+    },
+    autoNotifications: {
+      enabled: { type: Boolean, default: false },
+      genderFilter: { type: String, enum: ['all', 'male', 'female'], default: 'all' },
+      region: { type: String, enum: ['pt', 'en', 'es', 'fr'], default: 'pt' },
+      intervalSeconds: { type: Number, default: 10 },
+      soundEnabled: { type: Boolean, default: true },
     },
     bannerImageUrl: {
       type: String,

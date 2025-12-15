@@ -55,6 +55,13 @@ export type CreateOfferPayload = {
   facebookAccessToken?: string;
   thankYouPageUrl?: string;
   backRedirectUrl?: string;
+  autoNotifications?: {
+    enabled: boolean;
+    genderFilter: 'all' | 'male' | 'female';
+    region: 'pt' | 'en' | 'es' | 'fr';
+    intervalSeconds: number;
+    soundEnabled: boolean;
+  };
   customDomain?: string; // Domínio customizado para a oferta
   upsell?: {
     enabled: boolean;

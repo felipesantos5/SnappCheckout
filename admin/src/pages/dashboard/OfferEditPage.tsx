@@ -64,6 +64,13 @@ interface ApiOfferData {
     url: string;
     authToken: string;
   };
+  autoNotifications?: {
+    enabled: boolean;
+    genderFilter: 'all' | 'male' | 'female';
+    region: 'pt' | 'en' | 'es' | 'fr';
+    intervalSeconds: number;
+    soundEnabled: boolean;
+  };
 }
 
 // 3. Esta função transforma os dados da API (cents) para o formato do formulário (reais)
@@ -144,6 +151,23 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
         priceInCents: bump.priceInCents / 100,
         customId: bump.customId, // <--- NOVO
       })) || [],
+
+    // Mapear Auto Notifications
+    autoNotifications: data.autoNotifications
+      ? {
+        enabled: data.autoNotifications.enabled,
+        genderFilter: data.autoNotifications.genderFilter,
+        region: data.autoNotifications.region,
+        intervalSeconds: data.autoNotifications.intervalSeconds ?? 10,
+        soundEnabled: data.autoNotifications.soundEnabled ?? true,
+      }
+      : {
+        enabled: false,
+        genderFilter: 'all' as const,
+        region: 'pt' as const,
+        intervalSeconds: 10,
+        soundEnabled: true,
+      },
   };
 };
 
