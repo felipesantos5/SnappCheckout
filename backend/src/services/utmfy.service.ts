@@ -279,6 +279,8 @@ export const processUtmfyIntegration = async (
       },
     };
 
+    console.log('utmfyPayloadStripe', utmfyPayload)
+
     // Envia para todas as URLs configuradas em paralelo
     console.log(`📤 Enviando para ${webhookUrls.length} webhook(s) UTMfy...`);
     await Promise.all(webhookUrls.map((url) => sendPurchaseToUTMfyWebhook(url, utmfyPayload)));
