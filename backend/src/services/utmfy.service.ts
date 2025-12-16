@@ -279,7 +279,7 @@ export const processUtmfyIntegration = async (
       },
     };
 
-    console.log('utmfyPayloadStripe', utmfyPayload)
+    console.log('utmfyPayloadStripe', JSON.stringify(utmfyPayload, null, 2))
 
     // Envia para todas as URLs configuradas em paralelo
     console.log(`📤 Enviando para ${webhookUrls.length} webhook(s) UTMfy...`);
@@ -444,7 +444,7 @@ export const processUtmfyIntegrationForPayPal = async (
       },
     };
 
-    console.log('utmfyPayload', utmfyPayload)
+    console.log('utmfyPayloadPaypal', JSON.stringify(utmfyPayload, null, 2))
 
     // Envia para todas as URLs configuradas em paralelo
     console.log(`📤 [PayPal] Enviando para ${webhookUrls.length} webhook(s) UTMfy...`);
