@@ -373,15 +373,17 @@ export const processUtmfyIntegrationForPayPal = async (
     const platformFeeInBRL = await convertToBRL(sale.platformFeeInCents, currencyCode);
     const producerAmountInBRL = totalAmountInBRL - platformFeeInBRL;
 
-    // ID único para o comprador - usa o saleId para consistência
-    // No Stripe usamos paymentIntent.customer || UUID
-    // Aqui usamos o saleId pois é o identificador único da transação
-    const buyerId = (sale as any)._id?.toString() || crypto.randomUUID();
-
     // PaymentDate - usa a data de criação da venda (igual ao Stripe que usa paymentIntent.created)
-    const paymentDate = (sale as any).createdAt 
-      ? new Date((sale as any).createdAt).toISOString() 
+    const paymentDate = (sale as any).createdAt
+      ? new Date((sale as any).createdAt).toISOString()
       : new Date().toISOString();
+
+    // Função para limpar o telefone - remove caracteres especiais e espaços, deixando apenas números
+    const cleanPhoneNumber = (phone: string | null | undefined): string | null => {
+      if (!phone) return null;
+      const cleaned = phone.replace(/\D/g, ''); // Remove tudo que não é dígito
+      return cleaned || null;
+    };
 
     const utmfyPayload = {
       Id: crypto.randomUUID(),
@@ -391,10 +393,10 @@ export const processUtmfyIntegrationForPayPal = async (
       Data: {
         Products: utmfyProducts,
         Buyer: {
-          Id: buyerId, // Consistente: usa sale._id como identificador
+          Id: crypto.randomUUID(), // Consistente com Stripe: usa UUID quando não há customer
           Email: sale.customerEmail || customerData.email || "",
           Name: sale.customerName || customerData.name || "",
-          PhoneNumber: customerData.phone || null,
+          PhoneNumber: cleanPhoneNumber(customerData.phone), // Limpa o telefone removendo caracteres especiais
         },
         Seller: {
           Id: owner._id ? owner._id.toString() : "unknown_seller",
