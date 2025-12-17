@@ -234,6 +234,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
               ev.complete("fail");
               setErrorMessage(actionError.message || "Erro na autenticação");
               setLoading(false);
+
+              // Redireciona para failureLink se configurado
+              if (offerData.failureLink) {
+                setTimeout(() => {
+                  window.location.href = offerData.failureLink!;
+                }, 2000);
+              }
             } else {
               ev.complete("success");
               setPaymentIntentId(paymentIntent.id);
@@ -243,12 +250,26 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
             ev.complete("fail");
             setErrorMessage(`Pagamento não aprovado. Status: ${paymentIntent?.status}`);
             setLoading(false);
+
+            // Redireciona para failureLink se configurado
+            if (offerData.failureLink) {
+              setTimeout(() => {
+                window.location.href = offerData.failureLink!;
+              }, 2000);
+            }
           }
         }
       } catch (err: any) {
         ev.complete("fail");
         setErrorMessage(err.message || "Erro inesperado");
         setLoading(false);
+
+        // Redireciona para failureLink se configurado
+        if (offerData.failureLink) {
+          setTimeout(() => {
+            window.location.href = offerData.failureLink!;
+          }, 2000);
+        }
       }
     });
   }, [stripe, offerData, selectedBumps, totalAmount, utmData, t]);
@@ -459,6 +480,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
     } catch (error: any) {
       setErrorMessage(error.message || t.messages.error);
       setLoading(false);
+
+      // Redireciona para failureLink se configurado
+      if (offerData.failureLink) {
+        setTimeout(() => {
+          window.location.href = offerData.failureLink!;
+        }, 2000); // Aguarda 2 segundos para o usuário ver a mensagem de erro
+      }
     }
   };
 

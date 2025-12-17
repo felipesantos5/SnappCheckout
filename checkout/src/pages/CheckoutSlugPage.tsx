@@ -16,6 +16,7 @@ export interface OfferData {
   name: string;
   thankYouPageUrl?: string;
   backRedirectUrl?: string;
+  failureLink?: string;
   language?: Language;
   collectAddress?: boolean;
   collectPhone?: boolean;

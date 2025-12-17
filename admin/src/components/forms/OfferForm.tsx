@@ -206,6 +206,7 @@ const offerFormSchema = z.object({
   secondaryBannerImageUrl: optionalUrl,
   thankYouPageUrl: optionalUrl,
   backRedirectUrl: optionalUrl,
+  failureLink: optionalUrl,
   currency: z.string().default("BRL"),
   language: z.string().default("pt"),
   collectAddress: z.boolean().default(false),
@@ -275,6 +276,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
       secondaryBannerImageUrl: "",
       thankYouPageUrl: "",
       backRedirectUrl: "",
+      failureLink: "",
       currency: "BRL",
       language: "pt",
 
@@ -467,6 +469,21 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                     <Input placeholder="https://seusite.com/oferta-especial" {...field} value={field.value || ""} />
                   </FormControl>
                   <FormDescription>Quando o cliente tentar voltar do checkout, será redirecionado para esta URL (ex: oferta com desconto).</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="failureLink"
+              render={({ field }: any) => (
+                <FormItem>
+                  <FormLabel>URL de Redirecionamento ao Falhar (Opcional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://seusite.com/pagamento-falhou" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormDescription>Quando o pagamento falhar, o cliente será redirecionado para esta URL.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

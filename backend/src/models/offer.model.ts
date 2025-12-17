@@ -37,6 +37,7 @@ export interface IOffer extends Document {
   collectAddress: boolean;
   thankYouPageUrl?: string;
   backRedirectUrl?: string; // URL para redirecionar quando o cliente tentar voltar
+  failureLink?: string; // URL para redirecionar quando o pagamento falhar
   autoNotifications?: {
     enabled: boolean;
     genderFilter: 'all' | 'male' | 'female';
@@ -146,6 +147,10 @@ const offerSchema = new Schema<IOffer>(
       default: "",
     },
     backRedirectUrl: {
+      type: String,
+      default: "",
+    },
+    failureLink: {
       type: String,
       default: "",
     },
