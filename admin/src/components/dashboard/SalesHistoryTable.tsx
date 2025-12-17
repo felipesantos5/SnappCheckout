@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpCircle, Zap, ShoppingBag, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowUpCircle, Zap, ShoppingBag, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
 import { API_URL } from "@/config/BackendUrl";
 import { formatCurrency } from "@/helper/formatCurrency";
 import { useAuth } from "@/context/AuthContext"; // Importar contexto de Auth se precisar de token
@@ -23,7 +23,7 @@ interface Sale {
   customerEmail: string;
   totalAmountInCents: number;
   currency: string;
-  status: "succeeded" | "pending" | "refunded" | "failed";
+  status: "succeeded" | "pending" | "refunded" | "failed" | "abandoned";
   items: SaleItem[];
   failureMessage?: string;
   failureReason?: string;
@@ -164,6 +164,36 @@ export function SalesHistoryTable({ offerId }: SalesHistoryTableProps) {
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                ) : sale.status === "pending" ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Badge variant="outline" className="border-yellow-400 text-yellow-600 bg-yellow-50 cursor-help">
+                          <Clock className="w-3 h-3 mr-1" /> Iniciada
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Cliente iniciou o checkout mas ainda não concluiu</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : sale.status === "abandoned" ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Badge variant="outline" className="border-orange-400 text-orange-600 bg-orange-50 cursor-help">
+                          <AlertCircle className="w-3 h-3 mr-1" /> Abandonada
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Cliente abandonou o checkout sem concluir</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : sale.status === "refunded" ? (
+                  <Badge variant="secondary" className="border-gray-400 text-gray-600">
+                    Reembolsada
+                  </Badge>
                 ) : (
                   <Badge variant="secondary">{sale.status}</Badge>
                 )}
@@ -171,17 +201,18 @@ export function SalesHistoryTable({ offerId }: SalesHistoryTableProps) {
 
               <TableCell className="text-center">
                 {sale.paymentMethod === "paypal" ? (
-                  <PaypalIcon />
+                  <PaypalIcon className="h-5 w-auto" />
                 ) : (
-                  <StripeIcon />
+                  <StripeIcon className="h-5 w-auto" />
                 )}
               </TableCell>
 
               <TableCell>
                 <div className="font-medium">
                   {formatCurrency(sale.totalAmountInCents, sale.currency || "BRL")}
-                  {/* Se falhou, mostrar texto explicativo pequeno */}
+                  {/* Se falhou ou pendente, mostrar texto explicativo pequeno */}
                   {sale.status === "failed" && <span className="block text-[10px] text-red-500 font-normal mt-0.5">Não cobrado</span>}
+                  {(sale.status === "pending" || sale.status === "abandoned") && <span className="block text-[10px] text-yellow-600 font-normal mt-0.5">Aguardando</span>}
                 </div>
               </TableCell>
 

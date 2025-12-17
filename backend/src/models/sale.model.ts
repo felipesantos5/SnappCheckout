@@ -27,7 +27,7 @@ export interface ISale extends Document {
   platformFeeInCents: number;
   currency: string; // Moeda da transação (brl, usd, etc)
 
-  status: "succeeded" | "pending" | "refunded" | "failed";
+  status: "succeeded" | "pending" | "refunded" | "failed" | "abandoned";
   paymentMethod?: "stripe" | "paypal"; // Método de pagamento usado
   failureReason?: string; // Motivo da falha (código de erro do Stripe)
   failureMessage?: string; // Mensagem de erro legível
@@ -68,7 +68,7 @@ const saleSchema = new Schema<ISale>(
 
     status: {
       type: String,
-      enum: ["succeeded", "pending", "refunded", "failed"],
+      enum: ["succeeded", "pending", "refunded", "failed", "abandoned"],
       default: "pending",
       index: true,
     },

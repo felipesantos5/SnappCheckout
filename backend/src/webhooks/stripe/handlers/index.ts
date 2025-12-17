@@ -1,6 +1,6 @@
 // src/webhooks/stripe/handlers/index.ts
 import { Stripe } from "stripe";
-import { handlePaymentIntentSucceeded, handlePaymentIntentFailed } from "./payment-intent.handler";
+import { handlePaymentIntentSucceeded, handlePaymentIntentFailed, handlePaymentIntentCreated } from "./payment-intent.handler";
 import { handleAccountUpdated } from "./account.handler";
 
 /**
@@ -9,6 +9,11 @@ import { handleAccountUpdated } from "./account.handler";
  */
 export const handleStripeEvent = async (event: Stripe.Event): Promise<void> => {
   switch (event.type) {
+    case "payment_intent.created":
+      console.log(`🔔 Tentativa de pagamento INICIADA`);
+      await handlePaymentIntentCreated(event.data.object as Stripe.PaymentIntent);
+      break;
+
     case "payment_intent.succeeded":
       console.log(`✅ Pagamento APROVADO`);
       await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);

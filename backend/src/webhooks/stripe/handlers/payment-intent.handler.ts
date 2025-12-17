@@ -9,6 +9,148 @@ import { createFacebookUserData, sendFacebookEvent } from "../../../services/fac
 import { getCountryFromIP } from "../../../helper/getCountryFromIP";
 
 /**
+ * Handler para quando um PaymentIntent é CRIADO
+ * 1. Busca os dados da oferta usando o metadata
+ * 2. Cria um registro de tentativa com status "pending"
+ * 3. Este registro será atualizado quando o pagamento for concluído ou falhar
+ */
+export const handlePaymentIntentCreated = async (paymentIntent: Stripe.PaymentIntent): Promise<void> => {
+  try {
+    const metadata = paymentIntent.metadata || {};
+    const offerSlug = metadata.offerSlug || metadata.originalOfferSlug;
+    const isUpsell = metadata.isUpsell === "true";
+
+    // Se não tem offerSlug, pode ser um PaymentIntent não relacionado ao checkout
+    if (!offerSlug) {
+      console.log("ℹ️  PaymentIntent sem offerSlug - ignorando (pode ser outro sistema)");
+      return;
+    }
+
+    // 1. Busca Oferta e Dono
+    const offer = await Offer.findOne({ slug: offerSlug }).populate("ownerId");
+    if (!offer) {
+      console.error(`❌ Oferta '${offerSlug}' não encontrada para PaymentIntent criado.`);
+      return;
+    }
+
+    const owner = offer.ownerId as any;
+    if (!owner.stripeAccountId) {
+      console.error("❌ Vendedor sem conta Stripe conectada.");
+      return;
+    }
+
+    // 2. Idempotência (Evita duplicidade)
+    const existingSale = await Sale.findOne({ stripePaymentIntentId: paymentIntent.id });
+    if (existingSale) {
+      console.log(`ℹ️  Tentativa ${existingSale._id} já existe para PaymentIntent ${paymentIntent.id}`);
+      return;
+    }
+
+    // 3. Recupera Dados do Cliente
+    let customerEmail: string | null | undefined = metadata.customerEmail;
+    let customerName: string | null | undefined = metadata.customerName;
+    let customerPhone: string | null | undefined = metadata.customerPhone;
+
+    if (!customerEmail || !customerName) {
+      if (paymentIntent.customer) {
+        const customerId = typeof paymentIntent.customer === "string" ? paymentIntent.customer : paymentIntent.customer.id;
+        try {
+          const stripeCustomer = await stripe.customers.retrieve(customerId, {
+            stripeAccount: owner.stripeAccountId,
+          });
+          if (!stripeCustomer.deleted) {
+            customerEmail = customerEmail || stripeCustomer.email;
+            customerName = customerName || stripeCustomer.name;
+            customerPhone = customerPhone || stripeCustomer.phone;
+          }
+        } catch (err) {
+          console.error(`Erro ao buscar cliente Stripe:`, err);
+        }
+      }
+    }
+
+    const clientIp = metadata.ip || "";
+    const countryCode = clientIp ? getCountryFromIP(clientIp) : "BR";
+
+    const finalCustomerName = customerName || "Cliente Não Identificado";
+    const finalCustomerEmail = customerEmail || "email@nao.informado";
+
+    // 4. Monta Lista de Itens
+    const items: Array<{
+      _id?: string;
+      name: string;
+      priceInCents: number;
+      isOrderBump: boolean;
+      compareAtPriceInCents?: number;
+      customId?: string;
+    }> = [];
+
+    if (isUpsell) {
+      items.push({
+        _id: undefined,
+        name: offer.upsell?.name || metadata.productName || "Upsell",
+        priceInCents: paymentIntent.amount,
+        isOrderBump: false,
+        customId: offer.upsell?.customId,
+      });
+    } else {
+      // Produto Principal
+      items.push({
+        _id: (offer.mainProduct as any)._id?.toString(),
+        name: offer.mainProduct.name,
+        priceInCents: offer.mainProduct.priceInCents,
+        compareAtPriceInCents: offer.mainProduct.compareAtPriceInCents,
+        isOrderBump: false,
+        customId: (offer.mainProduct as any).customId,
+      });
+
+      // Order Bumps
+      const selectedOrderBumps = metadata.selectedOrderBumps ? JSON.parse(metadata.selectedOrderBumps) : [];
+      for (const bumpId of selectedOrderBumps) {
+        const bump = offer.orderBumps.find((b: any) => b?._id?.toString() === bumpId);
+        if (bump) {
+          items.push({
+            _id: bump._id?.toString(),
+            name: bump.name,
+            priceInCents: bump.priceInCents,
+            compareAtPriceInCents: bump.compareAtPriceInCents,
+            isOrderBump: true,
+            customId: (bump as any).customId,
+          });
+        }
+      }
+    }
+
+    // 5. Cria Tentativa no Banco com status "pending"
+    const sale = await Sale.create({
+      ownerId: offer.ownerId,
+      offerId: offer._id,
+      abTestId: metadata.abTestId || null,
+      stripePaymentIntentId: paymentIntent.id,
+      customerName: finalCustomerName,
+      customerEmail: finalCustomerEmail,
+
+      ip: clientIp,
+      country: countryCode,
+
+      totalAmountInCents: paymentIntent.amount,
+      platformFeeInCents: 0, // Será atualizado se aprovado
+      currency: offer.currency || "brl",
+      status: "pending", // Tentativa iniciada
+      isUpsell: isUpsell,
+      items,
+    });
+
+    console.log(`🔔 Tentativa de compra ${sale._id} registrada (status: pending)`);
+    console.log(`   - Cliente: ${finalCustomerEmail}`);
+    console.log(`   - Valor: ${paymentIntent.amount / 100} ${(offer.currency || "BRL").toUpperCase()}`);
+  } catch (error: any) {
+    console.error(`❌ Erro ao registrar tentativa de compra: ${error.message}`);
+    // Não relança o erro para não bloquear o webhook
+  }
+};
+
+/**
  * Handler para quando um pagamento FALHA
  * 1. Busca os dados da oferta usando o metadata
  * 2. Salva a tentativa de venda com status "failed" no banco
@@ -282,31 +424,50 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       }
     }
 
-    // 4. Idempotência (Evita duplicidade)
-    const existingSale = await Sale.findOne({ stripePaymentIntentId: paymentIntent.id });
-    if (existingSale) return;
+    // 4. Busca registro existente (criado por payment_intent.created)
+    let sale = await Sale.findOne({ stripePaymentIntentId: paymentIntent.id });
 
-    // 5. Salva Venda no Banco
-    const sale = await Sale.create({
-      ownerId: offer.ownerId,
-      offerId: offer._id,
-      abTestId: metadata.abTestId || null, // A/B test tracking
-      stripePaymentIntentId: paymentIntent.id,
-      customerName: finalCustomerName,
-      customerEmail: finalCustomerEmail,
+    if (sale) {
+      // Se já existe com status succeeded, não processa novamente
+      if (sale.status === "succeeded") {
+        console.log(`ℹ️  Venda ${sale._id} já está como succeeded, ignorando.`);
+        return;
+      }
 
-      ip: clientIp,
-      country: countryCode,
+      // Atualiza o registro existente (que estava pending)
+      sale.status = "succeeded";
+      sale.platformFeeInCents = paymentIntent.application_fee_amount || 0;
+      sale.customerName = finalCustomerName;
+      sale.customerEmail = finalCustomerEmail;
+      sale.ip = clientIp;
+      sale.country = countryCode;
+      sale.items = items;
+      await sale.save();
 
-      totalAmountInCents: paymentIntent.amount,
-      platformFeeInCents: paymentIntent.application_fee_amount || 0,
-      currency: offer.currency || "brl",
-      status: "succeeded",
-      isUpsell: isUpsell,
-      items,
-    });
+      console.log(`✅ Tentativa ${sale._id} atualizada para APROVADA.`);
+    } else {
+      // 5. Cria nova venda se não existir (fallback para compatibilidade)
+      sale = await Sale.create({
+        ownerId: offer.ownerId,
+        offerId: offer._id,
+        abTestId: metadata.abTestId || null, // A/B test tracking
+        stripePaymentIntentId: paymentIntent.id,
+        customerName: finalCustomerName,
+        customerEmail: finalCustomerEmail,
 
-    console.log(`✅ Venda ${sale._id} salva com sucesso.`);
+        ip: clientIp,
+        country: countryCode,
+
+        totalAmountInCents: paymentIntent.amount,
+        platformFeeInCents: paymentIntent.application_fee_amount || 0,
+        currency: offer.currency || "brl",
+        status: "succeeded",
+        isUpsell: isUpsell,
+        items,
+      });
+
+      console.log(`✅ Venda ${sale._id} criada com sucesso.`);
+    }
 
     // =================================================================
     // 6. Integrações Externas
