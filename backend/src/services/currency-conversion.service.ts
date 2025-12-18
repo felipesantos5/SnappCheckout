@@ -1,5 +1,6 @@
 // src/services/currency-conversion.service.ts
 import "dotenv/config";
+import { fetchWithTimeout } from "../lib/http-client";
 
 /**
  * Taxas de conversão de moeda
@@ -39,7 +40,7 @@ async function fetchExchangeRates(): Promise<void> {
       url = `https://api.exchangerate.host/latest?base=BRL&access_key=${apiKey}`;
     }
 
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url, { timeout: 10000 }); // 10s timeout
 
     if (!response.ok) {
       throw new Error(`Exchange Rate API retornou ${response.status}`);

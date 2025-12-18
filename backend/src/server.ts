@@ -1,62 +1,137 @@
 // src/server.ts
+import http from "http";
+import mongoose from "mongoose";
 import app from "./app";
 import connectDB from "./lib/db";
 import { initializeCurrencyService } from "./services/currency-conversion.service";
 
+// Flag para evitar múltiplos shutdowns
+let isShuttingDown = false;
+
 process.on("uncaughtException", (error) => {
   console.error("CRITICAL ERROR: Uncaught Exception:", error);
-  process.exit(1); // Força o reinício pelo orquestrador (Coolify)
+  gracefulShutdown("uncaughtException");
 });
 
 process.on("unhandledRejection", (reason, promise) => {
   console.error("CRITICAL ERROR: Unhandled Rejection at:", promise, "reason:", reason);
-  process.exit(1)
-  // Dependendo da gravidade, pode valer a pena sair também, ou apenas logar
+  gracefulShutdown("unhandledRejection");
 });
 
 const PORT = process.env.PORT || 4242;
-let server: any;
+let server: http.Server | null = null;
 
-// Crie uma função 'startServer' assíncrona
+// Timeout para forçar shutdown se graceful demorar muito
+const SHUTDOWN_TIMEOUT = 30000; // 30 segundos
+
+/**
+ * Graceful shutdown com timeout de segurança
+ * Fecha conexões de forma ordenada antes de encerrar
+ */
+const gracefulShutdown = async (signal: string) => {
+  if (isShuttingDown) {
+    console.log("⚠️ Shutdown já em andamento, ignorando sinal duplicado...");
+    return;
+  }
+
+  isShuttingDown = true;
+  process.env.SHUTTING_DOWN = "true"; // Sinaliza para db.ts não tentar reconectar
+
+  console.log(`\n🛑 ${signal} recebido. Iniciando graceful shutdown...`);
+
+  // Timeout de segurança - força encerramento se demorar muito
+  const forceShutdownTimer = setTimeout(() => {
+    console.error("❌ Timeout de shutdown excedido. Forçando encerramento...");
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT);
+
+  try {
+    // 1. Para de aceitar novas conexões HTTP
+    if (server) {
+      console.log("📡 Fechando servidor HTTP (aguardando conexões ativas)...");
+      await new Promise<void>((resolve, reject) => {
+        server!.close((err) => {
+          if (err) {
+            console.error("❌ Erro ao fechar servidor HTTP:", err);
+            reject(err);
+          } else {
+            console.log("✅ Servidor HTTP fechado.");
+            resolve();
+          }
+        });
+
+        // Timeout para fechar conexões HTTP ativas
+        setTimeout(() => {
+          console.log("⚠️ Forçando fechamento de conexões HTTP pendentes...");
+          resolve();
+        }, 10000);
+      });
+    }
+
+    // 2. Fecha conexão com MongoDB
+    if (mongoose.connection.readyState === 1) {
+      console.log("🗄️ Fechando conexão MongoDB...");
+      await mongoose.connection.close(false);
+      console.log("✅ Conexão MongoDB fechada.");
+    }
+
+    // 3. Limpa o timer de força
+    clearTimeout(forceShutdownTimer);
+
+    console.log("✅ Graceful shutdown concluído com sucesso!");
+    process.exit(0);
+  } catch (err) {
+    console.error("❌ Erro durante graceful shutdown:", err);
+    clearTimeout(forceShutdownTimer);
+    process.exit(1);
+  }
+};
+
+/**
+ * Inicia o servidor Express com todas as dependências
+ */
 async function startServer() {
   try {
     // Aguarde a conexão com o DB antes de iniciar o Express
     await connectDB();
 
     // Inicializa serviço de conversão de moeda (busca taxas de câmbio)
-    await initializeCurrencyService();
+    // Wrapped em try-catch para não bloquear startup se API estiver fora
+    try {
+      await initializeCurrencyService();
+    } catch (currencyError) {
+      console.warn("⚠️ Falha ao inicializar serviço de câmbio, usando taxas padrão:", currencyError);
+      // Continua mesmo se falhar - usará taxas em cache
+    }
 
-    app.listen(PORT, () => {
+    // Cria servidor HTTP e guarda referência para graceful shutdown
+    server = http.createServer(app);
+
+    // Configura timeouts do servidor
+    server.timeout = 120000;        // 2 min timeout para requisições
+    server.keepAliveTimeout = 65000; // Keep-alive maior que load balancer (geralmente 60s)
+    server.headersTimeout = 66000;   // Headers timeout ligeiramente maior
+
+    server.listen(PORT, () => {
       console.log(`🚀 Servidor rodando na porta ${PORT}`);
+      console.log(`   Timeout: ${server!.timeout}ms`);
+      console.log(`   Keep-Alive: ${server!.keepAliveTimeout}ms`);
     });
+
+    // Monitora conexões ativas (útil para debug)
+    server.on("connection", (socket) => {
+      socket.setKeepAlive(true, 30000); // Keep-alive a cada 30s
+    });
+
   } catch (error) {
-    console.error("Falha ao iniciar servidor:", error);
+    console.error("❌ Falha ao iniciar servidor:", error);
     process.exit(1);
   }
 }
 
-const gracefulShutdown = async () => {
-  console.log('SIGTERM recebido. Fechando servidor HTTP e conexões...');
-  
-  if (server) {
-    server.close(() => {
-      console.log('Servidor HTTP fechado.');
-    });
-  }
-
-  try {
-    await mongoose.connection.close(false);
-    console.log('Conexão MongoDB fechada.');
-    process.exit(0);
-  } catch (err) {
-    console.error('Erro ao fechar conexão MongoDB', err);
-    process.exit(1);
-  }
-};
-
 // Sinais de encerramento do Docker/Coolify
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
-// Chame a função
+// Inicia o servidor
 startServer();

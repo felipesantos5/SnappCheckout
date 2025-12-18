@@ -4,6 +4,7 @@ import { IOffer } from "../models/offer.model";
 import { ISale } from "../models/sale.model";
 import Stripe from "stripe";
 import { convertToBRL, centsToUnits } from "./currency-conversion.service";
+import { fetchWithTimeout } from "../lib/http-client";
 
 export interface UTMfyPayload {
   email: string;
@@ -40,13 +41,12 @@ export const sendConversionToUTMfy = async (payload: UTMfyPayload): Promise<void
     const amountInBRL = await convertToBRL(payload.amountInCents, payload.currency);
     const valueInReais = centsToUnits(amountInBRL);
 
-    // Faz a requisição para a UTMfy
-    const response = await fetch(utmfyApiUrl, {
+    // Faz a requisição para a UTMfy (com timeout de 30s)
+    const response = await fetchWithTimeout(utmfyApiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${utmfyApiKey}`,
-        // Adicione outros headers conforme necessário
       },
       body: JSON.stringify({
         email: payload.email,
@@ -54,11 +54,11 @@ export const sendConversionToUTMfy = async (payload: UTMfyPayload): Promise<void
         value: valueInReais, // Valor em reais (BRL)
         currency: "BRL", // Sempre BRL
         transaction_id: payload.transactionId,
-        // Adicione campos extras conforme a API da UTMfy
         product_name: payload.productName,
         offer_id: payload.offerId,
         timestamp: new Date().toISOString(),
       }),
+      timeout: 30000, // 30 segundos
     });
 
     // Verifica se a resposta foi bem-sucedida
@@ -99,7 +99,7 @@ export const sendRefundToUTMfy = async (transactionId: string): Promise<void> =>
 
     console.log(`📤 Enviando reembolso para UTMfy: ${transactionId}`);
 
-    const response = await fetch(`${utmfyApiUrl}/refund`, {
+    const response = await fetchWithTimeout(`${utmfyApiUrl}/refund`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -109,6 +109,7 @@ export const sendRefundToUTMfy = async (transactionId: string): Promise<void> =>
         transaction_id: transactionId,
         timestamp: new Date().toISOString(),
       }),
+      timeout: 30000,
     });
 
     if (!response.ok) {
@@ -133,12 +134,13 @@ export const sendPurchaseToUTMfyWebhook = async (webhookUrl: string, payload: an
   try {
     console.log(`📤 Enviando conversão (V2) para Webhook UTMfy: ${payload.Data.Purchase.PaymentId}`);
 
-    const response = await fetch(webhookUrl, {
+    const response = await fetchWithTimeout(webhookUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
+      timeout: 30000,
     });
 
     // Verifica se a resposta foi bem-sucedida

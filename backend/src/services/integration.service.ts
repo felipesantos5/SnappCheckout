@@ -1,6 +1,7 @@
 // api/src/services/integration.service.ts
 import { ISale } from "../models/sale.model";
 import { IOffer } from "../models/offer.model";
+import { fetchWithTimeout } from "../lib/http-client";
 
 interface ProductItem {
   id: string;
@@ -53,13 +54,14 @@ export const sendAccessWebhook = async (
       subscriptionId: subscriptionId,
     };
 
-    const response = await fetch(offer.membershipWebhook.url, {
+    const response = await fetchWithTimeout(offer.membershipWebhook.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${offer.membershipWebhook.authToken || ""}`,
       },
       body: JSON.stringify(payload),
+      timeout: 30000,
     });
 
     if (!response.ok) {

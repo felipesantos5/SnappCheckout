@@ -1,6 +1,8 @@
 import axios from "axios";
+import { getAxiosConfig } from "../lib/http-client";
 
 const PAYPAL_API_URL = process.env.PAYPAL_API_URL || "https://api-m.sandbox.paypal.com";
+const PAYPAL_TIMEOUT = 30000; // 30 segundos
 
 // Gera o token de acesso (OAuth 2.0)
 const generateAccessToken = async (clientId: string, clientSecret: string) => {
@@ -11,6 +13,7 @@ const generateAccessToken = async (clientId: string, clientSecret: string) => {
         Authorization: `Basic ${auth}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
+      ...getAxiosConfig(PAYPAL_TIMEOUT),
     });
     return response.data.access_token;
   } catch (error: any) {
@@ -58,6 +61,7 @@ export const createOrder = async (amount: number, currency: string, clientId: st
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
+        ...getAxiosConfig(PAYPAL_TIMEOUT),
       }
     );
     return response.data;
@@ -88,6 +92,7 @@ export const captureOrder = async (orderId: string, clientId: string, clientSecr
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
+      ...getAxiosConfig(PAYPAL_TIMEOUT),
     }
   );
   return response.data;

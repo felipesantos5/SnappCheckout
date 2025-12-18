@@ -1,8 +1,10 @@
 // src/webhooks/paypal/paypal-webhook.service.ts
 import axios from "axios";
+import { getAxiosConfig } from "../../lib/http-client";
 
 const PAYPAL_API_URL = process.env.PAYPAL_API_URL || "https://api-m.sandbox.paypal.com";
 const PAYPAL_WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID || "";
+const PAYPAL_TIMEOUT = 30000; // 30 segundos
 
 interface WebhookHeaders {
   "paypal-auth-algo": string;
@@ -31,6 +33,7 @@ const generatePlatformAccessToken = async (): Promise<string> => {
       Authorization: `Basic ${auth}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
+    ...getAxiosConfig(PAYPAL_TIMEOUT),
   });
 
   return response.data.access_token;
@@ -77,6 +80,7 @@ export const verifyPayPalWebhookSignature = async (rawBody: string, headers: Web
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
+      ...getAxiosConfig(PAYPAL_TIMEOUT),
     });
 
     const verificationStatus = response.data.verification_status;
@@ -101,6 +105,7 @@ export const getPayPalOrderDetails = async (orderId: string, clientId: string, c
       Authorization: `Basic ${auth}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
+    ...getAxiosConfig(PAYPAL_TIMEOUT),
   });
 
   const accessToken = tokenResponse.data.access_token;
@@ -110,6 +115,7 @@ export const getPayPalOrderDetails = async (orderId: string, clientId: string, c
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
+    ...getAxiosConfig(PAYPAL_TIMEOUT),
   });
 
   return orderResponse.data;

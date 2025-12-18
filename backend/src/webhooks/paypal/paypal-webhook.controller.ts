@@ -2,6 +2,7 @@
 import { Request, Response } from "express";
 import { verifyPayPalWebhookSignature } from "./paypal-webhook.service";
 import { handlePaymentCaptureCompleted, handlePaymentCaptureDenied, handlePaymentCaptureRefunded } from "./handlers/payment.handler";
+import { paypalWebhookSemaphore } from "../../lib/semaphore";
 
 /**
  * Controller principal do webhook do PayPal
@@ -36,29 +37,32 @@ export const handlePayPalWebhook = async (req: Request, res: Response) => {
     console.log(`📩 [PayPal Webhook] Evento recebido: ${eventType}`);
     console.log(`   - ID: ${event.id}`);
     console.log(`   - Resource ID: ${event.resource?.id}`);
+    console.log(`   - Semaphore: ${paypalWebhookSemaphore.available} disponíveis, ${paypalWebhookSemaphore.waiting} aguardando`);
 
-    // 5. Roteia para o handler apropriado
-    switch (eventType) {
-      case "PAYMENT.CAPTURE.COMPLETED":
-        await handlePaymentCaptureCompleted(event);
-        break;
+    // 5. Roteia para o handler apropriado (com controle de concorrência)
+    await paypalWebhookSemaphore.run(async () => {
+      switch (eventType) {
+        case "PAYMENT.CAPTURE.COMPLETED":
+          await handlePaymentCaptureCompleted(event);
+          break;
 
-      case "PAYMENT.CAPTURE.DENIED":
-        await handlePaymentCaptureDenied(event);
-        break;
+        case "PAYMENT.CAPTURE.DENIED":
+          await handlePaymentCaptureDenied(event);
+          break;
 
-      case "PAYMENT.CAPTURE.REFUNDED":
-        await handlePaymentCaptureRefunded(event);
-        break;
+        case "PAYMENT.CAPTURE.REFUNDED":
+          await handlePaymentCaptureRefunded(event);
+          break;
 
-      case "CHECKOUT.ORDER.APPROVED":
-        // Ordem aprovada pelo cliente (não é pagamento ainda)
-        console.log(`ℹ️ [PayPal] Ordem aprovada, aguardando captura...`);
-        break;
+        case "CHECKOUT.ORDER.APPROVED":
+          // Ordem aprovada pelo cliente (não é pagamento ainda)
+          console.log(`ℹ️ [PayPal] Ordem aprovada, aguardando captura...`);
+          break;
 
-      default:
-        console.log(`ℹ️ [PayPal Webhook] Evento não tratado: ${eventType}`);
-    }
+        default:
+          console.log(`ℹ️ [PayPal Webhook] Evento não tratado: ${eventType}`);
+      }
+    });
 
     // 6. Responde sucesso para o PayPal
     res.status(200).json({ received: true });

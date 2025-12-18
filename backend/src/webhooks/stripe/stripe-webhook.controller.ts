@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import stripe from "../../lib/stripe";
 import { Stripe } from "stripe";
 import { handleStripeEvent } from "./handlers";
+import { webhookSemaphore } from "../../lib/semaphore";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -40,10 +41,13 @@ export const handleStripeWebhook = async (req: Request, res: Response) => {
 
   // 3. Log do evento recebido
   console.log(`\n🎯 Webhook recebido: ${event.type} | ID: ${event.id}`);
+  console.log(`   Semaphore: ${webhookSemaphore.available} disponíveis, ${webhookSemaphore.waiting} aguardando`);
 
-  // 4. Processa o evento usando os handlers
+  // 4. Processa o evento usando os handlers (com controle de concorrência)
   try {
-    await handleStripeEvent(event);
+    await webhookSemaphore.run(async () => {
+      await handleStripeEvent(event);
+    });
   } catch (error) {
     console.error(`❌ Erro fatal ao processar webhook:`, error);
     // Retorna 500 para o Stripe tentar novamente
