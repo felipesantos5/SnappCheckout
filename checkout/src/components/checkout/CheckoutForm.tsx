@@ -9,6 +9,7 @@ import type { OfferData } from "../../pages/CheckoutSlugPage";
 import { OrderSummary } from "./OrderSummary";
 import { ContactInfo } from "./ContactInfo";
 import { PaymentMethods } from "./PaymentMethods";
+import { PixDisplay } from "./PixDisplay";
 import { Banner } from "./Banner";
 
 // Lazy load componentes não críticos para melhorar performance inicial
@@ -43,6 +44,15 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
   // Estado de Sucesso
   const [paymentSucceeded, setPaymentSucceeded] = useState(false);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+
+  // Estados para PIX
+  const [pixData, setPixData] = useState<{
+    qrCode: string;
+    qrCodeUrl: string;
+    orderId: string;
+    saleId: string;
+    expiresAt: string;
+  } | null>(null);
 
   const [method, setMethod] = useState<"creditCard" | "pix" | "wallet" | "paypal">("creditCard");
   const [selectedBumps, setSelectedBumps] = useState<string[]>([]);
@@ -453,7 +463,33 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
           throw new Error(`Pagamento não aprovado. Status: ${paymentIntent.status}`);
         }
       } else if (method === "pix") {
-        setErrorMessage(t.messages.pixNotImplemented);
+        // Lógica PIX - Chama backend Pagar.me
+        const res = await fetch(`${API_URL}/payments/pagarme/pix`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error?.message || "Erro ao gerar PIX");
+        }
+
+        const pixResponse = await res.json();
+
+        if (!pixResponse.success) {
+          throw new Error(pixResponse.error?.message || "Erro ao gerar PIX");
+        }
+
+        // Armazena dados do PIX para exibir o QR Code
+        setPixData({
+          qrCode: pixResponse.qrCode,
+          qrCodeUrl: pixResponse.qrCodeUrl,
+          orderId: pixResponse.orderId,
+          saleId: pixResponse.saleId,
+          expiresAt: pixResponse.expiresAt,
+        });
+
         setLoading(false);
       }
     } catch (error: any) {
@@ -475,6 +511,24 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
           <h2 className="text-3xl font-bold text-gray-800 mb-2">Sucesso!</h2>
           <p className="text-gray-500 text-lg animate-pulse">Finalizando seu pedido...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Renderiza tela do PIX se pixData estiver preenchido
+  if (pixData) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center" style={{ backgroundColor }}>
+        <PixDisplay
+          qrCode={pixData.qrCode}
+          qrCodeUrl={pixData.qrCodeUrl}
+          orderId={pixData.orderId}
+          amount={totalAmount}
+          currency={offerData.currency}
+          expiresAt={pixData.expiresAt}
+          saleId={pixData.saleId}
+          onSuccess={() => setPaymentSucceeded(true)}
+        />
       </div>
     );
   }
@@ -540,6 +594,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                   paymentRequest={paymentRequest}
                   walletLabel={walletLabel}
                   paypalEnabled={offerData.paypalEnabled}
+                  pagarmePixEnabled={offerData.pagarme_pix_enabled}
                   paypalClientId={paypalClientId}
                   paypalAmount={totalAmount}
                   paypalCurrency={offerData.currency}

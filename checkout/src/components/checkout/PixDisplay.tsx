@@ -19,7 +19,7 @@ interface PixDisplayProps {
 export const PixDisplay: React.FC<PixDisplayProps> = ({
   qrCode,
   qrCodeUrl,
-  orderId,
+  // orderId, // Não utilizado atualmente
   amount,
   currency,
   expiresAt,

@@ -20,6 +20,7 @@ export interface OfferData {
   collectAddress?: boolean;
   collectPhone?: boolean;
   paypalEnabled?: boolean;
+  pagarme_pix_enabled?: boolean;
   bannerImageUrl?: string;
   secondaryBannerImageUrl?: string;
   currency: string;
