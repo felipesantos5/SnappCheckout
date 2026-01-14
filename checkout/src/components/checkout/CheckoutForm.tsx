@@ -515,26 +515,37 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
     );
   }
 
-  // Renderiza tela do PIX se pixData estiver preenchido
-  if (pixData) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center" style={{ backgroundColor }}>
-        <PixDisplay
-          qrCode={pixData.qrCode}
-          qrCodeUrl={pixData.qrCodeUrl}
-          orderId={pixData.orderId}
-          amount={totalAmount}
-          currency={offerData.currency}
-          expiresAt={pixData.expiresAt}
-          saleId={pixData.saleId}
-          onSuccess={() => setPaymentSucceeded(true)}
-        />
-      </div>
-    );
-  }
-
   return (
     <>
+      {/* Modal do PIX - Aparece por cima do formulário */}
+      {pixData && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="relative max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Botão de fechar */}
+            <button
+              onClick={() => setPixData(null)}
+              className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors"
+              aria-label="Fechar"
+            >
+              <svg className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <PixDisplay
+              qrCode={pixData.qrCode}
+              qrCodeUrl={pixData.qrCodeUrl}
+              orderId={pixData.orderId}
+              amount={totalAmount}
+              currency={offerData.currency}
+              expiresAt={pixData.expiresAt}
+              saleId={pixData.saleId}
+              onSuccess={() => setPaymentSucceeded(true)}
+            />
+          </div>
+        </div>
+      )}
+
       {loading && (
         <div
           className="fixed inset-0 z-60 flex items-center justify-center backdrop-blur-sm"
