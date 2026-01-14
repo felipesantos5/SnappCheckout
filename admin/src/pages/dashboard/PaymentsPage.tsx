@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/helper/formatCurrency";
 import { StripeIcon } from "@/components/icons/stripe";
 import { PaypalIcon } from "@/components/icons/paypal";
+import { PixIcon } from "@/components/icons/pix";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
 import { subDays, startOfDay, endOfDay } from "date-fns";
@@ -25,6 +26,7 @@ interface ChartDataPoint {
   date: string;
   stripe: number;
   paypal: number;
+  pagarme: number;
 }
 
 interface PaymentMetrics {
@@ -33,6 +35,7 @@ interface PaymentMetrics {
     available: number;
   };
   paypal: PaymentPlatformMetrics;
+  pagarme: PaymentPlatformMetrics;
   chart: ChartDataPoint[];
   period: {
     startDate: string;
@@ -80,8 +83,8 @@ export default function PaymentsPage() {
         startDate = startOfDay(now).toISOString();
       } else if (days === "7") {
         startDate = startOfDay(subDays(now, 6)).toISOString();
-      } else if (days === "90") {
-        startDate = startOfDay(subDays(now, 89)).toISOString();
+      } else if (days === "all") {
+        startDate = new Date(2000, 0, 1).toISOString(); // Data muito antiga para pegar tudo
       } else {
         startDate = startOfDay(subDays(now, 29)).toISOString();
       }
@@ -124,6 +127,8 @@ export default function PaymentsPage() {
         return "Últimos 30 dias";
       case "90":
         return "Últimos 3 meses";
+      case "all":
+        return "Desde o início";
       default:
         return "Últimos 30 dias";
     }
@@ -135,10 +140,11 @@ export default function PaymentsPage() {
   };
 
   // Calcular totais consolidados
-  const totalRevenue = metrics ? metrics.stripe.totalRevenue + metrics.paypal.totalRevenue : 0;
-  const totalSales = metrics ? metrics.stripe.totalSales + metrics.paypal.totalSales : 0;
+  const totalRevenue = metrics ? metrics.stripe.totalRevenue + metrics.paypal.totalRevenue + metrics.pagarme.totalRevenue : 0;
+  const totalSales = metrics ? metrics.stripe.totalSales + metrics.paypal.totalSales + metrics.pagarme.totalSales : 0;
   const stripePercentage = totalRevenue > 0 ? (metrics!.stripe.totalRevenue / totalRevenue) * 100 : 0;
   const paypalPercentage = totalRevenue > 0 ? (metrics!.paypal.totalRevenue / totalRevenue) * 100 : 0;
+  const pagarmePercentage = totalRevenue > 0 ? (metrics!.pagarme.totalRevenue / totalRevenue) * 100 : 0;
 
   if (loading) {
     return (
@@ -179,6 +185,7 @@ export default function PaymentsPage() {
               <SelectItem value="7">Últimos 7 dias</SelectItem>
               <SelectItem value="30">Últimos 30 dias</SelectItem>
               <SelectItem value="90">Últimos 3 meses</SelectItem>
+              <SelectItem value="all">O tempo todo</SelectItem>
               <SelectItem value="custom">Personalizado</SelectItem>
             </SelectContent>
           </Select>
@@ -222,6 +229,10 @@ export default function PaymentsPage() {
                   <div className="w-3 h-3 rounded-full bg-[#003087]" />
                   <span className="text-sm">{paypalPercentage.toFixed(0)}%</span>
                 </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-[#32BCAD]" />
+                  <span className="text-sm">{pagarmePercentage.toFixed(0)}%</span>
+                </div>
               </div>
             )}
           </div>
@@ -229,7 +240,7 @@ export default function PaymentsPage() {
       </Card>
 
       {/* Cards por Plataforma */}
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {/* Card Stripe */}
         <Card className="border-[#635BFF]/30 hover:border-[#635BFF]/50 transition-colors">
           <CardHeader className="pb-3">
@@ -347,6 +358,60 @@ export default function PaymentsPage() {
             )}
           </CardContent>
         </Card>
+        {/* Card Pagarme */}
+        <Card className="border-[#32BCAD]/30 hover:border-[#32BCAD]/50 transition-colors">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <PixIcon className="w-6 h-6" />
+                <span className="font-bold text-[#32BCAD]">PIX (Pagar.me)</span>
+              </div>
+              <Wallet className="h-5 w-5 text-[#32BCAD]" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Vendas e Receita */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Vendido</p>
+                <p className="text-2xl font-bold">{formatCurrency(metrics?.pagarme.totalRevenue || 0)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Vendas</p>
+                <p className="text-2xl font-bold">{metrics?.pagarme.totalSales || 0}</p>
+              </div>
+            </div>
+
+            {/* Nota sobre saldo */}
+            <div className="border-t pt-4">
+              <p className="text-sm font-medium text-muted-foreground mb-3">Saldo na Conta</p>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-sm text-muted-foreground">
+                  O saldo do Pagar.me cai diretamente na sua conta bancária configurada no{" "}
+                  <a
+                    href="https://dash.pagar.me/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#32BCAD] hover:underline font-medium"
+                  >
+                    painel do Pagar.me
+                  </a>
+                  .
+                </p>
+              </div>
+            </div>
+
+            {/* Taxas */}
+            {metrics && metrics.pagarme.totalFees > 0 && (
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Taxas da Plataforma</span>
+                  <span className="font-medium">{formatCurrency(metrics.pagarme.totalFees)}</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Gráfico de Vendas por Plataforma */}
@@ -370,6 +435,10 @@ export default function PaymentsPage() {
                   <linearGradient id="paypalGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#003087" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#003087" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="pagarmeGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#32BCAD" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#32BCAD" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -395,13 +464,13 @@ export default function PaymentsPage() {
                   labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
                   formatter={(value: number, name: string) => [
                     formatTooltipValue(value),
-                    name === "stripe" ? "Stripe" : "PayPal",
+                    name === "stripe" ? "Stripe" : name === "paypal" ? "PayPal" : "Pagar.me (PIX)",
                   ]}
                 />
                 <Legend
                   verticalAlign="top"
                   height={36}
-                  formatter={(value) => (value === "stripe" ? "Stripe" : "PayPal")}
+                  formatter={(value) => (value === "stripe" ? "Stripe" : value === "paypal" ? "PayPal" : "Pagar.me (PIX)")}
                 />
                 <Area
                   type="monotone"
@@ -420,6 +489,15 @@ export default function PaymentsPage() {
                   fill="url(#paypalGradient)"
                   dot={false}
                   activeDot={{ r: 6, fill: "#003087" }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="pagarme"
+                  stroke="#32BCAD"
+                  strokeWidth={2}
+                  fill="url(#pagarmeGradient)"
+                  dot={false}
+                  activeDot={{ r: 6, fill: "#32BCAD" }}
                 />
               </AreaChart>
             </ResponsiveContainer>

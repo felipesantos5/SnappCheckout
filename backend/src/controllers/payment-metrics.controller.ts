@@ -20,6 +20,7 @@ interface ChartDataPoint {
   date: string;
   stripe: number;
   paypal: number;
+  pagarme: number;
 }
 
 interface PaymentMetricsResponse {
@@ -28,6 +29,7 @@ interface PaymentMetricsResponse {
     available: number; // saldo disponível (centavos)
   };
   paypal: PaymentPlatformMetrics;
+  pagarme: PaymentPlatformMetrics;
   chart: ChartDataPoint[];
   period: {
     startDate: string;
@@ -61,10 +63,12 @@ export const handleGetPaymentMetrics = async (req: Request, res: Response) => {
       }
     }
 
-    // Determinar granularidade (horária se < 25 horas, senão diária)
+    // Determinar granularidade
     const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-    const hoursDiff = Math.ceil(diffTime / (1000 * 60 * 60));
-    const isHourly = hoursDiff <= 25;
+    const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    const isHourly = daysDiff <= 1.1; // Menos de 26 horas
+    const isMonthly = daysDiff > 120; // Mais de 4 meses agrupa por mês para não quebrar o gráfico
 
     // Buscar todas as vendas aprovadas do usuário no período
     const sales = await Sale.find({
@@ -86,8 +90,14 @@ export const handleGetPaymentMetrics = async (req: Request, res: Response) => {
       totalFees: 0,
     };
 
+    const pagarmeMetrics: PaymentPlatformMetrics = {
+      totalSales: 0,
+      totalRevenue: 0,
+      totalFees: 0,
+    };
+
     // Mapa para dados do gráfico
-    const chartMap = new Map<string, { stripe: number; paypal: number; label: string }>();
+    const chartMap = new Map<string, { stripe: number; paypal: number; pagarme: number; label: string }>();
 
     // Função auxiliar para gerar chave e label
     const formatKeyAndLabel = (dateInput: Date | string) => {
@@ -100,6 +110,13 @@ export const handleGetPaymentMetrics = async (req: Request, res: Response) => {
           minute: "2-digit" 
         });
         return { key, label };
+      } else if (isMonthly) {
+        const brDate = new Date(date.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+        const year = brDate.getFullYear();
+        const month = (brDate.getMonth() + 1).toString().padStart(2, "0");
+        const key = `${year}-${month}`;
+        const label = `${month}/${year}`;
+        return { key, label };
       } else {
         const brDate = new Date(date.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
         const key = brDate.toISOString().split("T")[0];
@@ -110,18 +127,33 @@ export const handleGetPaymentMetrics = async (req: Request, res: Response) => {
       }
     };
 
-    // Inicializar mapa com zeros para todos os intervalos
+    // Inicializar chartMap com todas as datas do período
     let current = new Date(startDate);
-    const endLoop = new Date(endDate);
+    if (sales.length > 0 && new Date(sales[0].createdAt) > current) {
+      current = new Date(sales[0].createdAt);
+    }
 
-    while (current <= endLoop) {
+    // Ajustar 'current' para o início do período (hora/dia/mês)
+    if (isHourly) {
+      current.setMinutes(0, 0, 0);
+    } else if (!isMonthly) { // Diário
+      current.setHours(0, 0, 0, 0);
+    } else { // Mensal
+      current.setDate(1);
+      current.setHours(0, 0, 0, 0);
+    }
+
+    while (current <= endDate) {
       const { key, label } = formatKeyAndLabel(current);
       if (!chartMap.has(key)) {
-        chartMap.set(key, { stripe: 0, paypal: 0, label });
+        chartMap.set(key, { stripe: 0, paypal: 0, pagarme: 0, label });
       }
 
+      // Incrementar 'current' com base na granularidade
       if (isHourly) {
         current.setHours(current.getHours() + 1);
+      } else if (isMonthly) {
+        current.setMonth(current.getMonth() + 1);
       } else {
         current.setDate(current.getDate() + 1);
       }
@@ -142,6 +174,15 @@ export const handleGetPaymentMetrics = async (req: Request, res: Response) => {
           // Adicionar ao gráfico
           if (chartMap.has(key)) {
             chartMap.get(key)!.paypal += revenueInBRL / 100; // Converter para reais
+          }
+        } else if (sale.paymentMethod === "pagarme") {
+          pagarmeMetrics.totalSales += 1;
+          pagarmeMetrics.totalRevenue += revenueInBRL;
+          pagarmeMetrics.totalFees += feesInBRL;
+
+          // Adicionar ao gráfico
+          if (chartMap.has(key)) {
+            chartMap.get(key)!.pagarme += revenueInBRL / 100; // Converter para reais
           }
         } else {
           // Default: stripe
@@ -165,6 +206,7 @@ export const handleGetPaymentMetrics = async (req: Request, res: Response) => {
         date: data.label,
         stripe: Math.round(data.stripe * 100) / 100, // Arredondar para 2 casas
         paypal: Math.round(data.paypal * 100) / 100,
+        pagarme: Math.round(data.pagarme * 100) / 100,
       };
     });
 
@@ -197,6 +239,7 @@ export const handleGetPaymentMetrics = async (req: Request, res: Response) => {
         available: stripeAvailable,
       },
       paypal: paypalMetrics,
+      pagarme: pagarmeMetrics,
       chart: chartData,
       period: {
         startDate: startDate.toISOString(),
