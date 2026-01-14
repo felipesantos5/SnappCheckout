@@ -66,11 +66,16 @@ export const es = {
   // PIX
   pix: {
     title: "Pago vía PIX",
+    instruction: "Abre la app de tu banco y escanea el código",
     instructions: "Escanee el código QR o copie el código PIX para finalizar el pago.",
     scanQR: "Escanee el código QR con la app de tu banco",
+    copy_button: "Copiar código PIX",
     copyCode: "Copiar código PIX",
     copied: "¡Código copiado!",
+    waiting: "Esperando confirmación del pago...",
     waitingPayment: "Esperando confirmación del pago...",
+    success: "¡Pago confirmado! Redirigiendo...",
+    expired: "Expirado",
   },
 
   // Buttons

@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import axios from "axios";
 import { API_URL } from "@/config/BackendUrl";
 import { Loader2, Save, Key, Eye, EyeOff, Wallet } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
@@ -19,7 +18,6 @@ export default function SettingsPage() {
   const [pagarmeEncryptionKey, setPagarmeEncryptionKey] = useState("");
   const [automaticNotifications, setAutomaticNotifications] = useState(false);
   const [showPagarmeApiKey, setShowPagarmeApiKey] = useState(false);
-  const [showPaypalSecret, setShowPaypalSecret] = useState(false);
 
   useEffect(() => {
     fetchSettings();

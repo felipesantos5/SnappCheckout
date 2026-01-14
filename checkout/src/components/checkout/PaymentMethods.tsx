@@ -43,7 +43,7 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({
   walletLabel,
   paypalEnabled,
   pagarmePixEnabled,
-  offer,
+  // offer, // Removido: não está sendo usado
   paypalClientId,
   paypalAmount,
   paypalCurrency,

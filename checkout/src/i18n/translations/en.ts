@@ -68,11 +68,16 @@ export const en: Translation = {
   // PIX
   pix: {
     title: "PIX Payment",
+    instruction: "Open your bank app and scan the code below",
     instructions: "Scan the QR Code or copy the PIX code to complete the payment.",
     scanQR: "Scan the QR Code with your bank app",
+    copy_button: "Copy PIX code",
     copyCode: "Copy PIX code",
     copied: "Code copied!",
+    waiting: "Waiting for payment confirmation...",
     waitingPayment: "Waiting for payment confirmation...",
+    success: "Payment confirmed! Redirecting...",
+    expired: "Expired",
   },
 
   // Buttons
