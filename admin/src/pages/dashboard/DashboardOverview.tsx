@@ -236,7 +236,7 @@ export function DashboardOverview() {
             </Button>
             {/* Filtro de Período */}
             <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger className="w-[145px] h-9">
+              <SelectTrigger className="w-[155px] h-9">
                 <SelectValue placeholder="Período" />
               </SelectTrigger>
               <SelectContent>
@@ -321,14 +321,19 @@ export function DashboardOverview() {
       </div>
 
       {/* Seção Inferior: Gráficos Circulares + Histórico de Vendas */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        {/* Top Ofertas (Gráfico Circular) */}
-        <TopOffersChart data={metrics?.topOffers || []} />
-        {/* Histórico de Vendas */}
-        <div className="md:col-span-1">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-3">
+        {/* Histórico de Vendas (Cresceu para ocupar 2 colunas em telas grandes) */}
+        <div className="lg:col-span-2">
           <SalesAreaChart chartData={metrics?.charts.revenue || []} />
         </div>
-        <div className="md:col-span-2 lg:col-span-1">
+
+        {/* Top Ofertas (Gráfico Circular - ocupa 1 coluna) */}
+        <div className="lg:col-span-1">
+          <TopOffersChart data={metrics?.topOffers || []} />
+        </div>
+
+        {/* Mapa Mundial - ocupa 1 ou 2 colunas dependendo do layout */}
+        <div className="lg:col-span-3">
           <SalesWorldMap data={metrics?.topCountries || []} />
         </div>
       </div>

@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/
 import { CountryFlag } from "../CountryFlag";
 import { PaypalIcon } from "../icons/paypal";
 import { StripeIcon } from "../icons/stripe";
+import { PixIcon } from "../icons/pix";
 
 interface SaleItem {
   name: string;
@@ -31,7 +32,7 @@ interface Sale {
   isUpsell: boolean;
   ip?: string;
   country?: string;
-  paymentMethod?: "stripe" | "paypal";
+  paymentMethod?: "stripe" | "paypal" | "pagarme";
 }
 
 // Helper para formatar data e hora
@@ -200,11 +201,9 @@ export function SalesHistoryTable({ offerId }: SalesHistoryTableProps) {
               </TableCell>
 
               <TableCell className="text-center">
-                {sale.paymentMethod === "paypal" ? (
-                  <PaypalIcon className="h-5 w-auto" />
-                ) : (
-                  <StripeIcon className="h-5 w-auto" />
-                )}
+                {sale.paymentMethod === "stripe" && <StripeIcon className="h-5 w-5 mx-auto" />}
+                {sale.paymentMethod === "paypal" && <PaypalIcon className="h-5 w-5 mx-auto" />}
+                {sale.paymentMethod === "pagarme" && <PixIcon className="h-5 w-5 mx-auto" />}
               </TableCell>
 
               <TableCell>
