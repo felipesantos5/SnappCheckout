@@ -19,6 +19,7 @@ export interface OfferData {
   language?: Language;
   collectAddress?: boolean;
   collectPhone?: boolean;
+  collectDocument?: boolean;
   paypalEnabled?: boolean;
   pagarme_pix_enabled?: boolean;
   bannerImageUrl?: string;

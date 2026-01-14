@@ -40,6 +40,7 @@ interface ApiOfferData {
   language: string;
   collectAddress: boolean;
   collectPhone?: boolean;
+  collectDocument?: boolean;
   primaryColor: string;
   buttonColor: string;
   backgroundColor?: string;
@@ -89,6 +90,7 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
     language: data.language,
     collectAddress: data.collectAddress,
     collectPhone: data.collectPhone ?? true,
+    collectDocument: data.collectDocument ?? true,
 
     primaryColor: data.primaryColor,
     buttonColor: data.buttonColor,

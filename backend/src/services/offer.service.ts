@@ -47,6 +47,7 @@ export type CreateOfferPayload = {
   textColor?: string;
   collectAddress?: boolean;
   collectPhone?: boolean;
+  collectDocument?: boolean;
   language?: string;
   upsellLink?: string;
   paypalEnabled: boolean;

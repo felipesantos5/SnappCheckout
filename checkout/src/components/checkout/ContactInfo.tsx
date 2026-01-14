@@ -6,14 +6,16 @@ import { API_URL } from "../../config/BackendUrl";
 
 interface ContactInfoProps {
   showPhone?: boolean;
+  showDocument?: boolean;
   offerID: string;
   abTestId?: string | null;
 }
 
-export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, offerID, abTestId }) => {
+export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, showDocument = false, offerID, abTestId }) => {
   const { t } = useTranslation();
   const { textColor } = useTheme(); // Hook do tema
   const [phone, setPhone] = useState("");
+  const [document, setDocument] = useState("");
   const checkoutStartedSent = useRef(false); // Flag para evitar múltiplas chamadas
 
   const handleEmailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,6 +80,29 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, offe
     setPhone(value);
   };
 
+  const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, "");
+
+    // Limite para CNPJ
+    if (value.length > 14) value = value.slice(0, 14);
+
+    // Máscara CPF (000.000.000-00) ou CNPJ (00.000.000/0000-00)
+    if (value.length <= 11) {
+      // CPF
+      value = value.replace(/(\d{3})(\d)/, "$1.$2");
+      value = value.replace(/(\d{3})(\d)/, "$1.$2");
+      value = value.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+    } else {
+      // CNPJ
+      value = value.replace(/^(\d{2})(\d)/, "$1.$2");
+      value = value.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3");
+      value = value.replace(/\.(\d{3})(\d)/, ".$1/$2");
+      value = value.replace(/(\d{4})(\d)/, "$1-$2");
+    }
+
+    setDocument(value);
+  };
+
   return (
     <div className="w-full mt-4">
       <h2
@@ -98,13 +123,25 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, offe
         <Input label={t.contact.name} id="name" type="text" required placeholder={t.contact.namePlaceholder} />
         {showPhone && (
           <Input
-            label={t.contact.phone}
+            label={t.contact.phone || "Telefone"}
             onChange={handlePhoneChange}
             value={phone}
             id="phone"
             type="tel"
             maxLength={15}
-            placeholder={t.contact.phonePlaceholder}
+            placeholder={t.contact.phonePlaceholder || "(00) 00000-0000"}
+          />
+        )}
+        {showDocument && (
+          <Input
+            label="CPF / CNPJ"
+            onChange={handleDocumentChange}
+            value={document}
+            id="document"
+            type="text"
+            maxLength={18}
+            placeholder="000.000.000-00"
+            required
           />
         )}
       </div>

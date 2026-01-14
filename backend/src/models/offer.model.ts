@@ -70,6 +70,7 @@ export interface IOffer extends Document {
   };
   customId?: string;
   collectPhone: boolean;
+  collectDocument: boolean; // <-- NOVO: Controla se CPF/CNPJ deve ser coletado
   paypalEnabled: boolean;
   pagarme_pix_enabled: boolean; // <-- NOVO: Controla se PIX da Pagar.me está ativo
 
@@ -199,6 +200,10 @@ const offerSchema = new Schema<IOffer>(
     collectPhone: {
       type: Boolean,
       default: true,
+    },
+    collectDocument: {
+      type: Boolean,
+      default: false,
     },
     paypalEnabled: {
       type: Boolean,

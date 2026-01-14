@@ -343,11 +343,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
     const emailInput = document.getElementById("email") as HTMLInputElement;
     const nameInput = document.getElementById("name") as HTMLInputElement;
     const phoneInput = document.getElementById("phone") as HTMLInputElement;
+    const documentInput = document.getElementById("document") as HTMLInputElement;
     const cardNameInput = document.getElementById("card-name") as HTMLInputElement;
 
     const email = emailInput?.value;
     const fullName = nameInput?.value;
     const phone = phoneInput?.value || "";
+    const documentValue = documentInput?.value || "";
     const cardName = cardNameInput?.value || "";
 
     // Coleta dados de endereço (se collectAddress estiver ativado)
@@ -414,7 +416,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
       const payload = {
         offerSlug: offerData.slug,
         selectedOrderBumps: selectedBumps,
-        contactInfo: { email, name: fullName, phone },
+        contactInfo: { email, name: fullName, phone, document: documentValue },
         addressInfo: addressData,
         metadata: {
           ...utmData,
@@ -591,7 +593,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
             <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-8">
               {/* COLUNA ESQUERDA: Formulário de Checkout */}
               <div className="space-y-6">
-                <ContactInfo showPhone={offerData.collectPhone} offerID={offerData._id} abTestId={abTestId} />
+                <ContactInfo
+                  showPhone={offerData.collectPhone}
+                  showDocument={offerData.collectDocument}
+                  offerID={offerData._id}
+                  abTestId={abTestId}
+                />
 
                 {offerData.collectAddress && (
                   <Suspense fallback={<div className="animate-pulse bg-gray-100 h-40 rounded-lg"></div>}>

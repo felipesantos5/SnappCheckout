@@ -27,11 +27,18 @@ export const createPixPayment = async (req: Request, res: Response) => {
       return res.status(400).json({ error: { message: "Slug da oferta não fornecido" } });
     }
 
-    // if (!contactInfo || !contactInfo.name || !contactInfo.email || !contactInfo.document) {
-    //   return res.status(400).json({
-    //     error: { message: "Dados do cliente incompletos (nome, email e CPF são obrigatórios)" },
-    //   });
-    // }
+    // Valida contactInfo
+    if (!contactInfo) {
+      return res.status(400).json({
+        error: { message: "Dados do cliente não fornecidos" },
+      });
+    }
+
+    if (!contactInfo.name || !contactInfo.email) {
+      return res.status(400).json({
+        error: { message: "Nome e email são obrigatórios" },
+      });
+    }
 
     // Busca a oferta
     const offer = await Offer.findOne({ slug: offerSlug }).populate("ownerId");
@@ -109,13 +116,17 @@ export const createPixPayment = async (req: Request, res: Response) => {
     // Cria o serviço Pagar.me
     const pagarmeService = createPagarMeService(apiKey, encryptionKey);
 
+    // Limpa o telefone e documento (remove formatação)
+    const cleanPhone = contactInfo.phone ? contactInfo.phone.replace(/\D/g, "") : "";
+    const cleanDocument = contactInfo.document ? contactInfo.document.replace(/\D/g, "") : "00000000000";
+
     // Cria o pedido PIX
     const pixOrder = await pagarmeService.createPixOrder({
       amount: totalAmount,
       customerName: contactInfo.name,
       customerEmail: contactInfo.email,
-      customerDocument: contactInfo.document,
-      customerPhone: contactInfo.phone,
+      customerDocument: cleanDocument,
+      customerPhone: cleanPhone,
       offerId: String(offer._id),
       userId: String(user._id),
       items: items,

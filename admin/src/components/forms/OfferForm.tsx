@@ -211,6 +211,7 @@ const offerFormSchema = z.object({
   collectAddress: z.boolean().default(false),
 
   collectPhone: z.boolean().default(true),
+  collectDocument: z.boolean().default(false),
   paypalEnabled: z.boolean().default(false),
   pagarme_pix_enabled: z.boolean().default(false),
   customDomain: z.string().optional().refine(
@@ -280,6 +281,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
       language: "pt",
 
       collectAddress: false,
+      collectDocument: false,
       paypalEnabled: false,
       pagarme_pix_enabled: false,
       utmfyWebhookUrl: "",
@@ -644,6 +646,21 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                     <div className="space-y-1 leading-none">
                       <FormLabel>Coletar Telefone</FormLabel>
                       <FormDescription>Útil para recuperação de carrinho.</FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="collectDocument"
+                render={({ field }: any) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-card">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Coletar CPF/CNPJ</FormLabel>
+                      <FormDescription>Obrigatório para pagamentos PIX via Pagar.me.</FormDescription>
                     </div>
                   </FormItem>
                 )}
