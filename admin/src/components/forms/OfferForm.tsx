@@ -553,6 +553,8 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                           </div>
                         </SelectItem>
                         <SelectItem value="es">🇪🇸 Español</SelectItem>
+                        <SelectItem value="de">🇩🇪 Deutsch</SelectItem>
+                        <SelectItem value="it">🇮🇹 Italiano</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
