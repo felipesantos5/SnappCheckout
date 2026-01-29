@@ -9,6 +9,39 @@ import { createFacebookUserData, sendFacebookEvent } from "../../../services/fac
 import { getCountryFromIP } from "../../../helper/getCountryFromIP";
 
 /**
+ * Helper: Extrai informações sobre o método de pagamento do Stripe
+ */
+const extractPaymentMethodDetails = (paymentIntent: Stripe.PaymentIntent): {
+  paymentMethodType: string;
+  walletType: "apple_pay" | "google_pay" | "samsung_pay" | null;
+} => {
+  try {
+    // Acessa os dados do charge para pegar detalhes do método de pagamento
+    const charge = (paymentIntent as any).charges?.data?.[0];
+    if (!charge || !charge.payment_method_details) {
+      return { paymentMethodType: "card", walletType: null };
+    }
+
+    const details = charge.payment_method_details;
+    const type = details.type || "card"; // "card", "paypal", etc.
+
+    // Se for cartão, verifica se foi usado via wallet
+    let walletType: "apple_pay" | "google_pay" | "samsung_pay" | null = null;
+    if (type === "card" && details.card?.wallet) {
+      const walletTypeRaw = details.card.wallet.type;
+      if (walletTypeRaw === "apple_pay" || walletTypeRaw === "google_pay" || walletTypeRaw === "samsung_pay") {
+        walletType = walletTypeRaw;
+      }
+    }
+
+    return { paymentMethodType: type, walletType };
+  } catch (error) {
+    console.error("Erro ao extrair detalhes do método de pagamento:", error);
+    return { paymentMethodType: "card", walletType: null };
+  }
+};
+
+/**
  * Handler para quando um PaymentIntent é CRIADO
  * 1. Busca os dados da oferta usando o metadata
  * 2. Cria um registro de tentativa com status "pending"
@@ -409,7 +442,10 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       }
     }
 
-    // 4. Busca registro existente (criado por payment_intent.created)
+    // 4. Extrair detalhes do método de pagamento
+    const { paymentMethodType, walletType } = extractPaymentMethodDetails(paymentIntent);
+
+    // 5. Busca registro existente (criado por payment_intent.created)
     let sale = await Sale.findOne({ stripePaymentIntentId: paymentIntent.id });
 
     if (sale) {
@@ -426,9 +462,11 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       sale.ip = clientIp;
       sale.country = countryCode;
       sale.items = items;
+      sale.paymentMethodType = paymentMethodType;
+      sale.walletType = walletType;
       await sale.save();
     } else {
-      // 5. Cria nova venda se não existir (fallback para compatibilidade)
+      // 6. Cria nova venda se não existir (fallback para compatibilidade)
       sale = await Sale.create({
         ownerId: offer.ownerId,
         offerId: offer._id,
@@ -446,6 +484,8 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
         status: "succeeded",
         isUpsell: isUpsell,
         items,
+        paymentMethodType,
+        walletType,
       });
     }
 

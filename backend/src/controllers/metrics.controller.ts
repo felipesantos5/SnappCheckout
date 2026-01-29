@@ -7,6 +7,17 @@ import { sendFacebookEvent, createFacebookUserData } from "../services/facebook.
 import { convertToBRL } from "../services/currency-conversion.service";
 
 /**
+ * Helper: Busca IDs de todas as ofertas ativas de um usuário
+ */
+const getActiveOfferIds = async (ownerId: string): Promise<mongoose.Types.ObjectId[]> => {
+  const activeOffers = await Offer.find({
+    ownerId: new mongoose.Types.ObjectId(ownerId),
+    isActive: true
+  }).select("_id").lean();
+  return activeOffers.map(offer => offer._id as mongoose.Types.ObjectId);
+};
+
+/**
  * Registra um evento de métrica (View ou Initiate Checkout)
  * Público: Não requer autenticação (pois é chamado pelo checkout do cliente)
  */
@@ -260,7 +271,8 @@ export const handleGetConversionFunnel = async (req: Request, res: Response) => 
       return res.status(400).json({ error: "Datas inválidas." });
     }
 
-    const offers = await Offer.find({ ownerId }).select("_id name slug checkoutStarted").lean();
+    // Busca apenas ofertas ativas
+    const offers = await Offer.find({ ownerId, isActive: true }).select("_id name slug checkoutStarted").lean();
     if (!offers.length) return res.status(200).json([]);
 
     const offerIds = offers.map((offer) => offer._id);
@@ -338,11 +350,15 @@ export const handleGetSalesMetrics = async (req: Request, res: Response) => {
     startDate.setDate(startDate.getDate() - daysParam);
     startDate.setHours(0, 0, 0, 0);
 
-    // Buscar vendas com moeda
+    // Busca IDs das ofertas ativas
+    const activeOfferIds = await getActiveOfferIds(ownerId);
+
+    // Buscar vendas com moeda (apenas de ofertas ativas)
     const sales = await Sale.find({
       ownerId: new mongoose.Types.ObjectId(ownerId),
       status: "succeeded",
       createdAt: { $gte: startDate },
+      offerId: { $in: activeOfferIds }, // Apenas ofertas ativas
     })
       .select("totalAmountInCents currency createdAt")
       .lean();
@@ -388,6 +404,9 @@ export const handleGetOffersRevenue = async (req: Request, res: Response) => {
     startDate.setDate(startDate.getDate() - days);
     startDate.setHours(0, 0, 0, 0);
 
+    // Busca IDs das ofertas ativas
+    const activeOfferIds = await getActiveOfferIds(ownerId);
+
     // Construir query com filtros
     const salesQuery: any = {
       ownerId: new mongoose.Types.ObjectId(ownerId),
@@ -395,9 +414,16 @@ export const handleGetOffersRevenue = async (req: Request, res: Response) => {
       createdAt: { $gte: startDate },
     };
 
-    // Filtrar por oferta se especificado
+    // Filtrar por oferta se especificado (verificando se está ativa)
     if (filterOfferId && filterOfferId !== "all") {
+      const isActive = activeOfferIds.some(id => id.toString() === filterOfferId);
+      if (!isActive) {
+        return res.status(200).json([]); // Retorna vazio se a oferta filtrada não está ativa
+      }
       salesQuery.offerId = new mongoose.Types.ObjectId(filterOfferId);
+    } else {
+      // Filtra apenas ofertas ativas
+      salesQuery.offerId = { $in: activeOfferIds };
     }
 
     // Buscar vendas com moeda e oferta (aplicando filtros)
@@ -451,10 +477,10 @@ export const handleGetOfferTotalRevenue = async (req: Request, res: Response) =>
       return res.status(400).json({ error: "offerId é obrigatório" });
     }
 
-    // Verifica se a oferta pertence ao usuário
-    const offer = await Offer.findOne({ _id: offerId, ownerId });
+    // Verifica se a oferta pertence ao usuário e está ativa
+    const offer = await Offer.findOne({ _id: offerId, ownerId, isActive: true });
     if (!offer) {
-      return res.status(404).json({ error: "Oferta não encontrada" });
+      return res.status(404).json({ error: "Oferta não encontrada ou inativa" });
     }
 
     // Busca TODAS as vendas aprovadas dessa oferta (sem filtro de data)
@@ -524,29 +550,30 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
 
     let offerIds: any[];
     if (filterOfferId && filterOfferId !== "all") {
-      const offer = await Offer.findOne({ _id: filterOfferId, ownerId }, "_id");
-      if (!offer) return res.status(404).json({ error: "Oferta não encontrada" });
+      const offer = await Offer.findOne({ _id: filterOfferId, ownerId, isActive: true }, "_id");
+      if (!offer) return res.status(404).json({ error: "Oferta não encontrada ou inativa" });
       offerIds = [offer._id];
     } else {
-      const myOffers = await Offer.find({ ownerId }, "_id");
-      offerIds = myOffers.map((o) => o._id);
+      // Busca apenas ofertas ativas
+      const activeOfferIds = await getActiveOfferIds(ownerId);
+      offerIds = activeOfferIds;
     }
 
     const [allSales, allFailedSales, allMetrics] = await Promise.all([
-      // Vendas aprovadas
+      // Vendas aprovadas (apenas de ofertas ativas)
       Sale.find({
         ownerId: new mongoose.Types.ObjectId(ownerId),
         status: "succeeded",
         createdAt: { $gte: startDate, $lte: endDate },
-        offerId: filterOfferId && filterOfferId !== "all" ? filterOfferId : { $exists: true },
+        offerId: { $in: offerIds }, // Apenas ofertas ativas
       }).lean(),
 
-      // Vendas falhadas (para calcular taxa de aprovação)
+      // Vendas falhadas (para calcular taxa de aprovação, apenas de ofertas ativas)
       Sale.find({
         ownerId: new mongoose.Types.ObjectId(ownerId),
         status: "failed",
         createdAt: { $gte: startDate, $lte: endDate },
-        offerId: filterOfferId && filterOfferId !== "all" ? filterOfferId : { $exists: true },
+        offerId: { $in: offerIds }, // Apenas ofertas ativas
       }).lean(),
 
       CheckoutMetric.find({
@@ -752,14 +779,14 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
         ownerId: new mongoose.Types.ObjectId(ownerId),
         status: "succeeded",
         createdAt: { $gte: previousStartDate, $lt: previousEndDate },
-        offerId: filterOfferId && filterOfferId !== "all" ? filterOfferId : { $exists: true },
+        offerId: { $in: offerIds }, // Apenas ofertas ativas
       }).lean(),
 
       Sale.find({
         ownerId: new mongoose.Types.ObjectId(ownerId),
         status: "failed",
         createdAt: { $gte: previousStartDate, $lt: previousEndDate },
-        offerId: filterOfferId && filterOfferId !== "all" ? filterOfferId : { $exists: true },
+        offerId: { $in: offerIds }, // Apenas ofertas ativas
       }).lean(),
 
       CheckoutMetric.find({

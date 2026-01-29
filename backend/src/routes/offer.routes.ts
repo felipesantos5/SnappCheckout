@@ -34,6 +34,9 @@ router.patch("/:id/archive", protectRoute, offerController.handleArchiveOffer);
 // PATCH /api/offers/:id/unarchive (Desarquiva uma oferta)
 router.patch("/:id/unarchive", protectRoute, offerController.handleUnarchiveOffer);
 
+// PATCH /api/offers/:id/toggle-active (Ativa/Desativa uma oferta)
+router.patch("/:id/toggle-active", protectRoute, offerController.handleToggleOfferActive);
+
 // --- Rotas Públicas (Checkout) ---
 
 // GET /api/offers/slug/:slug

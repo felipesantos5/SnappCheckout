@@ -80,6 +80,7 @@ export interface IOffer extends Document {
 
   checkoutStarted: number; // Contador de checkouts iniciados
   archived: boolean; // Se a oferta está arquivada
+  isActive: boolean; // Se a oferta está ativa (pode ser acessada no checkout)
 
   createdAt?: Date;
   updatedAt?: Date;
@@ -237,6 +238,11 @@ const offerSchema = new Schema<IOffer>(
     archived: {
       type: Boolean,
       default: false,
+      index: true,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
       index: true,
     },
   },

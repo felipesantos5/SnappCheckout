@@ -343,6 +343,35 @@ export const unarchiveOffer = async (id: string, ownerId: string): Promise<IOffe
 };
 
 /**
+ * Toggle status ativo/inativo de uma oferta
+ */
+export const toggleOfferActive = async (id: string, ownerId: string): Promise<IOffer | null> => {
+  try {
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return null;
+    }
+
+    // Busca a oferta atual para pegar o estado atual
+    const currentOffer = await Offer.findOne({ _id: id, ownerId: ownerId });
+
+    if (!currentOffer) {
+      return null;
+    }
+
+    // Toggle do valor atual
+    const offer = await Offer.findOneAndUpdate(
+      { _id: id, ownerId: ownerId },
+      { isActive: !currentOffer.isActive },
+      { new: true }
+    );
+
+    return offer;
+  } catch (error) {
+    throw new Error(`Falha ao alterar status da oferta: ${(error as Error).message}`);
+  }
+};
+
+/**
  * Incrementa o contador de checkout iniciado
  */
 export const incrementCheckoutStarted = async (offerId: string): Promise<boolean> => {

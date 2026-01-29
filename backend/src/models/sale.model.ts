@@ -40,7 +40,9 @@ export interface ISale extends Document {
   status: "succeeded" | "pending" | "refunded" | "failed" | "abandoned";
   paymentMethod?: "stripe" | "paypal" | "pagarme"; // Método de pagamento usado
   gateway?: "stripe" | "paypal" | "pagarme"; // Gateway de pagamento (alias para paymentMethod)
-  
+  paymentMethodType?: string; // Tipo específico: "card", "paypal", "pix", etc.
+  walletType?: "apple_pay" | "google_pay" | "samsung_pay" | null; // Tipo de wallet se aplicável
+
   // Campos específicos do Pagar.me
   pagarme_order_id?: string; // ID do pedido na Pagar.me
   pagarme_transaction_id?: string; // ID da transação PIX na Pagar.me
@@ -109,6 +111,17 @@ const saleSchema = new Schema<ISale>(
       type: String,
       enum: ["stripe", "paypal", "pagarme"],
       default: "stripe",
+    },
+
+    paymentMethodType: {
+      type: String,
+      default: "",
+    },
+
+    walletType: {
+      type: String,
+      enum: ["apple_pay", "google_pay", "samsung_pay", null],
+      default: null,
     },
 
     // Campos específicos do Pagar.me

@@ -14,6 +14,7 @@ import type { product } from "@/types/product";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
 
 // Tipo para os dados da oferta
 interface Offer {
@@ -24,6 +25,7 @@ interface Offer {
   salesCount: number;
   currency: string;
   archived?: boolean;
+  isActive: boolean;
 }
 
 // Helper de formatação de moeda
@@ -145,6 +147,19 @@ export function OffersPage() {
     }
   };
 
+  // Função para ativar/desativar a oferta
+  const handleToggleActive = async (offerId: string, currentState: boolean) => {
+    try {
+      await axios.patch(`${API_URL}/offers/${offerId}/toggle-active`);
+      toast.success(currentState ? "Oferta desativada!" : "Oferta ativada!");
+      fetchOffers(showArchived); // Recarrega a lista
+    } catch (error) {
+      toast.error("Falha ao alterar status da oferta.", {
+        description: (error as Error).message,
+      });
+    }
+  };
+
   return (
     <div className="max-w-6xl m-auto">
       {/* Cabeçalho da Página (FORA do card, como no protótipo) */}
@@ -209,6 +224,11 @@ export function OffersPage() {
                   {/* DESCRIÇÃO */}
                   <TableCell className="px-6 py-4">
                     <div className="flex items-center gap-3">
+                      <Switch
+                        checked={offer.isActive}
+                        onCheckedChange={() => handleToggleActive(offer._id, offer.isActive)}
+                        aria-label="Ativar/Desativar oferta"
+                      />
                       {/* <img src={offer.mainProduct.imageUrl || "/default-product-image.png"} alt="imagem do produto" className="w-9" /> */}
                       <Avatar className="h-9 w-9 ">
                         <AvatarImage src={offer.mainProduct.imageUrl} alt={"imagem do produto"} />

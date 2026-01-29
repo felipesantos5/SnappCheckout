@@ -5,21 +5,29 @@ import * as saleService from "../services/sale.service";
 
 export const getSales = async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 10, offerId, status } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      offerId,
+      status,
+      country,
+      paymentMethod,
+      walletType,
+      email,
+      startDate,
+      endDate
+    } = req.query;
     const userId = (req as any).user.uid; // Assumindo que você pega o ID do user no middleware
 
     // Query Base: Sempre filtrar pelo dono (segurança)
     const query: any = { ownerId: userId };
 
     // 1. Filtro por Oferta (Opcional)
-    if (offerId) {
+    if (offerId && offerId !== "all") {
       query.offerId = offerId;
     }
 
-    // 2. Filtro por Status (CRÍTICO PARA O QUE VOCÊ QUER)
-    // Se o frontend mandar ?status=failed, trazemos as falhas.
-    // Se mandar ?status=succeeded, trazemos as vendas.
-    // Se não mandar nada, trazemos apenas sucessos (padrão de dashboard)
+    // 2. Filtro por Status
     if (status && status !== "all") {
       query.status = status;
     } else if (!status) {
@@ -27,15 +35,70 @@ export const getSales = async (req: Request, res: Response) => {
       query.status = "succeeded";
     }
 
+    // 3. Filtro por País
+    if (country && country !== "all") {
+      query.country = country;
+    }
+
+    // 4. Filtro por Método de Pagamento
+    if (paymentMethod && paymentMethod !== "all") {
+      query.paymentMethod = paymentMethod;
+    }
+
+    // 5. Filtro por Wallet Type
+    if (walletType && walletType !== "all") {
+      if (walletType === "none") {
+        // Filtra apenas vendas sem wallet (cartão normal)
+        query.walletType = null;
+      } else {
+        query.walletType = walletType;
+      }
+    }
+
+    // 6. Busca por Email (case-insensitive, partial match)
+    if (email) {
+      query.customerEmail = { $regex: email, $options: "i" };
+    }
+
+    // 7. Filtro por Data
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate as string);
+      }
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999); // Fim do dia
+        query.createdAt.$lte = end;
+      }
+    }
+
     // Busca com paginação e ordenação por mais recente
-    const sales = await Sale.find(query)
+    const salesRaw = await Sale.find(query)
       .select("-updatedAt -__v") // Performance: remove campos inúteis
-      .populate("offerId", "name slug") // Traz nome da oferta
+      .populate({
+        path: "offerId",
+        select: "name slug isActive",
+        match: { isActive: true }, // Filtra apenas ofertas ativas
+      })
       .sort({ createdAt: -1 })
       .limit(Number(limit))
-      .skip((Number(page) - 1) * Number(limit));
+      .skip((Number(page) - 1) * Number(limit))
+      .lean(); // Converte para objeto JS puro para melhor performance
 
-    const total = await Sale.countDocuments(query);
+    // Remove vendas onde offerId é null (ofertas inativas filtradas pelo match)
+    const sales = salesRaw.filter(sale => sale.offerId !== null);
+
+    // Recalcula o total considerando apenas ofertas ativas
+    const totalSalesWithActiveOffers = await Sale.find(query)
+      .populate({
+        path: "offerId",
+        select: "_id isActive",
+        match: { isActive: true },
+      })
+      .then(results => results.filter(sale => sale.offerId !== null).length);
+
+    const total = totalSalesWithActiveOffers;
 
     return res.json({
       data: sales,

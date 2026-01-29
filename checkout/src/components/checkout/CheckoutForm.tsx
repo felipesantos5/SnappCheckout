@@ -44,6 +44,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
   // Estado de Sucesso
   const [paymentSucceeded, setPaymentSucceeded] = useState(false);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [saleId, setSaleId] = useState<string | null>(null); // Para PayPal
 
   // Estados para PIX
   const [pixData, setPixData] = useState<{
@@ -295,30 +296,41 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
   // --- LÓGICA DE SUCESSO E REDIRECIONAMENTO ---
   useEffect(() => {
-    if (paymentSucceeded && (paymentIntentId || method === "paypal")) {
+    if (paymentSucceeded && (paymentIntentId || saleId)) {
       const timer = setTimeout(async () => {
         // 1. PRIORIDADE: Upsell Habilitado
-        if (offerData.upsell?.enabled) {
-          try {
-            // Gera token para upsell
-            const response = await fetch(`${API_URL}/payments/upsell-token`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                paymentIntentId: paymentIntentId,
-                offerSlug: offerData.slug,
-              }),
-            });
+        if (offerData.upsell?.enabled && offerData.upsell?.redirectUrl) {
+          // PayPal: Redireciona diretamente para a página de upsell (sem token, pois não suporta one-click)
+          if (saleId && !paymentIntentId) {
+            window.location.href = offerData.upsell.redirectUrl;
+            return;
+          }
 
-            const data = await response.json();
+          // Stripe: Gera token para one-click upsell
+          if (paymentIntentId) {
+            try {
+              const response = await fetch(`${API_URL}/payments/upsell-token`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  paymentIntentId: paymentIntentId,
+                  offerSlug: offerData.slug,
+                }),
+              });
 
-            if (data.token) {
-              const params = new URLSearchParams();
-              params.append("token", data.token);
-              window.location.href = `${offerData.upsell?.redirectUrl}?${params.toString()}`;
-              return;
+              const data = await response.json();
+
+              if (data.token) {
+                const params = new URLSearchParams();
+                params.append("token", data.token);
+                window.location.href = `${offerData.upsell.redirectUrl}?${params.toString()}`;
+                return;
+              }
+            } catch (error) {
+              console.error("Erro ao gerar token de upsell:", error);
+              // Em caso de erro, continua para thank you page
             }
-          } catch (error) { }
+          }
         }
 
         // 2. PRIORIDADE: Página de Obrigado Customizada do Cliente
@@ -337,7 +349,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
       return () => clearTimeout(timer);
     }
-  }, [paymentSucceeded, paymentIntentId, offerData, navigate]);
+  }, [paymentSucceeded, paymentIntentId, saleId, offerData, navigate]);
 
   const handleToggleBump = (bumpId: string) => {
     setSelectedBumps((prev) => {
@@ -637,7 +649,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                   }}
                   paypalPurchaseEventId={`${checkoutSessionId}_paypal_purchase`}
                   paypalSelectedOrderBumps={selectedBumps}
-                  onPaypalSuccess={(saleId, purchaseEventId) => {
+                  onPaypalSuccess={(paypalSaleId, purchaseEventId) => {
                     // Dispara evento Purchase do Facebook Pixel para PayPal
                     // Usa o mesmo event_id enviado ao backend CAPI para deduplicação
                     if (window.fbq) {
@@ -650,11 +662,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                           content_type: "product",
                           value: totalAmount / 100,
                           currency: offerData.currency.toUpperCase(),
-                          order_id: saleId,
+                          order_id: paypalSaleId,
                         },
                         { eventID: purchaseEventId }
                       );
                     }
+                    setSaleId(paypalSaleId); // Armazena o saleId do PayPal
                     setPaymentSucceeded(true);
                   }}
                   onPaypalError={(msg) => setErrorMessage(msg)}

@@ -18,6 +18,7 @@ import ABTestCreatePage from "./pages/dashboard/ABTestCreatePage";
 import ABTestEditPage from "./pages/dashboard/ABTestEditPage";
 import ABTestAnalyticsPage from "./pages/dashboard/ABTestAnalyticsPage";
 import PaymentsPage from "./pages/dashboard/PaymentsPage";
+import { AllSalesPage } from "./pages/dashboard/AllSalesPage";
 
 function App() {
   return (
@@ -47,6 +48,9 @@ function App() {
 
         {/* Página de Pagamentos */}
         <Route path="payments" element={<PaymentsPage />} />
+
+        {/* Página de Todas as Vendas */}
+        <Route path="all-sales" element={<AllSalesPage />} />
 
         {/* 2. ADICIONE AS ROTAS DE CALLBACK DO STRIPE */}
         {/* (Elas batem com as URLs do backend stripe.controller.ts) */}

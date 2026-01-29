@@ -32,6 +32,11 @@ export const handleGetOfferBySlug = async (req: Request, res: Response) => {
       return res.status(404).json({ error: { message: "Oferta não encontrada." } });
     }
 
+    // Verifica se a oferta está ativa
+    if (!offer.isActive) {
+      return res.status(404).json({ error: { message: "Oferta não disponível." } });
+    }
+
     // --- IMPLEMENTAÇÃO DO CACHE ---
     // public: qualquer um pode cachear (CDN, Browser)
     // max-age=60: O navegador do cliente guarda por 60 segundos (1 min)
@@ -159,6 +164,25 @@ export const handleUnarchiveOffer = async (req: Request, res: Response) => {
     const ownerId = req.userId!;
 
     const offer = await offerService.unarchiveOffer(id, ownerId);
+
+    if (!offer) {
+      return res.status(404).json({ error: { message: "Oferta não encontrada ou não pertence a você." } });
+    }
+    res.status(200).json(offer);
+  } catch (error) {
+    res.status(400).json({ error: { message: (error as Error).message } });
+  }
+};
+
+/**
+ * Controller para TOGGLE status ativo/inativo de uma oferta
+ */
+export const handleToggleOfferActive = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const ownerId = req.userId!;
+
+    const offer = await offerService.toggleOfferActive(id, ownerId);
 
     if (!offer) {
       return res.status(404).json({ error: { message: "Oferta não encontrada ou não pertence a você." } });

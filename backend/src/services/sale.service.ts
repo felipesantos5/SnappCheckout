@@ -6,14 +6,17 @@ import Sale, { ISale } from "../models/sale.model";
  */
 export const listMySales = async (ownerId: string): Promise<ISale[]> => {
   try {
-    return await Sale.find({ ownerId })
+    const sales = await Sale.find({ ownerId })
       .populate({
         path: "offerId",
-        select: "name currency", // Seleciona nome e moeda da oferta
+        select: "name currency isActive", // Seleciona nome, moeda e status ativo
+        match: { isActive: true }, // Filtra apenas ofertas ativas
       })
       .sort({ createdAt: -1 })
       .limit(100);
-    // --- FIM DA MUDANÇA ---
+
+    // Remove vendas onde offerId é null (ofertas inativas são filtradas pelo match)
+    return sales.filter(sale => sale.offerId !== null);
   } catch (error) {
     throw new Error("Falha ao listar vendas.");
   }
@@ -25,12 +28,20 @@ export const listMySales = async (ownerId: string): Promise<ISale[]> => {
  */
 export const listSalesByOffer = async (ownerId: string, offerId: string): Promise<ISale[]> => {
   try {
-    return await Sale.find({
+    const sales = await Sale.find({
       ownerId: ownerId,
       offerId: offerId, // Filtro pela oferta
     })
+      .populate({
+        path: "offerId",
+        select: "name currency isActive",
+        match: { isActive: true }, // Filtra apenas ofertas ativas
+      })
       .sort({ createdAt: -1 }) // Mais recentes primeiro
       .limit(100); // Limita às últimas 100
+
+    // Remove vendas onde offerId é null (ofertas inativas)
+    return sales.filter(sale => sale.offerId !== null);
   } catch (error) {
     throw new Error("Falha ao buscar vendas da oferta.");
   }

@@ -297,6 +297,12 @@ export function CheckoutSlugPage() {
   };
 
   if (error) {
+    // Se a oferta está desativada ou não disponível, mostra tela em branco
+    if (error.includes("não disponível") || error.includes("indisponível")) {
+      return <div className="min-h-screen bg-white"></div>;
+    }
+
+    // Para outros erros, mostra a mensagem de erro
     return (
       <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
         <div className="max-w-md text-center">
