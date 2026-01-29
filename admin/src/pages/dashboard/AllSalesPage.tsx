@@ -281,7 +281,15 @@ export function AllSalesPage() {
                 <SelectItem value="all">Todos os países</SelectItem>
                 {countries.map((country) => (
                   <SelectItem key={country} value={country}>
-                    {getCountryFlag(country)} {country}
+                    <span
+                      style={{
+                        fontFamily:
+                          '"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif',
+                      }}
+                    >
+                      {getCountryFlag(country)}
+                    </span>{" "}
+                    {country}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -448,8 +456,17 @@ export function AllSalesPage() {
 
                   {/* País */}
                   <TableCell className="text-center">
-                    <div className="text-2xl">{getCountryFlag(sale.country || "BR")}</div>
-                    <div className="text-xs text-muted-foreground">{sale.country || "N/A"}</div>
+                    <div
+                      className="text-2xl leading-none"
+                      style={{
+                        fontFamily:
+                          '"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif',
+                        fontSize: "2rem",
+                      }}
+                    >
+                      {getCountryFlag(sale.country || "BR")}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">{sale.country || "N/A"}</div>
                   </TableCell>
 
                   {/* Método */}

@@ -35,13 +35,12 @@ export const listSalesByOffer = async (ownerId: string, offerId: string): Promis
       .populate({
         path: "offerId",
         select: "name currency isActive",
-        match: { isActive: true }, // Filtra apenas ofertas ativas
+        // SEM FILTRO de isActive - mostra TODAS as vendas da oferta
       })
       .sort({ createdAt: -1 }) // Mais recentes primeiro
       .limit(100); // Limita às últimas 100
 
-    // Remove vendas onde offerId é null (ofertas inativas)
-    return sales.filter(sale => sale.offerId !== null);
+    return sales;
   } catch (error) {
     throw new Error("Falha ao buscar vendas da oferta.");
   }
