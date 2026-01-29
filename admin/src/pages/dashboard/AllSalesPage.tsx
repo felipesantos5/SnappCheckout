@@ -8,10 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, Download, RefreshCw } from "lucide-react";
+import { Loader2, Search, Download, RefreshCw, Zap, ArrowUpCircle, ShoppingBag } from "lucide-react";
 import { formatCurrency } from "@/helper/formatCurrency";
 import { formatDate } from "@/helper/formatDate";
 import { getCountryFlag } from "@/helper/getCountryFlag";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Sale {
   _id: string;
@@ -33,6 +34,7 @@ interface Sale {
   failureReason?: string;
   failureMessage?: string;
   createdAt: string;
+  isUpsell?: boolean;
   items?: Array<{
     name: string;
     priceInCents: number;
@@ -67,6 +69,35 @@ const statusConfig = {
     color: "bg-blue-500/10 text-blue-700 border-blue-500/20",
     icon: "↩",
   },
+};
+
+// Helper para determinar o tipo de venda
+const getSaleTypeIcon = (sale: Sale) => {
+  // Upsell tem prioridade
+  if (sale.isUpsell) {
+    return (
+      <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50">
+        <Zap className="w-3 h-3 mr-1" /> Upsell
+      </Badge>
+    );
+  }
+
+  // Verificar se tem order bumps
+  const hasBump = sale.items?.some((i) => i.isOrderBump);
+  if (hasBump) {
+    return (
+      <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
+        <ArrowUpCircle className="w-3 h-3 mr-1" /> + Bump
+      </Badge>
+    );
+  }
+
+  // Venda padrão
+  return (
+    <Badge variant="outline" className="text-muted-foreground">
+      <ShoppingBag className="w-3 h-3 mr-1" /> Venda
+    </Badge>
+  );
 };
 
 export function AllSalesPage() {
@@ -155,20 +186,29 @@ export function AllSalesPage() {
 
     try {
       const csvContent = [
-        ["Data", "Status", "Cliente", "Email", "Oferta", "Valor", "Moeda", "País", "Método"].join(","),
-        ...sales.map((sale) =>
-          [
+        ["Data", "Cliente", "Email", "Oferta", "Tipo", "Status", "Valor", "Moeda", "País", "Método"].join(","),
+        ...sales.map((sale) => {
+          // Determinar tipo de venda
+          let tipo = "Venda";
+          if (sale.isUpsell) {
+            tipo = "Upsell";
+          } else if (sale.items?.some((i) => i.isOrderBump)) {
+            tipo = "+ Bump";
+          }
+
+          return [
             new Date(sale.createdAt).toLocaleDateString(),
-            statusConfig[sale.status]?.label || sale.status,
             sale.customerName || "",
             sale.customerEmail || "",
             sale.offerId?.name || "N/A",
+            tipo,
+            statusConfig[sale.status]?.label || sale.status,
             (sale.totalAmountInCents / 100).toFixed(2),
             (sale.currency || "BRL").toUpperCase(),
             sale.country || "N/A",
             sale.paymentMethod || "N/A",
-          ].join(",")
-        ),
+          ].join(",");
+        }),
       ].join("\n");
 
       const blob = new Blob([csvContent], { type: "text/csv" });
@@ -370,26 +410,25 @@ export function AllSalesPage() {
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead className="w-[120px]">Data</TableHead>
-              <TableHead className="w-[100px]">Status</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Oferta</TableHead>
-              <TableHead>Itens</TableHead>
+              <TableHead className="w-[120px]">Tipo</TableHead>
+              <TableHead className="w-[120px]">Status</TableHead>
               <TableHead className="text-right">Valor</TableHead>
               <TableHead className="w-[80px] text-center">País</TableHead>
               <TableHead className="w-[120px]">Método</TableHead>
-              <TableHead className="w-[150px]">Detalhes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-48 text-center">
+                <TableCell colSpan={8} className="h-48 text-center">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : !sales || sales.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-48 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="h-48 text-center text-muted-foreground">
                   Nenhuma venda encontrada com os filtros aplicados.
                 </TableCell>
               </TableRow>
@@ -399,13 +438,6 @@ export function AllSalesPage() {
                   {/* Data */}
                   <TableCell>
                     <div className="text-sm">{sale.createdAt ? formatDate(sale.createdAt) : "N/A"}</div>
-                  </TableCell>
-
-                  {/* Status */}
-                  <TableCell>
-                    <Badge variant="outline" className={statusConfig[sale.status]?.color || ""}>
-                      {statusConfig[sale.status]?.icon || ""} {statusConfig[sale.status]?.label || sale.status}
-                    </Badge>
                   </TableCell>
 
                   {/* Cliente */}
@@ -429,19 +461,29 @@ export function AllSalesPage() {
                     )}
                   </TableCell>
 
-                  {/* Itens */}
+                  {/* Tipo */}
+                  <TableCell>{getSaleTypeIcon(sale)}</TableCell>
+
+                  {/* Status */}
                   <TableCell>
-                    {sale.items && Array.isArray(sale.items) && sale.items.length > 0 ? (
-                      <div className="space-y-1">
-                        {sale.items.map((item, idx) => (
-                          <div key={idx} className="text-xs">
-                            <span className="font-medium">{item?.name || "Item"}</span>
-                            {item?.isOrderBump && <Badge variant="secondary" className="ml-1 text-[10px] py-0 px-1">Bump</Badge>}
-                          </div>
-                        ))}
-                      </div>
+                    {sale.status === "failed" && sale.failureMessage ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Badge variant="outline" className={statusConfig[sale.status]?.color || ""}>
+                              {statusConfig[sale.status]?.icon || ""} {statusConfig[sale.status]?.label || sale.status}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs bg-destructive text-destructive-foreground border-destructive">
+                            <p className="font-semibold">Motivo: {sale.failureReason}</p>
+                            <p className="text-xs mt-1">{sale.failureMessage}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
+                      <Badge variant="outline" className={statusConfig[sale.status]?.color || ""}>
+                        {statusConfig[sale.status]?.icon || ""} {statusConfig[sale.status]?.label || sale.status}
+                      </Badge>
                     )}
                   </TableCell>
 
@@ -502,27 +544,6 @@ export function AllSalesPage() {
                         </Badge>
                       )}
                     </div>
-                  </TableCell>
-
-                  {/* Detalhes */}
-                  <TableCell>
-                    {sale.status === "failed" && sale.failureMessage && (
-                      <div className="text-xs text-red-600">
-                        <div className="font-medium">{sale.failureReason}</div>
-                        <div className="truncate max-w-[150px]" title={sale.failureMessage}>
-                          {sale.failureMessage}
-                        </div>
-                      </div>
-                    )}
-                    {sale.status === "succeeded" && (
-                      <div className="text-xs text-green-600 font-medium">Pagamento confirmado</div>
-                    )}
-                    {sale.status === "pending" && (
-                      <div className="text-xs text-yellow-600 font-medium">Aguardando confirmação</div>
-                    )}
-                    {sale.status === "refunded" && (
-                      <div className="text-xs text-blue-600 font-medium">Valor devolvido</div>
-                    )}
                   </TableCell>
                 </TableRow>
               ))
