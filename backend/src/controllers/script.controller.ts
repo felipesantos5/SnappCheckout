@@ -63,10 +63,16 @@ export const getUpsellScript = (req: Request, res: Response) => {
     }
   }
 
-  // 3. Auto-Inicialização (Ouve os cliques automaticamente)
-  document.addEventListener("DOMContentLoaded", () => {
+  // 3. Função para Inicializar Event Listeners
+  function initUpsellButtons() {
+    // Verifica se já inicializou (evita duplicação)
+    if (window._chkUpsellInit) return;
+
+    console.log('🚀 Inicializando Upsell Script...');
+
     // Encontra botões de compra
     const buyBtns = document.querySelectorAll('.chk-buy');
+    console.log(\`✅ Encontrado(s) \${buyBtns.length} botão(ões) de compra (.chk-buy)\`);
     buyBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -76,13 +82,65 @@ export const getUpsellScript = (req: Request, res: Response) => {
 
     // Encontra botões de recusa
     const refuseBtns = document.querySelectorAll('.chk-refuse');
+    console.log(\`✅ Encontrado(s) \${refuseBtns.length} botão(ões) de recusa (.chk-refuse)\`);
     refuseBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         handleUpsellAction(false, e.target);
       });
     });
+
+    // Marca como inicializado
+    if (buyBtns.length > 0 || refuseBtns.length > 0) {
+      window._chkUpsellInit = true;
+      console.log('✅ Upsell Script inicializado com sucesso!');
+    }
+  }
+
+  // 4. Auto-Inicialização Inteligente
+  // Tenta inicializar imediatamente se o DOM já estiver pronto
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    console.log('📄 DOM já está pronto, inicializando imediatamente...');
+    // Pequeno delay para garantir que elementos renderizados via JS estejam prontos
+    setTimeout(initUpsellButtons, 100);
+  } else {
+    // Se não, espera o DOMContentLoaded
+    console.log('⏳ Aguardando DOMContentLoaded...');
+    document.addEventListener('DOMContentLoaded', initUpsellButtons);
+  }
+
+  // 5. MutationObserver - Observa novos botões adicionados dinamicamente
+  const observer = new MutationObserver((mutations) => {
+    let shouldInit = false;
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === 1) { // Element node
+          if (node.classList?.contains('chk-buy') ||
+              node.classList?.contains('chk-refuse') ||
+              node.querySelector?.('.chk-buy, .chk-refuse')) {
+            shouldInit = true;
+          }
+        }
+      });
+    });
+
+    if (shouldInit && !window._chkUpsellInit) {
+      console.log('🔄 Novos botões detectados, reinicializando...');
+      setTimeout(initUpsellButtons, 50);
+    }
   });
+
+  // Observa mudanças no body
+  if (document.body) {
+    observer.observe(document.body, { childList: true, subtree: true });
+  } else {
+    // Se body ainda não existe, espera um pouco
+    setTimeout(() => {
+      if (document.body) {
+        observer.observe(document.body, { childList: true, subtree: true });
+      }
+    }, 100);
+  }
 })();
   `;
 

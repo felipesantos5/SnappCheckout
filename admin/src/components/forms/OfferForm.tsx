@@ -110,7 +110,7 @@ const UpsellButtonsOnlyDialog = () => {
   const [copied, setCopied] = useState(false);
 
   const buttonsCode = `
-  < button class="chk-buy" style = "background:#3CB371; color:white; font-weight:700; padding:10px; width:100%; max-width:500px; border-radius: 10px; font-size:16px; border:0; margin-bottom:16px;" >
+  <button class="chk-buy" style = "background:#3CB371; color:white; font-weight:700; padding:10px; width:100%; max-width:500px; border-radius: 10px; font-size:16px; border:0; margin-bottom:16px;" >
     SIM, QUERO COMPRAR
 </button >
 
