@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Download, RefreshCw, Zap, ArrowUpCircle, ShoppingBag, DollarSign, ShoppingCart, TrendingUp, Percent, X } from "lucide-react";
+import { Loader2, Download, RefreshCw, Zap, ArrowUpCircle, ShoppingBag, DollarSign, ShoppingCart, TrendingUp, Percent, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/helper/formatCurrency";
 import { formatDate } from "@/helper/formatDate";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -72,6 +72,33 @@ const statusConfig = {
   },
 };
 
+// Taxas de conversão para BRL (atualizadas periodicamente)
+const exchangeRates: Record<string, number> = {
+  BRL: 1.0,
+  USD: 5.0,   // 1 USD = ~5 BRL
+  EUR: 5.5,   // 1 EUR = ~5.5 BRL
+  AUD: 3.3,   // 1 AUD = ~3.3 BRL
+  GBP: 6.3,   // 1 GBP = ~6.3 BRL
+  CAD: 3.7,   // 1 CAD = ~3.7 BRL
+  JPY: 0.034, // 1 JPY = ~0.034 BRL
+  CHF: 5.8,   // 1 CHF = ~5.8 BRL
+  CNY: 0.70,  // 1 CNY = ~0.70 BRL
+  MXN: 0.30,  // 1 MXN = ~0.30 BRL
+  ARS: 0.005, // 1 ARS = ~0.005 BRL
+};
+
+// Função para converter valor em centavos para BRL
+const convertToBRL = (amountInCents: number, currency: string | undefined): number => {
+  // Se não houver moeda definida, assume BRL
+  if (!currency) {
+    return amountInCents;
+  }
+
+  const normalizedCurrency = currency.toUpperCase();
+  const rate = exchangeRates[normalizedCurrency] || 1.0;
+  return amountInCents * rate;
+};
+
 // Helper para determinar o tipo de venda
 const getSaleTypeIcon = (sale: Sale) => {
   if (sale.isUpsell) {
@@ -103,6 +130,7 @@ export function AllSalesPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Filtros
   const [page, setPage] = useState(1);
@@ -201,10 +229,16 @@ export function AllSalesPage() {
     fetchSales();
   }, [page, selectedStatuses, selectedOffers, selectedPaymentMethods, selectedWallets, periodFilter, startDate, endDate]);
 
-  // Métricas calculadas
+  // Métricas calculadas (sempre em BRL)
   const metrics = useMemo(() => {
     const succeededSales = sales.filter(s => s.status === "succeeded");
-    const totalRevenue = succeededSales.reduce((acc, sale) => acc + sale.totalAmountInCents, 0);
+
+    // Converte todas as vendas para BRL antes de somar
+    const totalRevenue = succeededSales.reduce((acc, sale) => {
+      const amountInBRL = convertToBRL(sale.totalAmountInCents, sale.currency);
+      return acc + amountInBRL;
+    }, 0);
+
     const totalSales = succeededSales.length;
     const averageTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
     const approvalRate = sales.length > 0 ? (succeededSales.length / sales.length) * 100 : 0;
@@ -275,10 +309,13 @@ export function AllSalesPage() {
   const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background relative">
       {/* Sidebar de Filtros */}
-      <aside className="w-80 border-r bg-card pl-4 pr-4 py-4 overflow-y-auto flex-shrink-0">
-        <div className="space-y-4">
+      <aside
+        className={`border-r bg-card py-4 overflow-y-auto shrink-0 transition-all duration-300 pl-0! ease-in-out ${isSidebarOpen ? "w-72 px-4" : "w-0 px-0 border-r-0"
+          }`}
+      >
+        <div className={`space-y-4 ${isSidebarOpen ? "opacity-100" : "opacity-0"} transition-opacity duration-200`}>
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Filtros</h2>
             <Button variant="ghost" size="sm" onClick={clearAllFilters}>
@@ -510,6 +547,20 @@ export function AllSalesPage() {
         </div>
       </aside>
 
+      {/* Botão Toggle Sidebar */}
+      <Button
+        variant="outline"
+        size="icon"
+        className={`fixed z-50 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg ${
+          isSidebarOpen
+            ? "top-4 left-[17rem]"
+            : "top-1/2 -translate-y-1/2 left-64"
+        }`}
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+      >
+        {isSidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+      </Button>
+
       {/* Conteúdo Principal */}
       <main className="flex-1">
         <div className="p-4 space-y-4 max-w-[1600px]">
@@ -664,10 +715,7 @@ export function AllSalesPage() {
                       </TableCell>
 
                       <TableCell className="text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <CountryFlag countryCode={sale.country} />
-                          <span className="text-sm font-medium">{sale.country || "N/A"}</span>
-                        </div>
+                        <CountryFlag countryCode={sale.country} />
                       </TableCell>
 
                       <TableCell>

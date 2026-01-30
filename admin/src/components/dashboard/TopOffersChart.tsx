@@ -35,7 +35,7 @@ export function TopOffersChart({ data }: TopOffersChartProps) {
   }
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader className="pb-2 sm:pb-4">
         <CardTitle className="text-base sm:text-lg">Top Ofertas</CardTitle>
         <CardDescription className="text-xs sm:text-sm">Receita por oferta</CardDescription>

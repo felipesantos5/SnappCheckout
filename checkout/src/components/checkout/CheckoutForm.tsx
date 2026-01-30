@@ -15,6 +15,7 @@ import { Banner } from "./Banner";
 // Lazy load componentes não críticos para melhorar performance inicial
 const AddressInfo = lazy(() => import("./AddressInfo").then((module) => ({ default: module.AddressInfo })));
 const OrderBump = lazy(() => import("./OrderBump").then((module) => ({ default: module.OrderBump })));
+const PayPalPayment = lazy(() => import("./PayPalPayment").then((module) => ({ default: module.PayPalPayment })));
 import { API_URL } from "../../config/BackendUrl";
 import { useTheme } from "../../context/ThemeContext";
 import { useTranslation } from "../../i18n/I18nContext";
@@ -684,6 +685,50 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                     />
                   </Suspense>
                 </div>
+
+                {/* Botão PayPal fixo após Order Bumps - Mobile (só aparece se PayPal não estiver selecionado) */}
+                {offerData.paypalEnabled && paypalClientId && method !== "paypal" && (
+                  <div className="lg:hidden mt-6">
+                    <Suspense fallback={<div className="animate-pulse bg-gray-100 h-12 rounded-lg"></div>}>
+                      <PayPalPayment
+                        amount={totalAmount}
+                        currency={offerData.currency}
+                        offerId={offerData._id}
+                        paypalClientId={paypalClientId}
+                        abTestId={abTestId ?? null}
+                        purchaseEventId={`${checkoutSessionId}_paypal_purchase`}
+                        selectedOrderBumps={selectedBumps}
+                        customerData={{
+                          name: (document.getElementById("name") as HTMLInputElement)?.value || "",
+                          email: (document.getElementById("email") as HTMLInputElement)?.value || "",
+                          phone: (document.getElementById("phone") as HTMLInputElement)?.value || "",
+                        }}
+                        onSuccess={(paypalSaleId, purchaseEventId, redirectUrl) => {
+                          if (window.fbq) {
+                            window.fbq(
+                              "track",
+                              "Purchase",
+                              {
+                                content_name: offerData.mainProduct.name,
+                                content_ids: [offerData.mainProduct._id],
+                                content_type: "product",
+                                value: totalAmount / 100,
+                                currency: offerData.currency.toUpperCase(),
+                                order_id: paypalSaleId,
+                              },
+                              { eventID: purchaseEventId }
+                            );
+                          }
+                          setSaleId(paypalSaleId);
+                          setPaypalRedirectUrl(redirectUrl || null);
+                          setPaymentSucceeded(true);
+                        }}
+                        onError={(msg) => setErrorMessage(msg)}
+                        onSwitchPaymentMethod={() => setMethod("creditCard")}
+                      />
+                    </Suspense>
+                  </div>
+                )}
               </div>
 
               {/* COLUNA DIREITA: Resumo do Pedido + Botão */}
@@ -713,6 +758,50 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                       />
                     </Suspense>
                   </div>
+
+                  {/* Botão PayPal fixo após Order Bumps - Desktop (só aparece se PayPal não estiver selecionado) */}
+                  {offerData.paypalEnabled && paypalClientId && method !== "paypal" && (
+                    <div className="mt-6">
+                      <Suspense fallback={<div className="animate-pulse bg-gray-100 h-12 rounded-lg"></div>}>
+                        <PayPalPayment
+                          amount={totalAmount}
+                          currency={offerData.currency}
+                          offerId={offerData._id}
+                          paypalClientId={paypalClientId}
+                          abTestId={abTestId ?? null}
+                          purchaseEventId={`${checkoutSessionId}_paypal_purchase`}
+                          selectedOrderBumps={selectedBumps}
+                          customerData={{
+                            name: (document.getElementById("name") as HTMLInputElement)?.value || "",
+                            email: (document.getElementById("email") as HTMLInputElement)?.value || "",
+                            phone: (document.getElementById("phone") as HTMLInputElement)?.value || "",
+                          }}
+                          onSuccess={(paypalSaleId, purchaseEventId, redirectUrl) => {
+                            if (window.fbq) {
+                              window.fbq(
+                                "track",
+                                "Purchase",
+                                {
+                                  content_name: offerData.mainProduct.name,
+                                  content_ids: [offerData.mainProduct._id],
+                                  content_type: "product",
+                                  value: totalAmount / 100,
+                                  currency: offerData.currency.toUpperCase(),
+                                  order_id: paypalSaleId,
+                                },
+                                { eventID: purchaseEventId }
+                              );
+                            }
+                            setSaleId(paypalSaleId);
+                            setPaypalRedirectUrl(redirectUrl || null);
+                            setPaymentSucceeded(true);
+                          }}
+                          onError={(msg) => setErrorMessage(msg)}
+                          onSwitchPaymentMethod={() => setMethod("creditCard")}
+                        />
+                      </Suspense>
+                    </div>
+                  )}
                 </div>
 
                 {/* Botão e Trust Badges - Mobile e Desktop */}
