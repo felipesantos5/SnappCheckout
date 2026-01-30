@@ -774,7 +774,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                   <button
                     type="submit"
                     disabled={!stripe || loading || paymentSucceeded}
-                    className="w-full font-bold py-4 px-6 rounded-md text-lg transition-all duration-300 disabled:opacity-50 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg hover:shadow-xl relative overflow-hidden group"
+                    className="w-full font-bold py-[12px] px-6 rounded-md text-lg transition-all duration-300 disabled:opacity-50 hover:opacity-90 cursor-pointer shadow-lg hover:shadow-xl relative overflow-hidden group"
                     style={{
                       backgroundColor: loading || paymentSucceeded ? "#ccc" : button,
                       color: buttonForeground,
