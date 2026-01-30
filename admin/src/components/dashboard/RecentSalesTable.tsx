@@ -21,6 +21,7 @@ import { StripeIcon } from "../icons/stripe";
 import { PaypalIcon } from "../icons/paypal";
 import { PixIcon } from "../icons/pix";
 import type { DateRange } from "react-day-picker";
+import { useAuth } from "@/context/AuthContext";
 
 interface RecentSalesTableProps {
   period?: string; // "1" (hoje), "7", "30", "90", "custom"
@@ -28,6 +29,7 @@ interface RecentSalesTableProps {
 }
 
 export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesTableProps) {
+  const { token } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -37,18 +39,28 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
 
   // Fetch Inicial
   useEffect(() => {
+    if (!token) return;
+
     const fetchSales = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get(`${API_URL}/sales`);
-        if (Array.isArray(response.data)) {
+        // Buscar apenas as 100 vendas mais recentes para não sobrecarregar
+        const response = await axios.get(`${API_URL}/sales?limit=100&page=1`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        // Verifica se a resposta tem o formato paginado ou array direto
+        const salesData = response.data?.data || response.data;
+
+        if (Array.isArray(salesData)) {
           // Ordenar por data mais recente primeiro
-          const sortedSales = response.data.sort((a: Sale, b: Sale) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          const sortedSales = salesData.sort((a: Sale, b: Sale) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           setSales(sortedSales);
         } else {
           setSales([]);
         }
       } catch (error) {
+        console.error("Erro ao carregar vendas:", error);
         toast.error("Erro ao carregar vendas", {
           description: "Não foi possível buscar o histórico de vendas.",
         });
@@ -58,7 +70,7 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
     };
 
     fetchSales();
-  }, []);
+  }, [token]);
 
   // --- Lógica de Filtragem (baseada nas props do Dashboard) ---
   const filteredSales = useMemo(() => {

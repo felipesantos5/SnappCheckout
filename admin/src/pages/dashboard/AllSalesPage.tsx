@@ -106,12 +106,13 @@ export function AllSalesPage() {
 
   // Filtros
   const [page, setPage] = useState(1);
-  const [limit] = useState(50);
+  const [limit] = useState(20);
   const [searchEmail, setSearchEmail] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["succeeded", "failed", "pending", "refunded"]);
   const [selectedOffers, setSelectedOffers] = useState<string[]>([]);
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
   const [selectedWallets, setSelectedWallets] = useState<string[]>([]);
+  const [periodFilter, setPeriodFilter] = useState<"today" | "week" | "month" | "custom">("month");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -155,8 +156,28 @@ export function AllSalesPage() {
       }
 
       if (searchEmail) params.append("email", searchEmail);
-      if (startDate) params.append("startDate", startDate);
-      if (endDate) params.append("endDate", endDate);
+
+      // Calcular datas baseado no filtro de período
+      const now = new Date();
+      let calculatedStartDate = startDate;
+      let calculatedEndDate = endDate;
+
+      if (periodFilter === "today") {
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        calculatedStartDate = today.toISOString();
+        calculatedEndDate = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
+      } else if (periodFilter === "week") {
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        calculatedStartDate = weekAgo.toISOString();
+        calculatedEndDate = now.toISOString();
+      } else if (periodFilter === "month") {
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        calculatedStartDate = monthAgo.toISOString();
+        calculatedEndDate = now.toISOString();
+      }
+
+      if (calculatedStartDate) params.append("startDate", calculatedStartDate);
+      if (calculatedEndDate) params.append("endDate", calculatedEndDate);
 
       const response = await axios.get(`${API_URL}/sales?${params.toString()}`);
       const salesData = response.data?.data || [];
@@ -175,7 +196,7 @@ export function AllSalesPage() {
 
   useEffect(() => {
     fetchSales();
-  }, [page, selectedStatuses, selectedOffers, selectedPaymentMethods, selectedWallets, startDate, endDate]);
+  }, [page, selectedStatuses, selectedOffers, selectedPaymentMethods, selectedWallets, periodFilter, startDate, endDate]);
 
   // Métricas calculadas
   const metrics = useMemo(() => {
@@ -242,6 +263,7 @@ export function AllSalesPage() {
     setSelectedOffers([]);
     setSelectedPaymentMethods([]);
     setSelectedWallets([]);
+    setPeriodFilter("month");
     setStartDate("");
     setEndDate("");
     setPage(1);
@@ -250,9 +272,9 @@ export function AllSalesPage() {
   const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex min-h-screen bg-background">
       {/* Sidebar de Filtros */}
-      <aside className="w-80 border-r bg-card p-6 overflow-y-auto">
+      <aside className="w-80 border-r bg-card p-6 overflow-y-auto flex-shrink-0">
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Filtros</h2>
@@ -265,20 +287,77 @@ export function AllSalesPage() {
           {/* Período */}
           <div className="space-y-3">
             <Label className="text-sm font-medium">Período</Label>
-            <div className="space-y-2">
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                placeholder="Data inicial"
-              />
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                placeholder="Data final"
-              />
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant={periodFilter === "today" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setPeriodFilter("today");
+                  setStartDate("");
+                  setEndDate("");
+                  setPage(1);
+                }}
+                className={periodFilter === "today" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
+              >
+                Hoje
+              </Button>
+              <Button
+                variant={periodFilter === "week" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setPeriodFilter("week");
+                  setStartDate("");
+                  setEndDate("");
+                  setPage(1);
+                }}
+                className={periodFilter === "week" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
+              >
+                7 dias
+              </Button>
+              <Button
+                variant={periodFilter === "month" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setPeriodFilter("month");
+                  setStartDate("");
+                  setEndDate("");
+                  setPage(1);
+                }}
+                className={periodFilter === "month" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
+              >
+                30 dias
+              </Button>
+              <Button
+                variant={periodFilter === "custom" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPeriodFilter("custom")}
+                className={periodFilter === "custom" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
+              >
+                Personalizado
+              </Button>
             </div>
+            {periodFilter === "custom" && (
+              <div className="space-y-2 pt-2">
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Data inicial"
+                />
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Data final"
+                />
+              </div>
+            )}
           </div>
 
           {/* Buscar por Email */}
@@ -417,8 +496,8 @@ export function AllSalesPage() {
       </aside>
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 space-y-6">
+      <main className="flex-1">
+        <div className="p-6 space-y-6 max-w-[1600px]">
           {/* Cabeçalho */}
           <div className="flex justify-between items-center">
             <div>
