@@ -44,8 +44,8 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
     const fetchSales = async () => {
       setIsLoading(true);
       try {
-        // Buscar apenas as 100 vendas mais recentes para não sobrecarregar
-        const response = await axios.get(`${API_URL}/sales?limit=100&page=1`, {
+        // Buscar apenas as 100 vendas mais recentes APROVADAS para não sobrecarregar
+        const response = await axios.get(`${API_URL}/sales?limit=100&page=1&status=succeeded`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -94,7 +94,8 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
 
     return sales.filter((sale) => {
       const saleDate = parseISO(sale.createdAt);
-      return isWithinInterval(saleDate, { start, end });
+      // Filtra apenas vendas aprovadas (succeeded) no período selecionado
+      return isWithinInterval(saleDate, { start, end }) && sale.status === "succeeded";
     });
   }, [sales, period, customDateRange]);
 
