@@ -119,7 +119,11 @@ export function DashboardOverview() {
     let startDate: string;
     let endDate: string;
 
-    if (days === "custom") {
+    if (days === "all") {
+      // Tempo Total - desde o início da operação (2020)
+      startDate = new Date("2020-01-01").toISOString();
+      endDate = endOfDay(now).toISOString();
+    } else if (days === "custom") {
       // Período personalizado - usa o customDateRange
       if (!customDateRange?.from || !customDateRange?.to) {
         // Se não tiver range completo, usa os últimos 30 dias como fallback
@@ -188,6 +192,8 @@ export function DashboardOverview() {
 
   const getPeriodLabel = () => {
     switch (period) {
+      case "all":
+        return "Tempo Total";
       case "1":
         return "Hoje";
       case "7":
@@ -245,6 +251,7 @@ export function DashboardOverview() {
                 <SelectValue placeholder="Período" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">Tempo Total</SelectItem>
                 <SelectItem value="1">Hoje</SelectItem>
                 <SelectItem value="7">Últimos 7 dias</SelectItem>
                 <SelectItem value="30">Últimos 30 dias</SelectItem>

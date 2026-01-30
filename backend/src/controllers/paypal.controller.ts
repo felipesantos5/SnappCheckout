@@ -3,10 +3,12 @@ import * as paypalService from "../services/paypal.service";
 import Sale from "../models/sale.model";
 import Offer from "../models/offer.model";
 import User from "../models/user.model";
+import UpsellSession from "../models/upsell-session.model";
 import { sendAccessWebhook } from "../services/integration.service";
 import { createFacebookUserData, sendFacebookEvent } from "../services/facebook.service";
 import { getCountryFromIP } from "../helper/getCountryFromIP";
 import { processUtmfyIntegrationForPayPal } from "../services/utmfy.service";
+import { v4 as uuidv4 } from "uuid";
 
 /**
  * Retorna o PayPal Client ID para uma oferta (público, usado pelo frontend SDK)
@@ -231,7 +233,41 @@ export const captureOrder = async (req: Request, res: Response) => {
         // Não falha a transação por causa do webhook
       }
 
-      res.json({ success: true, data: captureData, saleId: newSale._id });
+      // D: Gerar token de upsell se estiver habilitado (para métodos não-Stripe)
+      let upsellToken = null;
+      let upsellRedirectUrl = null;
+
+      if (offer.upsell?.enabled && offer.upsell.redirectUrl) {
+        try {
+          const token = uuidv4();
+          await UpsellSession.create({
+            token,
+            accountId: "", // PayPal não usa Stripe account ID
+            customerId: captureData.id, // Usa o PayPal Order ID como identificador
+            paymentMethodId: "paypal", // Identifica que foi PayPal
+            offerId: offer._id,
+            paymentMethod: "paypal",
+          });
+
+          // Constrói a URL de redirecionamento
+          const separator = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
+          upsellRedirectUrl = `${offer.upsell.redirectUrl}${separator}token=${token}`;
+          upsellToken = token;
+
+          console.log(`✅ [PayPal] Upsell token gerado: ${token}`);
+        } catch (upsellError: any) {
+          console.error(`⚠️ [PayPal] Erro ao gerar token de upsell:`, upsellError.message);
+          // Não falha a transação por causa do upsell
+        }
+      }
+
+      res.json({
+        success: true,
+        data: captureData,
+        saleId: newSale._id,
+        upsellToken,
+        upsellRedirectUrl,
+      });
     } else {
       res.status(400).json({ success: false, message: "Pagamento não concluído", status: captureData.status });
     }

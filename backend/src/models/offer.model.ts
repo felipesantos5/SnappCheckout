@@ -60,6 +60,7 @@ export interface IOffer extends Document {
     name: string;
     price: number;
     redirectUrl: string;
+    fallbackCheckoutUrl?: string; // URL de checkout alternativo para métodos não-Stripe (PayPal, etc)
     customId?: string;
   };
 
@@ -144,6 +145,7 @@ const offerSchema = new Schema<IOffer>(
       name: { type: String, default: "" },
       price: { type: Number, default: 0 },
       redirectUrl: { type: String, default: "" },
+      fallbackCheckoutUrl: { type: String, default: "" }, // URL de checkout alternativo para PayPal
       customId: { type: String, default: "" },
     },
     thankYouPageUrl: {

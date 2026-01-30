@@ -1,4 +1,4 @@
-import { ChartNoAxesCombined, ShoppingBasket, User, ChartColumnIncreasing, Moon, Sun, Settings, FlaskConical, Wallet, Receipt } from "lucide-react";
+import { ChartNoAxesCombined, User, ChartColumnIncreasing, Moon, Sun, Settings, FlaskConical, Wallet, Receipt } from "lucide-react";
 import logo from "../assets/logo.png";
 import logoWhite from "../assets/logo-white.png";
 import { useEffect, useState } from "react";
@@ -43,11 +43,6 @@ const items = [
     title: "Ofertas",
     url: "/offers",
     icon: ChartNoAxesCombined,
-  },
-  {
-    title: "Criar Oferta",
-    url: "/offers/new",
-    icon: ShoppingBasket,
   },
   {
     title: "Pagamentos",
@@ -200,13 +195,9 @@ export function AppSidebar() {
                 if (item.url === "/") {
                   // Dashboard só fica ativo na rota exata "/"
                   isActive = location.pathname === "/";
-                } else if (item.url === "/offers/new") {
-                  // "Criar Oferta" fica ativo em /offers/new e /offers/new/*
-                  isActive = location.pathname === "/offers/new" || location.pathname.startsWith("/offers/new/");
                 } else if (item.url === "/offers") {
-                  // "Ofertas" fica ativo em /offers e /offers/:id (mas não em /offers/new)
-                  isActive =
-                    location.pathname === "/offers" || (location.pathname.startsWith("/offers/") && !location.pathname.startsWith("/offers/new"));
+                  // "Ofertas" fica ativo em /offers e qualquer sub-rota de /offers
+                  isActive = location.pathname === "/offers" || location.pathname.startsWith("/offers/");
                 } else {
                   // Para outras rotas, usa match exato ou startsWith
                   isActive = location.pathname === item.url || location.pathname.startsWith(item.url + "/");

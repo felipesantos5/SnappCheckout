@@ -82,6 +82,7 @@ export const generateUpsellToken = async (req: Request, res: Response) => {
       customerId: paymentIntent.customer as string,
       paymentMethodId: paymentIntent.payment_method as string,
       offerId: offer._id,
+      paymentMethod: "stripe", // Stripe one-click upsell
     });
 
     // Constrói a URL de redirecionamento
@@ -126,6 +127,25 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
     // 1. Validação de Upsell Ativo
     if (!offer?.upsell?.enabled) {
       return res.status(400).json({ success: false, message: "Upsell não está ativo nesta oferta." });
+    }
+
+    // NOVO: Verificar se o pagamento foi feito com PayPal (ou outro método não-Stripe)
+    if (session.paymentMethod !== "stripe") {
+      // Se tem URL de checkout alternativo configurada, redireciona
+      if (offer.upsell.fallbackCheckoutUrl && offer.upsell.fallbackCheckoutUrl.trim() !== "") {
+        await UpsellSession.deleteOne({ token }); // Limpa a sessão
+        return res.status(200).json({
+          success: true,
+          message: "Redirecionando para checkout alternativo...",
+          redirectUrl: offer.upsell.fallbackCheckoutUrl,
+        });
+      } else {
+        // Se não tem URL alternativa configurada, retorna erro amigável
+        return res.status(400).json({
+          success: false,
+          message: "One-click upsell não disponível para este método de pagamento. Configure um link de checkout alternativo.",
+        });
+      }
     }
 
     // 2. Validação de Valor (CRÍTICO PARA EVITAR ERRO DO STRIPE)

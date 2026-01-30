@@ -7,6 +7,7 @@ export interface IUpsellSession extends Document {
   customerId: string;
   paymentMethodId: string;
   offerId: mongoose.Schema.Types.ObjectId;
+  paymentMethod: "stripe" | "paypal" | "pagarme"; // Método de pagamento usado na compra original
   createdAt: Date;
 }
 
@@ -17,6 +18,7 @@ const upsellSessionSchema = new Schema<IUpsellSession>(
     customerId: { type: String, required: true },
     paymentMethodId: { type: String, required: true },
     offerId: { type: Schema.Types.ObjectId, ref: "Offer", required: true },
+    paymentMethod: { type: String, enum: ["stripe", "paypal", "pagarme"], default: "stripe" },
   },
   { timestamps: true }
 );

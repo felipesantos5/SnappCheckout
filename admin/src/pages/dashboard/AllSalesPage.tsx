@@ -277,8 +277,8 @@ export function AllSalesPage() {
   return (
     <div className="flex min-h-screen bg-background">
       {/* Sidebar de Filtros */}
-      <aside className="w-80 border-r bg-card p-6 overflow-y-auto flex-shrink-0">
-        <div className="space-y-6">
+      <aside className="w-80 border-r bg-card pl-4 pr-4 py-4 overflow-y-auto flex-shrink-0">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Filtros</h2>
             <Button variant="ghost" size="sm" onClick={clearAllFilters}>
@@ -512,7 +512,7 @@ export function AllSalesPage() {
 
       {/* Conteúdo Principal */}
       <main className="flex-1">
-        <div className="p-6 space-y-6 max-w-[1600px]">
+        <div className="p-4 space-y-4 max-w-[1600px]">
           {/* Cabeçalho */}
           <div className="flex justify-between items-center">
             <div>
@@ -534,7 +534,7 @@ export function AllSalesPage() {
           </div>
 
           {/* Cards de Métricas */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <Card className="border-[#fdbf08]/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total de Vendas</CardTitle>

@@ -22,6 +22,9 @@ export const getUpsellScript = (req: Request, res: Response) => {
       return;
     }
 
+    // Pega a URL de fallback do atributo data-fallback-url do botão
+    const fallbackUrl = btnElement.getAttribute('data-fallback-url') || btnElement.dataset.fallbackUrl;
+
     const originalText = btnElement.innerText;
     btnElement.innerText = "PROCESSANDO...";
     btnElement.classList.add("chk-btn-loading");
@@ -39,7 +42,7 @@ export const getUpsellScript = (req: Request, res: Response) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token })
       });
-      
+
       const data = await res.json();
 
       if (data.success) {
@@ -48,13 +51,29 @@ export const getUpsellScript = (req: Request, res: Response) => {
         } else {
           alert(data.message || (isBuy ? 'Compra realizada!' : 'Oferta recusada.'));
           // Se não tiver redirect, reabilita (caso raro)
-          window.location.reload(); 
+          window.location.reload();
         }
       } else {
+        // Se a requisição falhou E tem fallback URL configurada, redireciona
+        if (isBuy && fallbackUrl && fallbackUrl.trim() !== '') {
+          console.log('✅ Redirecionando para checkout alternativo:', fallbackUrl);
+          window.location.href = fallbackUrl;
+          return; // Importante: não executa o resto do código
+        }
+
+        // Se não tem fallback, mostra o erro normalmente
         throw new Error(data.message || 'Erro desconhecido');
       }
-      
+
     } catch (e) {
+      // Se deu erro E tem fallback URL configurada (e é botão de compra), redireciona
+      if (isBuy && fallbackUrl && fallbackUrl.trim() !== '') {
+        console.log('✅ Erro na requisição, redirecionando para checkout alternativo:', fallbackUrl);
+        window.location.href = fallbackUrl;
+        return;
+      }
+
+      // Se não tem fallback, mostra o erro
       alert(e.message || 'Erro de conexão. Tente novamente.');
       // Reabilita os botões em caso de erro
       document.querySelectorAll('.chk-buy, .chk-refuse').forEach(b => b.disabled = false);
