@@ -112,7 +112,7 @@ export function AllSalesPage() {
   const [selectedOffers, setSelectedOffers] = useState<string[]>([]);
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
   const [selectedWallets, setSelectedWallets] = useState<string[]>([]);
-  const [periodFilter, setPeriodFilter] = useState<"today" | "week" | "month" | "custom">("month");
+  const [periodFilter, setPeriodFilter] = useState<"all" | "today" | "week" | "month" | "custom">("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -158,26 +158,29 @@ export function AllSalesPage() {
       if (searchEmail) params.append("email", searchEmail);
 
       // Calcular datas baseado no filtro de período
-      const now = new Date();
-      let calculatedStartDate = startDate;
-      let calculatedEndDate = endDate;
+      // Só aplica filtro de data se não for "all"
+      if (periodFilter !== "all") {
+        const now = new Date();
+        let calculatedStartDate = startDate;
+        let calculatedEndDate = endDate;
 
-      if (periodFilter === "today") {
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        calculatedStartDate = today.toISOString();
-        calculatedEndDate = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
-      } else if (periodFilter === "week") {
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        calculatedStartDate = weekAgo.toISOString();
-        calculatedEndDate = now.toISOString();
-      } else if (periodFilter === "month") {
-        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        calculatedStartDate = monthAgo.toISOString();
-        calculatedEndDate = now.toISOString();
+        if (periodFilter === "today") {
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          calculatedStartDate = today.toISOString();
+          calculatedEndDate = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
+        } else if (periodFilter === "week") {
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          calculatedStartDate = weekAgo.toISOString();
+          calculatedEndDate = now.toISOString();
+        } else if (periodFilter === "month") {
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          calculatedStartDate = monthAgo.toISOString();
+          calculatedEndDate = now.toISOString();
+        }
+
+        if (calculatedStartDate) params.append("startDate", calculatedStartDate);
+        if (calculatedEndDate) params.append("endDate", calculatedEndDate);
       }
-
-      if (calculatedStartDate) params.append("startDate", calculatedStartDate);
-      if (calculatedEndDate) params.append("endDate", calculatedEndDate);
 
       const response = await axios.get(`${API_URL}/sales?${params.toString()}`);
       const salesData = response.data?.data || [];
@@ -263,7 +266,7 @@ export function AllSalesPage() {
     setSelectedOffers([]);
     setSelectedPaymentMethods([]);
     setSelectedWallets([]);
-    setPeriodFilter("month");
+    setPeriodFilter("all");
     setStartDate("");
     setEndDate("");
     setPage(1);
@@ -288,6 +291,19 @@ export function AllSalesPage() {
           <div className="space-y-3">
             <Label className="text-sm font-medium">Período</Label>
             <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant={periodFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setPeriodFilter("all");
+                  setStartDate("");
+                  setEndDate("");
+                  setPage(1);
+                }}
+                className={periodFilter === "all" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
+              >
+                Todas
+              </Button>
               <Button
                 variant={periodFilter === "today" ? "default" : "outline"}
                 size="sm"
@@ -465,7 +481,6 @@ export function AllSalesPage() {
               {[
                 { key: "apple_pay", label: " Apple Pay" },
                 { key: "google_pay", label: "🅖 Google Pay" },
-                { key: "samsung_pay", label: "Samsung Pay" },
               ].map(({ key, label }) => (
                 <div key={key} className="flex items-center space-x-2">
                   <Checkbox
@@ -659,17 +674,12 @@ export function AllSalesPage() {
                         <div className="flex flex-col gap-1">
                           {sale.walletType === "apple_pay" && (
                             <Badge variant="default" className="text-xs bg-black text-white hover:bg-black/90">
-                               Apple Pay
+                              Apple Pay
                             </Badge>
                           )}
                           {sale.walletType === "google_pay" && (
                             <Badge variant="default" className="text-xs bg-blue-600 text-white hover:bg-blue-700">
                               🅖 Google Pay
-                            </Badge>
-                          )}
-                          {sale.walletType === "samsung_pay" && (
-                            <Badge variant="default" className="text-xs bg-blue-800 text-white hover:bg-blue-900">
-                              Samsung Pay
                             </Badge>
                           )}
 

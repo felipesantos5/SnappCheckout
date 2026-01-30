@@ -541,8 +541,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
               <CheckCircle className="h-24 w-24 text-green-500" />
             </div>
           </div>
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">Sucesso!</h2>
-          <p className="text-gray-500 text-lg animate-pulse">Finalizando seu pedido...</p>
         </div>
       </div>
     );
