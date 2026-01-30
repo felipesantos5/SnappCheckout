@@ -300,10 +300,17 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
   useEffect(() => {
     if (paymentSucceeded && (paymentIntentId || saleId)) {
       const timer = setTimeout(async () => {
-        // 1. PRIORIDADE: PayPal - Usa URL do backend (que agora redireciona para Thank You Page)
-        if (saleId && !paymentIntentId && paypalRedirectUrl) {
-          window.location.href = paypalRedirectUrl;
-          return;
+        // 1. PRIORIDADE: PayPal - Usa URL do backend (upsell com vault ou thank you page)
+        if (saleId && !paymentIntentId) {
+          if (paypalRedirectUrl) {
+            window.location.href = paypalRedirectUrl;
+            return;
+          }
+          // Fallback: Se backend não retornou URL, usa thank you page da oferta
+          if (offerData.thankYouPageUrl) {
+            window.location.href = offerData.thankYouPageUrl;
+            return;
+          }
         }
 
         // 2. PRIORIDADE: Upsell Habilitado (somente Stripe)
