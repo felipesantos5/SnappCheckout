@@ -3,6 +3,8 @@ import * as paypalService from "../services/paypal.service";
 import Sale from "../models/sale.model";
 import Offer from "../models/offer.model";
 import User from "../models/user.model";
+import UpsellSession from "../models/upsell-session.model";
+import { v4 as uuidv4 } from "uuid";
 import { sendAccessWebhook } from "../services/integration.service";
 import { createFacebookUserData, sendFacebookEvent } from "../services/facebook.service";
 import { getCountryFromIP } from "../helper/getCountryFromIP";
@@ -71,9 +73,12 @@ export const createOrder = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Credenciais do PayPal não configuradas." });
     }
 
-    // DICA: O ideal é recalcular o 'amount' aqui no backend buscando a Offer pelo ID para segurança
+    // Habilita vault se a oferta tiver upsell ativo
+    const enableVault = offer.upsell?.enabled === true;
 
-    const order = await paypalService.createOrder(amount, currency, user.paypalClientId, user.paypalClientSecret);
+    console.log(`🔵 [PayPal] Criando ordem com vault ${enableVault ? "HABILITADO" : "DESABILITADO"}`);
+
+    const order = await paypalService.createOrder(amount, currency, user.paypalClientId, user.paypalClientSecret, enableVault);
     res.json(order);
   } catch (error: any) {
     console.error("Erro ao criar ordem PayPal:", error.message);
@@ -231,18 +236,61 @@ export const captureOrder = async (req: Request, res: Response) => {
         // Não falha a transação por causa do webhook
       }
 
-      // D: PayPal sempre vai direto para Thank You Page (sem upsell)
-      // TEMPORÁRIO: No futuro, poderá habilitar upsell para PayPal
-      const thankYouUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
+      // D: Verificar se tem upsell habilitado e vault disponível
+      let upsellToken: string | null = null;
+      let upsellRedirectUrl: string | null = null;
 
-      console.log(`✅ [PayPal] Venda finalizada - redirecionando para Thank You Page`);
+      // Extrai vault_id e customer_id do PayPal (se disponível)
+      const paymentSource = captureData.payment_source?.paypal;
+      const vaultId = paymentSource?.attributes?.vault?.id;
+      const paypalCustomerId = paymentSource?.attributes?.vault?.customer?.id;
+
+      if (offer.upsell?.enabled && vaultId && paypalCustomerId) {
+        console.log(`🔵 [PayPal] Vault detectado! vault_id: ${vaultId}, customer_id: ${paypalCustomerId}`);
+
+        // Gera token de upsell
+        const token = uuidv4();
+
+        // Salva sessão de upsell com dados do PayPal Vault
+        await UpsellSession.create({
+          token,
+          accountId: user.paypalClientId, // Usamos o clientId como accountId
+          customerId: paypalCustomerId, // ID do cliente no PayPal
+          paymentMethodId: vaultId, // ID do vault token
+          offerId: offer._id,
+          paymentMethod: "paypal",
+          ip: clientIp,
+          customerName: customerData?.name || "",
+          customerEmail: customerData?.email || "",
+          customerPhone: customerData?.phone || "",
+          // Campos específicos do PayPal
+          paypalVaultId: vaultId,
+          paypalCustomerId: paypalCustomerId,
+        });
+
+        // Constrói URL de redirecionamento para upsell
+        const separator = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
+        upsellRedirectUrl = `${offer.upsell.redirectUrl}${separator}token=${token}`;
+        upsellToken = token;
+
+        console.log(`✅ [PayPal] Token de upsell gerado: ${token}`);
+      } else if (offer.upsell?.enabled && !vaultId) {
+        console.warn(`⚠️ [PayPal] Upsell habilitado mas vault_id não encontrado na resposta do PayPal`);
+      }
+
+      // Fallback para Thank You Page se não tiver upsell
+      if (!upsellRedirectUrl) {
+        upsellRedirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
+      }
+
+      console.log(`✅ [PayPal] Venda finalizada - ${upsellToken ? "redirecionando para UPSELL" : "redirecionando para Thank You Page"}`);
 
       res.json({
         success: true,
         data: captureData,
         saleId: newSale._id,
-        upsellToken: null,
-        upsellRedirectUrl: thankYouUrl, // Vai direto para Thank You Page
+        upsellToken,
+        upsellRedirectUrl,
       });
     } else {
       res.status(400).json({ success: false, message: "Pagamento não concluído", status: captureData.status });
@@ -335,4 +383,165 @@ const sendFacebookPurchaseForPayPal = async (
   const successful = results.filter((r) => r.status === "fulfilled").length;
   const failed = results.filter((r) => r.status === "rejected").length;
   console.log(`📊 [PayPal] Facebook Purchase: ${successful} sucesso, ${failed} falhas de ${pixels.length} pixels`);
+};
+
+/**
+ * Processar PayPal One-Click Upsell usando vault_id
+ */
+export const handlePayPalOneClickUpsell = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: "Token inválido." });
+    }
+
+    // Busca sessão de upsell
+    const session: any = await UpsellSession.findOne({ token }).populate("offerId");
+
+    if (!session) {
+      return res.status(403).json({ success: false, message: "Sessão expirada ou token já usado." });
+    }
+
+    const offer = session.offerId as any;
+
+    // 1. Validar se upsell está ativo
+    if (!offer?.upsell?.enabled) {
+      return res.status(400).json({ success: false, message: "Upsell não está ativo nesta oferta." });
+    }
+
+    // 2. Validar se é PayPal
+    if (session.paymentMethod !== "paypal") {
+      return res.status(400).json({ success: false, message: "Método de pagamento incompatível." });
+    }
+
+    // 3. Validar vault_id e customer_id
+    if (!session.paypalVaultId || !session.paypalCustomerId) {
+      return res.status(400).json({ success: false, message: "Dados de vault não encontrados." });
+    }
+
+    // 4. Validar valor do upsell
+    const amountToCharge = offer.upsell.price;
+
+    if (!amountToCharge || amountToCharge < 50) {
+      console.error(`❌ [PayPal Upsell] Valor inválido (${amountToCharge}) para a oferta ${offer.name}`);
+      return res.status(400).json({ success: false, message: "Configuração de preço inválida para este Upsell." });
+    }
+
+    // 5. Buscar credenciais do PayPal
+    const user = await User.findById(offer.ownerId).select("+paypalClientSecret");
+
+    if (!user || !user.paypalClientId || !user.paypalClientSecret) {
+      return res.status(400).json({ success: false, message: "Credenciais do PayPal não configuradas." });
+    }
+
+    console.log(`🔵 [PayPal Upsell] Processando upsell com vault_id: ${session.paypalVaultId}`);
+
+    // 6. Criar e capturar ordem usando vault_id
+    const captureData = await paypalService.createAndCaptureOrderWithVault(
+      amountToCharge,
+      offer.currency || "brl",
+      session.paypalVaultId,
+      session.paypalCustomerId,
+      user.paypalClientId,
+      user.paypalClientSecret
+    );
+
+    if (captureData.status === "COMPLETED") {
+      // 7. Salvar venda do upsell
+      const capturedAmount = captureData.purchase_units?.[0]?.payments?.captures?.[0]?.amount;
+      const amountInCents = capturedAmount ? Math.round(parseFloat(capturedAmount.value) * 100) : amountToCharge;
+
+      const items = [
+        {
+          name: offer.upsell.name,
+          priceInCents: amountToCharge,
+          isOrderBump: false,
+          customId: offer.upsell.customId,
+        },
+      ];
+
+      const newSale = new Sale({
+        stripePaymentIntentId: `PAYPAL_UPSELL_${captureData.id}`,
+        offerId: offer._id,
+        ownerId: offer.ownerId,
+        status: "succeeded",
+        totalAmountInCents: amountInCents,
+        platformFeeInCents: 0,
+        currency: (capturedAmount?.currency_code || offer.currency).toLowerCase(),
+        customerEmail: session.customerEmail || "",
+        customerName: session.customerName || "",
+        customerPhone: session.customerPhone || "",
+        paymentMethod: "paypal",
+        ip: session.ip || "",
+        country: session.ip ? getCountryFromIP(session.ip) : "BR",
+        isUpsell: true,
+        items,
+      });
+
+      await newSale.save();
+
+      // 8. Deletar sessão de upsell (token usado)
+      await UpsellSession.deleteOne({ token });
+
+      // 9. Redirecionar para Thank You Page
+      const redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
+
+      console.log(`✅ [PayPal Upsell] Compra concluída com sucesso`);
+
+      res.status(200).json({
+        success: true,
+        message: "Compra realizada com sucesso!",
+        redirectUrl,
+      });
+    } else {
+      console.error(`❌ [PayPal Upsell] Pagamento não concluído: ${captureData.status}`);
+      res.status(400).json({
+        success: false,
+        message: "Pagamento recusado. Tente novamente.",
+        status: captureData.status,
+      });
+    }
+  } catch (error: any) {
+    console.error("❌ [PayPal Upsell] Erro:", error);
+    const errorMessage = error.message || "Erro interno ao processar upsell.";
+    res.status(500).json({ success: false, message: errorMessage });
+  }
+};
+
+/**
+ * Recusar PayPal Upsell
+ */
+export const handlePayPalUpsellRefuse = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: "Token inválido." });
+    }
+
+    const session: any = await UpsellSession.findOne({ token }).populate("offerId");
+
+    if (!session) {
+      return res.status(403).json({ success: false, message: "Sessão expirada." });
+    }
+
+    const offer = session.offerId as any;
+
+    // Deletar sessão
+    await UpsellSession.deleteOne({ token });
+
+    const redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
+
+    console.log(`✅ [PayPal Upsell] Oferta recusada`);
+
+    res.status(200).json({
+      success: true,
+      message: "Oferta recusada.",
+      redirectUrl,
+    });
+  } catch (error: any) {
+    console.error("❌ [PayPal Upsell] Erro ao recusar:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
 };

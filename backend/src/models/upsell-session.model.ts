@@ -12,6 +12,9 @@ export interface IUpsellSession extends Document {
   customerName?: string; // Nome do cliente
   customerEmail?: string; // Email do cliente
   customerPhone?: string; // Telefone do cliente
+  // Campos específicos do PayPal Vault
+  paypalVaultId?: string; // ID do vault token do PayPal
+  paypalCustomerId?: string; // Customer ID do PayPal
   createdAt: Date;
 }
 
@@ -27,6 +30,9 @@ const upsellSessionSchema = new Schema<IUpsellSession>(
     customerName: { type: String },
     customerEmail: { type: String },
     customerPhone: { type: String },
+    // Campos específicos do PayPal Vault
+    paypalVaultId: { type: String },
+    paypalCustomerId: { type: String },
   },
   { timestamps: true }
 );

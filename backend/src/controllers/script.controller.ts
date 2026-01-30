@@ -20,6 +20,9 @@ export const getUpsellScript = (req: Request, res: Response) => {
     // Pega a URL de fallback do atributo data-fallback-url do botão
     const fallbackUrl = btnElement.getAttribute('data-fallback-url') || btnElement.dataset.fallbackUrl;
 
+    // Pega o método de pagamento do atributo data-payment-method (default: stripe)
+    const paymentMethod = btnElement.getAttribute('data-payment-method') || btnElement.dataset.paymentMethod || 'stripe';
+
     const originalText = btnElement.innerText;
     btnElement.innerText = "PROCESSANDO...";
     btnElement.classList.add("chk-btn-loading");
@@ -30,9 +33,12 @@ export const getUpsellScript = (req: Request, res: Response) => {
     try {
       const endpoint = isBuy ? 'one-click-upsell' : 'upsell-refuse';
       // Usa a URL da API configurada no servidor
-     const apiUrl = "${backendUrl}/api";
+      const apiUrl = "${backendUrl}/api";
 
-      const res = await fetch(apiUrl + '/payments/' + endpoint, {
+      // Define a rota baseado no método de pagamento
+      const baseRoute = paymentMethod === 'paypal' ? '/paypal/' : '/payments/';
+
+      const res = await fetch(apiUrl + baseRoute + endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token })
