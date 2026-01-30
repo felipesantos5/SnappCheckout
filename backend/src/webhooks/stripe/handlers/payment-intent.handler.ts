@@ -19,6 +19,7 @@ const extractPaymentMethodDetails = (paymentIntent: Stripe.PaymentIntent): {
     // Acessa os dados do charge para pegar detalhes do método de pagamento
     const charge = (paymentIntent as any).charges?.data?.[0];
     if (!charge || !charge.payment_method_details) {
+      console.log("⚠️ Charge ou payment_method_details não encontrado no PaymentIntent");
       return { paymentMethodType: "card", walletType: null };
     }
 
@@ -29,14 +30,16 @@ const extractPaymentMethodDetails = (paymentIntent: Stripe.PaymentIntent): {
     let walletType: "apple_pay" | "google_pay" | "samsung_pay" | null = null;
     if (type === "card" && details.card?.wallet) {
       const walletTypeRaw = details.card.wallet.type;
+      console.log(`💳 Wallet detectada: ${walletTypeRaw}`);
       if (walletTypeRaw === "apple_pay" || walletTypeRaw === "google_pay" || walletTypeRaw === "samsung_pay") {
         walletType = walletTypeRaw;
       }
     }
 
+    console.log(`✅ Método de pagamento extraído: type=${type}, wallet=${walletType || 'none'}`);
     return { paymentMethodType: type, walletType };
   } catch (error) {
-    console.error("Erro ao extrair detalhes do método de pagamento:", error);
+    console.error("❌ Erro ao extrair detalhes do método de pagamento:", error);
     return { paymentMethodType: "card", walletType: null };
   }
 };
@@ -56,6 +59,17 @@ export const handlePaymentIntentCreated = async (paymentIntent: Stripe.PaymentIn
     // Se não tem offerSlug, pode ser um PaymentIntent não relacionado ao checkout
     if (!offerSlug) {
       return;
+    }
+
+    // Expande o PaymentIntent para ter acesso aos detalhes do charge (incluindo wallet)
+    try {
+      const expandedPaymentIntent = await stripe.paymentIntents.retrieve(paymentIntent.id, {
+        expand: ['charges.data.payment_method_details'],
+      });
+      paymentIntent = expandedPaymentIntent;
+    } catch (expandError) {
+      // Se falhar a expansão, continua com os dados básicos
+      console.warn("⚠️ Não foi possível expandir PaymentIntent na criação:", expandError);
     }
 
     // 1. Busca Oferta e Dono
@@ -192,6 +206,17 @@ export const handlePaymentIntentFailed = async (paymentIntent: Stripe.PaymentInt
     if (!offerSlug) {
       console.error("❌ Metadata 'offerSlug' não encontrado no pagamento falhado.");
       return;
+    }
+
+    // Expande o PaymentIntent para ter acesso aos detalhes do charge (incluindo wallet)
+    try {
+      const expandedPaymentIntent = await stripe.paymentIntents.retrieve(paymentIntent.id, {
+        expand: ['charges.data.payment_method_details'],
+      });
+      paymentIntent = expandedPaymentIntent;
+    } catch (expandError) {
+      // Se falhar a expansão, continua com os dados básicos
+      console.warn("⚠️ Não foi possível expandir PaymentIntent falhado:", expandError);
     }
 
     // 1. Busca Oferta e Dono
@@ -347,6 +372,15 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     const isUpsell = metadata.isUpsell === "true";
 
     if (!offerSlug) throw new Error("Metadata 'offerSlug' não encontrado.");
+
+    // Expande o PaymentIntent para ter acesso aos detalhes do charge (incluindo wallet)
+    // O webhook básico do Stripe não inclui esses detalhes por padrão
+    const expandedPaymentIntent = await stripe.paymentIntents.retrieve(paymentIntent.id, {
+      expand: ['charges.data.payment_method_details'],
+    });
+
+    // Usa o PaymentIntent expandido daqui em diante
+    paymentIntent = expandedPaymentIntent;
 
     // 1. Busca Oferta e Dono
     // Precisamos dos campos do Facebook também

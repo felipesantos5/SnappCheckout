@@ -3,6 +3,7 @@ import { Router } from "express";
 import * as stripeController from "../controllers/stripe.controller";
 import { protectRoute } from "../middleware/auth.middleware";
 import express from "express";
+import { handleStripeWebhook } from "../webhooks/stripe/stripe-webhook.controller";
 
 const router = Router();
 
@@ -21,7 +22,7 @@ router.post(
 router.post(
   "/webhook",
   express.raw({ type: "application/json" }), // Middleware importante!
-  stripeController.handleWebhook
+  handleStripeWebhook // Usa o novo handler com sistema de eventos
 );
 
 router.get(
