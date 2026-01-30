@@ -32,7 +32,7 @@ interface PaymentMethodsProps {
   paypalCustomerData?: { name: string; email: string; phone: string };
   paypalPurchaseEventId?: string; // Event ID para deduplicação Facebook
   paypalSelectedOrderBumps?: string[]; // Order bumps selecionados
-  onPaypalSuccess?: (saleId: string, purchaseEventId: string) => void;
+  onPaypalSuccess?: (saleId: string, purchaseEventId: string, redirectUrl?: string) => void;
   onPaypalError?: (msg: string) => void;
 }
 

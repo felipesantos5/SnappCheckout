@@ -315,8 +315,8 @@ export function AllSalesPage() {
         className={`border-r bg-card py-4 overflow-y-auto shrink-0 transition-all duration-300 pl-0! ease-in-out ${isSidebarOpen ? "w-72 px-4" : "w-0 px-0 border-r-0"
           }`}
       >
-        <div className={`space-y-4 ${isSidebarOpen ? "opacity-100" : "opacity-0"} transition-opacity duration-200`}>
-          <div className="flex items-center justify-between">
+        <div className={`space-y-4 ${isSidebarOpen ? "opacity-100" : "opacity-0"} transition-opacity duration-200 pl-4`}>
+          <div className="flex items-center justify-between ml-16">
             <h2 className="text-lg font-semibold">Filtros</h2>
             <Button variant="ghost" size="sm" onClick={clearAllFilters}>
               <X className="h-4 w-4 mr-1" />
@@ -551,11 +551,10 @@ export function AllSalesPage() {
       <Button
         variant="outline"
         size="icon"
-        className={`fixed z-50 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg ${
-          isSidebarOpen
-            ? "top-4 left-[17rem]"
-            : "top-1/2 -translate-y-1/2 left-64"
-        }`}
+        className={`fixed z-50 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg ${isSidebarOpen
+          ? "top-[60px] left-[254px]"
+          : "top-1/2 -translate-y-1/2 left-52"
+          }`}
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
       >
         {isSidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}

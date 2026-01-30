@@ -15,7 +15,7 @@ export function DashboardLayout() {
         {/* 2. Conteúdo da Página */}
         <SidebarTrigger className="fixed top-3 left-3 z-50 md:relative md:top-0 md:left-0" />
         <main
-          className={`flex-1 overflow-x-hidden p-1.5 pt-14 sm:p-4 md:p-8 md:pt-12 ${isAllSalesPage ? "pl-0!" : ""}`}
+          className={`flex-1 overflow-x-hidden p-1.5 pt-14 sm:p-4 md:p-8 md:pt-12 ${isAllSalesPage ? "pl-4!" : ""}`}
         >
           <Outlet />
         </main>
