@@ -6,6 +6,9 @@ import Offer from "../models/offer.model";
 import Sale from "../models/sale.model";
 import { Stripe } from "stripe";
 import * as stripeService from "../services/stripe.service";
+import { sendAccessWebhook } from "../services/integration.service";
+import { createFacebookUserData, sendFacebookEvent } from "../services/facebook.service";
+import { processUtmfyIntegration } from "../services/utmfy.service";
 
 // !! IMPORTANTE !!
 // Altere estas URLs para as rotas do seu frontend (dashboard-admin)
@@ -14,6 +17,121 @@ const STRIPE_ONBOARDING_RETURN_URL = "https://admin.snappcheckout.com/dashboard/
 const STRIPE_ONBOARDING_REFRESH_URL = "https://admin.snappcheckout.com/dashboard/stripe-refresh";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+/**
+ * Dispara todas as integrações (Facebook, Husky, UTMfy)
+ */
+async function dispatchIntegrations(
+  offer: any,
+  sale: any,
+  items: any[],
+  paymentIntent: Stripe.PaymentIntent,
+  metadata: any
+): Promise<void> {
+  console.log(`🔵 [Stripe] Iniciando disparos de integrações para venda ${sale._id}`);
+
+  sale.integrationsLastAttempt = new Date();
+
+  // A: Facebook CAPI
+  try {
+    console.log(`🔵 [Stripe] Enviando para Facebook CAPI...`);
+
+    const pixels: Array<{ pixelId: string; accessToken: string }> = [];
+
+    if (offer.facebookPixels && offer.facebookPixels.length > 0) {
+      pixels.push(...offer.facebookPixels);
+    }
+
+    if (offer.facebookPixelId && offer.facebookAccessToken) {
+      const alreadyExists = pixels.some((p) => p.pixelId === offer.facebookPixelId);
+      if (!alreadyExists) {
+        pixels.push({
+          pixelId: offer.facebookPixelId,
+          accessToken: offer.facebookAccessToken,
+        });
+      }
+    }
+
+    if (pixels.length > 0) {
+      const totalValue = paymentIntent.amount / 100;
+
+      const userData = createFacebookUserData(
+        metadata.ip || "",
+        metadata.userAgent || "",
+        sale.customerEmail,
+        metadata.customerPhone || "",
+        sale.customerName,
+        metadata.fbc,
+        metadata.fbp,
+        metadata.addressCity,
+        metadata.addressState,
+        metadata.addressZipCode,
+        metadata.addressCountry
+      );
+
+      const eventData = {
+        event_name: "Purchase" as const,
+        event_time: Math.floor(Date.now() / 1000),
+        event_id: metadata.purchaseEventId || `stripe_purchase_${sale._id}`,
+        action_source: "website" as const,
+        user_data: userData,
+        custom_data: {
+          currency: (offer.currency || "BRL").toUpperCase(),
+          value: totalValue,
+          order_id: String(sale._id),
+          content_ids: items.map((i) => i._id || i.customId || "unknown"),
+          content_type: "product",
+        },
+      };
+
+      const results = await Promise.allSettled(
+        pixels.map((pixel) =>
+          sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventData).catch((err) => {
+            console.error(`❌ [Stripe] Erro Facebook pixel ${pixel.pixelId}:`, err);
+            throw err;
+          })
+        )
+      );
+
+      const successful = results.filter((r) => r.status === "fulfilled").length;
+      if (successful > 0) {
+        sale.integrationsFacebookSent = true;
+        console.log(`✅ [Stripe] Facebook enviado com sucesso para ${successful}/${pixels.length} pixels`);
+      } else {
+        sale.integrationsFacebookSent = false;
+      }
+    }
+  } catch (error: any) {
+    console.error(`⚠️ [Stripe] Erro Facebook (venda salva):`, error.message);
+    sale.integrationsFacebookSent = false;
+  }
+
+  // B: Husky/Área de Membros
+  try {
+    console.log(`🔵 [Stripe] Enviando para Husky...`);
+    await sendAccessWebhook(offer, sale, items, metadata.customerPhone || "");
+    sale.integrationsHuskySent = true;
+    console.log(`✅ [Stripe] Husky enviado com sucesso`);
+  } catch (error: any) {
+    console.error(`⚠️ [Stripe] Erro Husky (venda salva):`, error.message);
+    sale.integrationsHuskySent = false;
+  }
+
+  // C: UTMfy
+  try {
+    console.log(`🔵 [Stripe] Enviando para UTMfy...`);
+    await processUtmfyIntegration(offer, sale, items, paymentIntent, metadata);
+    sale.integrationsUtmfySent = true;
+    console.log(`✅ [Stripe] UTMfy enviado com sucesso`);
+  } catch (error: any) {
+    console.error(`⚠️ [Stripe] Erro UTMfy (venda salva):`, error.message);
+    sale.integrationsUtmfySent = false;
+  }
+
+  // Salva flags
+  await sale.save();
+  console.log(`📊 [Stripe] Integrações: Facebook=${sale.integrationsFacebookSent}, Husky=${sale.integrationsHuskySent}, UTMfy=${sale.integrationsUtmfySent}`);
+}
 
 /**
  * Cria um Link de Conta (Account Link) para o usuário
@@ -68,50 +186,119 @@ export const handleWebhook = async (req: Request, res: Response) => {
     // --- CASO 1: VENDA BEM-SUCEDIDA ---
     case "payment_intent.succeeded": {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      const metadata = paymentIntent.metadata || {};
 
-      // Puxe os metadados que salvamos
-      const { platformOwnerId, platformOfferId, customerEmail, customerName } = paymentIntent.metadata;
+      console.log(`✅ [Stripe] Pagamento aprovado: ${paymentIntent.id}`);
+
+      // Suporte a metadata NOVO (offerSlug) e ANTIGO (platformOfferId)
+      const offerSlug = metadata.offerSlug || metadata.originalOfferSlug;
+      const customerEmail = metadata.customerEmail;
+      const customerName = metadata.customerName;
+      const isUpsell = metadata.isUpsell === "true";
 
       try {
+        if (!offerSlug) {
+          console.error(`❌ [Stripe] Metadata 'offerSlug' não encontrado no PaymentIntent ${paymentIntent.id}`);
+          return res.status(400).json({ error: "Metadata inválido" });
+        }
+
         // Verifique se a venda já não foi salva (para evitar duplicatas)
         const existingSale = await Sale.findOne({ stripePaymentIntentId: paymentIntent.id });
         if (existingSale) {
-          console.warn(`Webhook: Venda ${paymentIntent.id} já existe.`);
+          console.log(`⚠️ [Stripe] Venda ${paymentIntent.id} já existe com status ${existingSale.status}`);
+
+          // Se estava pending, atualiza para succeeded
+          if (existingSale.status === "pending") {
+            existingSale.status = "succeeded";
+            existingSale.platformFeeInCents = paymentIntent.application_fee_amount || 0;
+            await existingSale.save();
+            console.log(`✅ [Stripe] Venda ${existingSale._id} atualizada de pending para succeeded`);
+          }
+
           break; // Sai do switch
         }
 
-        // Busca a oferta para pegar os 'line items' (o que foi comprado)
-        const offer = await Offer.findById(platformOfferId);
-        if (!offer) throw new Error(`Webhook: Oferta ${platformOfferId} não encontrada.`);
+        // Busca a oferta pelo SLUG (não mais pelo ID)
+        const offer = await Offer.findOne({ slug: offerSlug }).populate("ownerId");
+        if (!offer) {
+          console.error(`❌ [Stripe] Oferta '${offerSlug}' não encontrada`);
+          return res.status(400).json({ error: `Oferta '${offerSlug}' não encontrada` });
+        }
 
-        // Cria a lista de itens comprados
-        const items = [
-          {
+        console.log(`✅ [Stripe] Oferta encontrada: ${offer.name}`);
+
+        // Monta lista de itens (produto principal + order bumps)
+        const items = [];
+
+        if (isUpsell) {
+          items.push({
+            name: offer.upsell?.name || metadata.productName || "Upsell",
+            priceInCents: paymentIntent.amount,
+            isOrderBump: false,
+            customId: offer.upsell?.customId,
+          });
+        } else {
+          // Produto principal
+          items.push({
+            _id: (offer.mainProduct as any)._id?.toString(),
             name: offer.mainProduct.name,
             priceInCents: offer.mainProduct.priceInCents,
             isOrderBump: false,
-          },
-        ];
+            customId: (offer.mainProduct as any).customId,
+          });
 
-        // TODO: Precisamos saber quais bumps foram comprados.
-        // O ideal é salvar os IDs dos bumps nos 'metadata' também.
-        // Por agora, vamos salvar apenas o produto principal.
+          // Order Bumps selecionados
+          const selectedOrderBumps = metadata.selectedOrderBumps ? JSON.parse(metadata.selectedOrderBumps) : [];
+          for (const bumpId of selectedOrderBumps) {
+            const bump = offer.orderBumps.find((b: any) => b?._id?.toString() === bumpId);
+            if (bump) {
+              items.push({
+                _id: bump._id?.toString(),
+                name: bump.name,
+                priceInCents: bump.priceInCents,
+                isOrderBump: true,
+                customId: (bump as any).customId,
+              });
+            }
+          }
+        }
 
         // Crie a venda no banco de dados
         const newSale = new Sale({
-          ownerId: platformOwnerId,
-          offerId: platformOfferId,
+          ownerId: offer.ownerId,
+          offerId: offer._id,
+          abTestId: metadata.abTestId || null,
           stripePaymentIntentId: paymentIntent.id,
-          customerName: customerName,
-          customerEmail: customerEmail,
+          customerName: customerName || "Cliente Não Identificado",
+          customerEmail: customerEmail || "email@nao.informado",
+          customerPhone: metadata.customerPhone || "",
+          ip: metadata.ip || "",
+          country: metadata.country || "BR",
+          userAgent: metadata.userAgent || "",
+          fbc: metadata.fbc,
+          fbp: metadata.fbp,
+          addressCity: metadata.addressCity,
+          addressState: metadata.addressState,
+          addressZipCode: metadata.addressZipCode,
+          addressCountry: metadata.addressCountry,
           totalAmountInCents: paymentIntent.amount,
           platformFeeInCents: paymentIntent.application_fee_amount || 0,
+          currency: offer.currency || "brl",
           status: "succeeded",
+          paymentMethod: "stripe",
+          gateway: "stripe",
+          isUpsell: isUpsell,
           items: items,
         });
+
         await newSale.save();
-      } catch (dbError) {
-        console.error("Falha ao salvar venda do webhook:", dbError);
+        console.log(`✅ [Stripe] Venda criada: ${newSale._id}`);
+
+        // IMPORTANTE: Dispara integrações (Facebook, Husky, UTMfy)
+        await dispatchIntegrations(offer, newSale, items, paymentIntent, metadata);
+      } catch (dbError: any) {
+        console.error("❌ [Stripe] Falha ao salvar venda do webhook:", dbError);
+        console.error("❌ [Stripe] Stack:", dbError.stack);
         // Retorne 500 para o Stripe tentar de novo
         return res.status(500).json({ error: "Falha no banco de dados." });
       }
