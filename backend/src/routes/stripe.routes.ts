@@ -22,7 +22,7 @@ router.post(
 router.post(
   "/webhook",
   express.raw({ type: "application/json" }), // Middleware importante!
-  handleStripeWebhook // Usa o novo handler com sistema de eventos
+  stripeController.handleWebhook // Usa o novo handler com sistema de eventos
 );
 
 router.get(
