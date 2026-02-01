@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { subDays, isWithinInterval, startOfDay, endOfDay, parseISO } from "date-fns";
+import { subDays, startOfDay, endOfDay } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -37,23 +37,40 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Fetch Inicial
+  // Fetch com filtro de data do backend para trazer TODAS as vendas do período
   useEffect(() => {
     if (!token) return;
 
     const fetchSales = async () => {
       setIsLoading(true);
       try {
-        // Buscar apenas as 100 vendas mais recentes APROVADAS para não sobrecarregar
-        const response = await axios.get(`${API_URL}/sales?limit=100&page=1&status=succeeded`, {
+        const now = new Date();
+        let startDate: Date;
+        let endDate: Date = endOfDay(now);
+
+        if (period === "custom" && customDateRange?.from) {
+          startDate = startOfDay(customDateRange.from);
+          endDate = endOfDay(customDateRange.to || customDateRange.from);
+        } else {
+          const days = period === "1" ? 0 : period === "7" ? 6 : period === "30" ? 29 : 89;
+          startDate = startOfDay(subDays(now, days));
+        }
+
+        const params = new URLSearchParams({
+          limit: "1000",
+          page: "1",
+          status: "succeeded",
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        });
+
+        const response = await axios.get(`${API_URL}/sales?${params.toString()}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
-        // Verifica se a resposta tem o formato paginado ou array direto
         const salesData = response.data?.data || response.data;
 
         if (Array.isArray(salesData)) {
-          // Ordenar por data mais recente primeiro
           const sortedSales = salesData.sort((a: Sale, b: Sale) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           setSales(sortedSales);
         } else {
@@ -70,51 +87,46 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
     };
 
     fetchSales();
-  }, [token]);
+  }, [token, period, customDateRange]);
 
-  // --- Lógica de Filtragem (baseada nas props do Dashboard) ---
-  const filteredSales = useMemo(() => {
-    const now = new Date();
-    let start = startOfDay(now);
-    let end = endOfDay(now);
-
-    if (period === "1") {
-      // Hoje
-      start = startOfDay(now);
-    } else if (period === "7") {
-      start = startOfDay(subDays(now, 6));
-    } else if (period === "30") {
-      start = startOfDay(subDays(now, 29));
-    } else if (period === "90") {
-      start = startOfDay(subDays(now, 89));
-    } else if (period === "custom" && customDateRange?.from) {
-      start = startOfDay(customDateRange.from);
-      end = endOfDay(customDateRange.to || customDateRange.from);
-    }
-
-    return sales.filter((sale) => {
-      const saleDate = parseISO(sale.createdAt);
-      // Filtra apenas vendas aprovadas (succeeded) no período selecionado
-      return isWithinInterval(saleDate, { start, end }) && sale.status === "succeeded";
-    });
-  }, [sales, period, customDateRange]);
+  // Os dados já vêm filtrados do backend por período e status
+  const filteredSales = sales;
 
   // --- Paginação dos Filtrados ---
   const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedSales = filteredSales.slice(startIndex, startIndex + itemsPerPage);
 
-  // Resetar página quando filtro muda
+  // Resetar página quando os dados mudam (novo período = novo fetch)
   useEffect(() => {
     setCurrentPage(1);
-  }, [period, customDateRange]);
+  }, [sales]);
 
   return (
     <Card className="w-full shadow-md border-gray-200 dark:border-gray-700 gap-0">
       <CardHeader className="pb-0 px-3 sm:px-6 pt-3 sm:pt-6">
         <div className="min-w-0">
           <CardTitle className="text-base sm:text-xl font-bold text-foreground">Vendas Recentes</CardTitle>
-          <CardDescription className="text-xs sm:text-sm truncate">Gerencie suas transações.</CardDescription>
+          <CardDescription className="text-xs sm:text-sm">
+            {isLoading ? (
+              "Carregando..."
+            ) : (
+              <>
+                Exibindo{" "}
+                <span className="font-medium text-foreground">{filteredSales.length}</span>{" "}
+                {filteredSales.length === 1 ? "venda aprovada" : "vendas aprovadas"}{" "}
+                {period === "1"
+                  ? "de hoje"
+                  : period === "7"
+                    ? "dos últimos 7 dias"
+                    : period === "30"
+                      ? "dos últimos 30 dias"
+                      : period === "90"
+                        ? "dos últimos 90 dias"
+                        : "no período selecionado"}
+              </>
+            )}
+          </CardDescription>
         </div>
       </CardHeader>
 

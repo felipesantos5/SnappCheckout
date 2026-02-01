@@ -572,7 +572,7 @@ export function AllSalesPage() {
 
       {/* Conteúdo Principal */}
       <main className="flex-1">
-        <div className="p-4 px-6 space-y-4 max-w-[1600px]">
+        <div className="p-4 px-6 space-y-4">
           {/* Cabeçalho */}
           <div className="flex justify-between items-center">
             <div>
