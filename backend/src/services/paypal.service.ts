@@ -54,20 +54,11 @@ export const createOrder = async (amount: number, currency: string, clientId: st
       ],
     };
 
-    // Se vault estiver habilitado, adiciona configuração para salvar método de pagamento
-    if (enableVault) {
-      orderPayload.payment_source = {
-        paypal: {
-          attributes: {
-            vault: {
-              store_in_vault: "ON_SUCCESS",
-              usage_type: "MERCHANT",
-              customer_type: "CONSUMER",
-            },
-          },
-        },
-      };
-    }
+    // NOTA: Quando usamos JS SDK Buttons, NÃO enviamos payment_source na criação da ordem.
+    // O vault é habilitado via parâmetro na URL do SDK (&vault=true) e via
+    // createOrder attributes no componente frontend.
+    // Enviar payment_source aqui causa conflito: PayPal retorna PAYER_ACTION_REQUIRED
+    // com redirect URL em vez de um order ID que o SDK popup consegue processar.
 
     const response = await axios.post(
       `${PAYPAL_API_URL}/v2/checkout/orders`,
@@ -114,6 +105,70 @@ export const captureOrder = async (orderId: string, clientId: string, clientSecr
   return response.data;
 };
 
+// Busca payment tokens de um customer no PayPal Vault (API v3)
+// Usado quando o vault retorna status APPROVED (assíncrono) em vez de VAULTED
+export const getCustomerPaymentTokens = async (
+  paypalCustomerId: string,
+  clientId: string,
+  clientSecret: string
+): Promise<{ id: string; customer: { id: string } } | null> => {
+  try {
+    const accessToken = await generateAccessToken(clientId, clientSecret);
+
+    const response = await axios.get(
+      `${PAYPAL_API_URL}/v3/vault/payment-tokens?customer_id=${paypalCustomerId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        ...getAxiosConfig(PAYPAL_TIMEOUT),
+      }
+    );
+
+    const tokens = response.data?.payment_tokens;
+    if (tokens && tokens.length > 0) {
+      // Retorna o token mais recente
+      const latest = tokens[0];
+      return {
+        id: latest.id,
+        customer: { id: latest.customer?.id || paypalCustomerId },
+      };
+    }
+
+    return null;
+  } catch (error: any) {
+    console.warn(`⚠️ [PayPal Vault] Erro ao buscar payment tokens: ${error.response?.data?.message || error.message}`);
+    return null;
+  }
+};
+
+// Polling: aguarda o vault token ficar disponível (máximo 3 tentativas com 2s de intervalo)
+export const waitForVaultToken = async (
+  paypalCustomerId: string,
+  clientId: string,
+  clientSecret: string,
+  maxAttempts: number = 3,
+  intervalMs: number = 2000
+): Promise<{ id: string; customer: { id: string } } | null> => {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    console.log(`🔵 [PayPal Vault] Polling tentativa ${attempt}/${maxAttempts} para customer ${paypalCustomerId}...`);
+
+    const token = await getCustomerPaymentTokens(paypalCustomerId, clientId, clientSecret);
+    if (token) {
+      console.log(`✅ [PayPal Vault] Token encontrado via polling: ${token.id}`);
+      return token;
+    }
+
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+
+  console.warn(`⚠️ [PayPal Vault] Token não encontrado após ${maxAttempts} tentativas de polling`);
+  return null;
+};
+
 // Cria e captura uma ordem usando vault_id (para one-click upsell)
 export const createAndCaptureOrderWithVault = async (
   amount: number,
@@ -152,10 +207,10 @@ export const createAndCaptureOrderWithVault = async (
       payment_source: {
         paypal: {
           vault_id: vaultId,
-          attributes: {
-            customer: {
-              id: paypalCustomerId,
-            },
+          stored_credential: {
+            payment_initiator: "MERCHANT",
+            payment_type: "UNSCHEDULED",
+            usage: "SUBSEQUENT",
           },
         },
       },

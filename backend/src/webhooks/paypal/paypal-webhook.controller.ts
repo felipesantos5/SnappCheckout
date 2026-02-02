@@ -1,7 +1,7 @@
 // src/webhooks/paypal/paypal-webhook.controller.ts
 import { Request, Response } from "express";
 import { verifyPayPalWebhookSignature } from "./paypal-webhook.service";
-import { handlePaymentCaptureCompleted, handlePaymentCaptureDenied, handlePaymentCaptureRefunded } from "./handlers/payment.handler";
+import { handlePaymentCaptureCompleted, handlePaymentCaptureDenied, handlePaymentCaptureRefunded, handleVaultPaymentTokenCreated } from "./handlers/payment.handler";
 import { paypalWebhookSemaphore } from "../../lib/semaphore";
 
 /**
@@ -51,6 +51,11 @@ export const handlePayPalWebhook = async (req: Request, res: Response) => {
 
         case "CHECKOUT.ORDER.APPROVED":
           // Ordem aprovada pelo cliente (não é pagamento ainda)
+          break;
+
+        case "VAULT.PAYMENT-TOKEN.CREATED":
+          console.log(`🔐 [PayPal] Vault payment token criado`);
+          await handleVaultPaymentTokenCreated(event);
           break;
 
         default:

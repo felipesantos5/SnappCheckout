@@ -667,14 +667,10 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                         currency={offerData.currency}
                         offerId={offerData._id}
                         paypalClientId={paypalClientId}
+                        enableVault={!!offerData.upsell?.enabled}
                         abTestId={abTestId}
                         purchaseEventId={`${checkoutSessionId}_paypal_purchase`}
                         selectedOrderBumps={selectedBumps}
-                        customerData={{
-                          name: (document.getElementById("name") as HTMLInputElement)?.value || "",
-                          email: (document.getElementById("email") as HTMLInputElement)?.value || "",
-                          phone: (document.getElementById("phone") as HTMLInputElement)?.value || "",
-                        }}
                         onSuccess={(paypalSaleId: string, purchaseEventId: string, redirectUrl?: string) => {
                           if (window.fbq) {
                             window.fbq(
@@ -740,14 +736,10 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                           currency={offerData.currency}
                           offerId={offerData._id}
                           paypalClientId={paypalClientId}
+                          enableVault={!!offerData.upsell?.enabled}
                           abTestId={abTestId}
                           purchaseEventId={`${checkoutSessionId}_paypal_purchase`}
                           selectedOrderBumps={selectedBumps}
-                          customerData={{
-                            name: (document.getElementById("name") as HTMLInputElement)?.value || "",
-                            email: (document.getElementById("email") as HTMLInputElement)?.value || "",
-                            phone: (document.getElementById("phone") as HTMLInputElement)?.value || "",
-                          }}
                           onSuccess={(paypalSaleId: string, purchaseEventId: string, redirectUrl?: string) => {
                             if (window.fbq) {
                               window.fbq(

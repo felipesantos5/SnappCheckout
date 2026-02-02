@@ -2,9 +2,11 @@
 import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
 import User from "../../../models/user.model";
+import UpsellSession from "../../../models/upsell-session.model";
 import { sendAccessWebhook } from "../../../services/integration.service";
 import { createFacebookUserData, sendFacebookEvent } from "../../../services/facebook.service";
 import { getCountryFromIP } from "../../../helper/getCountryFromIP";
+import { v4 as uuidv4 } from "uuid";
 
 interface PayPalCaptureResource {
   id: string;
@@ -138,6 +140,101 @@ export const handlePaymentCaptureRefunded = async (event: PayPalWebhookEvent): P
     }
   } catch (error: any) {
     console.error(`❌ [PayPal] Erro ao processar PAYMENT.CAPTURE.REFUNDED:`, error.message);
+  }
+};
+
+/**
+ * Handler para VAULT.PAYMENT-TOKEN.CREATED
+ * Fallback assíncrono: quando o vault retorna status APPROVED na captura,
+ * o PayPal envia este webhook quando o token fica disponível.
+ * Atualiza a UpsellSession se ela foi criada sem vault_id.
+ */
+export const handleVaultPaymentTokenCreated = async (event: any): Promise<void> => {
+  try {
+    const resource = event.resource;
+    const vaultId = resource?.id;
+    const paypalCustomerId = resource?.customer?.id;
+
+    if (!vaultId || !paypalCustomerId) {
+      console.warn(`⚠️ [PayPal Vault Webhook] Token ou customer_id ausente no evento`);
+      return;
+    }
+
+    console.log(`🔐 [PayPal Vault Webhook] Token criado: vault_id=${vaultId}, customer_id=${paypalCustomerId}`);
+
+    // Busca uma venda recente do PayPal para este customer (últimos 10 minutos)
+    // para associar ao upsell se necessário
+    const recentSale = await Sale.findOne({
+      stripePaymentIntentId: { $regex: /^PAYPAL_/ },
+      paymentMethod: "paypal",
+      status: "succeeded",
+      createdAt: { $gte: new Date(Date.now() - 10 * 60 * 1000) },
+    })
+      .sort({ createdAt: -1 })
+      .populate("offerId");
+
+    if (!recentSale) {
+      console.log(`ℹ️ [PayPal Vault Webhook] Nenhuma venda recente encontrada para associar vault token`);
+      return;
+    }
+
+    const offer = recentSale.offerId as any;
+    if (!offer?.upsell?.enabled) {
+      console.log(`ℹ️ [PayPal Vault Webhook] Oferta não tem upsell habilitado`);
+      return;
+    }
+
+    // Verifica se já existe uma UpsellSession para esta venda
+    const existingSession = await UpsellSession.findOne({
+      offerId: offer._id,
+      paymentMethod: "paypal",
+      customerEmail: recentSale.customerEmail,
+      createdAt: { $gte: new Date(Date.now() - 10 * 60 * 1000) },
+    });
+
+    if (existingSession) {
+      // Atualiza a sessão existente com os dados do vault se estiverem faltando
+      if (!existingSession.paypalVaultId) {
+        existingSession.paypalVaultId = vaultId;
+        existingSession.paypalCustomerId = paypalCustomerId;
+        existingSession.paymentMethodId = vaultId;
+        existingSession.customerId = paypalCustomerId;
+        await existingSession.save();
+        console.log(`✅ [PayPal Vault Webhook] UpsellSession ${existingSession.token} atualizada com vault_id: ${vaultId}`);
+      } else {
+        console.log(`ℹ️ [PayPal Vault Webhook] UpsellSession já tem vault_id, nada a fazer`);
+      }
+      return;
+    }
+
+    // Se não existe UpsellSession, cria uma nova (caso o polling tenha falhado)
+    const owner = await User.findById(offer.ownerId);
+    if (!owner?.paypalClientId) {
+      console.warn(`⚠️ [PayPal Vault Webhook] Vendedor sem PayPal configurado`);
+      return;
+    }
+
+    const token = uuidv4();
+    await UpsellSession.create({
+      token,
+      accountId: owner.paypalClientId,
+      customerId: paypalCustomerId,
+      paymentMethodId: vaultId,
+      offerId: offer._id,
+      paymentMethod: "paypal",
+      ip: recentSale.ip || "",
+      customerName: recentSale.customerName || "",
+      customerEmail: recentSale.customerEmail || "",
+      customerPhone: recentSale.customerPhone || "",
+      paypalVaultId: vaultId,
+      paypalCustomerId: paypalCustomerId,
+    });
+
+    console.log(`✅ [PayPal Vault Webhook] Nova UpsellSession criada com token: ${token} (fallback assíncrono)`);
+    // Nota: o cliente já foi redirecionado sem upsell neste ponto,
+    // mas a sessão fica disponível caso o parceiro tenha lógica de retry
+  } catch (error: any) {
+    console.error(`❌ [PayPal Vault Webhook] Erro:`, error.message);
   }
 };
 

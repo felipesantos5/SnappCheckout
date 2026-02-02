@@ -37,4 +37,7 @@ const upsellSessionSchema = new Schema<IUpsellSession>(
   { timestamps: true }
 );
 
+// TTL: auto-deleta sessões após 30 minutos (1800 segundos)
+upsellSessionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 1800 });
+
 export default model<IUpsellSession>("UpsellSession", upsellSessionSchema);

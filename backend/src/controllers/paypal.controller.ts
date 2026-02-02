@@ -112,7 +112,13 @@ export const captureOrder = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Credenciais do PayPal não configuradas." });
     }
 
-    const captureData = await paypalService.captureOrder(orderId, user.paypalClientId, user.paypalClientSecret);
+    let captureData: any;
+    try {
+      captureData = await paypalService.captureOrder(orderId, user.paypalClientId, user.paypalClientSecret);
+    } catch (captureError: any) {
+      console.error(`❌ [PayPal] Falha ao capturar ordem ${orderId}:`, captureError.message);
+      return res.status(500).json({ error: captureError.message });
+    }
 
     if (captureData.status === "COMPLETED") {
       // Extrair valor capturado do PayPal
@@ -187,7 +193,42 @@ export const captureOrder = async (req: Request, res: Response) => {
         items,
       });
 
-      await newSale.save();
+      // CRÍTICO: O pagamento já foi capturado pelo PayPal. Se o save falhar,
+      // o dinheiro saiu mas a venda não foi registrada. Tentamos até 3 vezes.
+      let saleSaved = false;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await newSale.save();
+          saleSaved = true;
+          break;
+        } catch (saveError: any) {
+          console.error(`❌ [PayPal] Tentativa ${attempt}/3 de salvar venda falhou:`, saveError.message);
+          if (attempt < 3) {
+            await new Promise((r) => setTimeout(r, 1000));
+          }
+        }
+      }
+
+      if (!saleSaved) {
+        // Log crítico com todos os dados para recuperação manual
+        console.error(`🚨 [PayPal] CRÍTICO: Pagamento capturado (${captureData.id}) mas venda NÃO foi salva!`, {
+          paypalOrderId: captureData.id,
+          offerId: offer._id.toString(),
+          ownerId: offer.ownerId,
+          amountInCents,
+          customerEmail: customerData?.email,
+          customerName: customerData?.name,
+        });
+        // Retorna sucesso ao cliente mesmo assim (o dinheiro já saiu)
+        // A venda precisará ser reconciliada manualmente
+        return res.json({
+          success: true,
+          data: captureData,
+          saleId: null,
+          upsellToken: null,
+          upsellRedirectUrl: offer.thankYouPageUrl || null,
+        });
+      }
 
       // =================================================================
       // INTEGRAÇÕES EXTERNAS
@@ -246,50 +287,90 @@ export const captureOrder = async (req: Request, res: Response) => {
         newSale.integrationsUtmfySent = false;
       }
 
-      // Salva as flags de integração
-      await newSale.save();
+      // Salva as flags de integração (não-crítico, não deve impedir resposta)
+      try {
+        await newSale.save();
+      } catch (flagSaveError: any) {
+        console.error(`⚠️ [PayPal] Erro ao salvar flags de integração:`, flagSaveError.message);
+      }
       console.log(`📊 [PayPal] Status das integrações: Husky=${newSale.integrationsHuskySent}, Facebook=${newSale.integrationsFacebookSent}, UTMfy=${newSale.integrationsUtmfySent}`);
 
       // D: Verificar se tem upsell habilitado e vault disponível
       let upsellToken: string | null = null;
       let upsellRedirectUrl: string | null = null;
 
-      // Extrai vault_id e customer_id do PayPal (se disponível)
-      const paymentSource = captureData.payment_source?.paypal;
-      const vaultId = paymentSource?.attributes?.vault?.id;
-      const paypalCustomerId = paymentSource?.attributes?.vault?.customer?.id;
+      if (offer.upsell?.enabled) {
+        // Extrai vault_id e customer_id do PayPal (se disponível)
+        const paymentSource = captureData.payment_source?.paypal;
+        const vaultData = paymentSource?.attributes?.vault;
+        let vaultId = vaultData?.id;
+        let paypalCustomerId = vaultData?.customer?.id;
+        const vaultStatus = vaultData?.status; // "VAULTED" ou "APPROVED"
 
-      if (offer.upsell?.enabled && vaultId && paypalCustomerId) {
-        console.log(`🔵 [PayPal] Vault detectado! vault_id: ${vaultId}, customer_id: ${paypalCustomerId}`);
+        console.log(`🔵 [PayPal] Vault status: ${vaultStatus || "N/A"}, vault_id: ${vaultId || "N/A"}, customer_id: ${paypalCustomerId || "N/A"}`);
 
-        // Gera token de upsell
-        const token = uuidv4();
+        // Se status é APPROVED (assíncrono), o vault_id pode não estar disponível ainda
+        // Faz polling na API v3 do Vault para obter o token
+        if (!vaultId && paypalCustomerId && vaultStatus === "APPROVED") {
+          console.log(`🔵 [PayPal] Vault status APPROVED - iniciando polling para obter token...`);
+          const polledToken = await paypalService.waitForVaultToken(
+            paypalCustomerId,
+            user.paypalClientId,
+            user.paypalClientSecret
+          );
+          if (polledToken) {
+            vaultId = polledToken.id;
+            paypalCustomerId = polledToken.customer.id;
+          }
+        }
 
-        // Salva sessão de upsell com dados do PayPal Vault
-        await UpsellSession.create({
-          token,
-          accountId: user.paypalClientId, // Usamos o clientId como accountId
-          customerId: paypalCustomerId, // ID do cliente no PayPal
-          paymentMethodId: vaultId, // ID do vault token
-          offerId: offer._id,
-          paymentMethod: "paypal",
-          ip: clientIp,
-          customerName: customerData?.name || "",
-          customerEmail: customerData?.email || "",
-          customerPhone: customerData?.phone || "",
-          // Campos específicos do PayPal
-          paypalVaultId: vaultId,
-          paypalCustomerId: paypalCustomerId,
-        });
+        // Se ainda não temos customer_id, tenta extrair de outros campos da resposta
+        if (!paypalCustomerId) {
+          paypalCustomerId = paymentSource?.attributes?.customer?.id;
+        }
 
-        // Constrói URL de redirecionamento para upsell
-        const separator = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
-        upsellRedirectUrl = `${offer.upsell.redirectUrl}${separator}token=${token}`;
-        upsellToken = token;
+        if (vaultId && paypalCustomerId) {
+          console.log(`🔵 [PayPal] Vault detectado! vault_id: ${vaultId}, customer_id: ${paypalCustomerId}`);
 
-        console.log(`✅ [PayPal] Token de upsell gerado: ${token}`);
-      } else if (offer.upsell?.enabled && !vaultId) {
-        console.warn(`⚠️ [PayPal] Upsell habilitado mas vault_id não encontrado na resposta do PayPal`);
+          // Gera token de upsell
+          const token = uuidv4();
+
+          try {
+            // Salva sessão de upsell com dados do PayPal Vault
+            await UpsellSession.create({
+              token,
+              accountId: user.paypalClientId,
+              customerId: paypalCustomerId,
+              paymentMethodId: vaultId,
+              offerId: offer._id,
+              paymentMethod: "paypal",
+              ip: clientIp,
+              customerName: customerData?.name || "",
+              customerEmail: customerData?.email || "",
+              customerPhone: customerData?.phone || "",
+              paypalVaultId: vaultId,
+              paypalCustomerId: paypalCustomerId,
+            });
+
+            // Constrói URL de redirecionamento para upsell
+            const separator = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
+            upsellRedirectUrl = `${offer.upsell.redirectUrl}${separator}token=${token}&payment_method=paypal`;
+            upsellToken = token;
+
+            console.log(`✅ [PayPal] Token de upsell gerado: ${token}`);
+          } catch (upsellError: any) {
+            console.error(`⚠️ [PayPal] Erro ao criar sessão de upsell:`, upsellError.message);
+            // Não impede a resposta - o cliente será redirecionado para thank you page
+          }
+        } else {
+          console.warn(`⚠️ [PayPal] Upsell habilitado mas vault não disponível (vault_id: ${vaultId || "N/A"}, customer_id: ${paypalCustomerId || "N/A"}, status: ${vaultStatus || "N/A"})`);
+
+          // Fallback: redireciona para checkout alternativo se configurado
+          if (offer.upsell.fallbackCheckoutUrl && offer.upsell.fallbackCheckoutUrl.trim() !== "") {
+            upsellRedirectUrl = offer.upsell.fallbackCheckoutUrl;
+            console.log(`🔵 [PayPal] Usando fallback checkout URL para upsell: ${upsellRedirectUrl}`);
+          }
+        }
       }
 
       // Fallback para Thank You Page se não tiver upsell
@@ -495,10 +576,64 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
 
       await newSale.save();
 
-      // 8. Deletar sessão de upsell (token usado)
+      // =================================================================
+      // 8. INTEGRAÇÕES EXTERNAS (mesmo padrão do captureOrder)
+      // =================================================================
+      newSale.integrationsLastAttempt = new Date();
+
+      // A: Facebook CAPI (Purchase)
+      try {
+        await sendFacebookPurchaseForPayPal(offer, newSale, items, session.ip || "", {
+          email: session.customerEmail,
+          name: session.customerName,
+          phone: session.customerPhone,
+        });
+        newSale.integrationsFacebookSent = true;
+        console.log(`✅ [PayPal Upsell] Evento Facebook enviado com sucesso`);
+      } catch (fbError: any) {
+        console.error(`⚠️ [PayPal Upsell] Erro ao enviar evento Facebook:`, fbError.message);
+        newSale.integrationsFacebookSent = false;
+      }
+
+      // B: Webhook de Área de Membros (Husky/MemberKit)
+      try {
+        await sendAccessWebhook(offer as any, newSale, items, session.customerPhone || "");
+        newSale.integrationsHuskySent = true;
+        console.log(`✅ [PayPal Upsell] Webhook Husky enviado com sucesso`);
+      } catch (huskyError: any) {
+        console.error(`⚠️ [PayPal Upsell] Erro ao enviar webhook Husky:`, huskyError.message);
+        newSale.integrationsHuskySent = false;
+      }
+
+      // C: Webhook de Rastreamento (UTMfy)
+      try {
+        await processUtmfyIntegrationForPayPal(
+          offer as any,
+          newSale,
+          items,
+          captureData.id,
+          {
+            email: session.customerEmail,
+            name: session.customerName,
+            phone: session.customerPhone,
+          },
+          { ip: session.ip || "" }
+        );
+        newSale.integrationsUtmfySent = true;
+        console.log(`✅ [PayPal Upsell] Webhook UTMfy enviado com sucesso`);
+      } catch (utmfyError: any) {
+        console.error(`⚠️ [PayPal Upsell] Erro ao enviar webhook UTMfy:`, utmfyError.message);
+        newSale.integrationsUtmfySent = false;
+      }
+
+      // Salva flags de integração
+      await newSale.save();
+      console.log(`📊 [PayPal Upsell] Integrações: Husky=${newSale.integrationsHuskySent}, Facebook=${newSale.integrationsFacebookSent}, UTMfy=${newSale.integrationsUtmfySent}`);
+
+      // 9. Deletar sessão de upsell (token usado)
       await UpsellSession.deleteOne({ token });
 
-      // 9. Redirecionar para Thank You Page
+      // 10. Redirecionar para Thank You Page
       const redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
 
       console.log(`✅ [PayPal Upsell] Compra concluída com sucesso`);

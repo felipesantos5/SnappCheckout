@@ -20,8 +20,9 @@ export const getUpsellScript = (req: Request, res: Response) => {
     // Pega a URL de fallback do atributo data-fallback-url do botão
     const fallbackUrl = btnElement.getAttribute('data-fallback-url') || btnElement.dataset.fallbackUrl;
 
-    // Pega o método de pagamento do atributo data-payment-method (default: stripe)
-    const paymentMethod = btnElement.getAttribute('data-payment-method') || btnElement.dataset.paymentMethod || 'stripe';
+    // Pega o método de pagamento: prioridade data-attribute > URL query param > default stripe
+    const urlPaymentMethod = new URLSearchParams(window.location.search).get('payment_method');
+    const paymentMethod = btnElement.getAttribute('data-payment-method') || btnElement.dataset.paymentMethod || urlPaymentMethod || 'stripe';
 
     const originalText = btnElement.innerText;
     btnElement.innerText = "PROCESSANDO...";

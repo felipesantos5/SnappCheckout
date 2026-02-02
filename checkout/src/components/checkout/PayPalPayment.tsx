@@ -10,14 +10,10 @@ interface PayPalPaymentProps {
   currency: string;
   offerId: string;
   paypalClientId: string;
+  enableVault?: boolean; // Habilita vault para upsell one-click
   abTestId?: string | null;
   purchaseEventId: string; // Event ID para deduplicação Facebook Pixel/CAPI
   selectedOrderBumps: string[]; // IDs dos order bumps selecionados
-  customerData: {
-    name: string;
-    email: string;
-    phone: string;
-  };
   onSuccess: (saleId: string, purchaseEventId: string, redirectUrl?: string | null) => void;
   onError: (error: string) => void;
   onSwitchPaymentMethod?: () => void; // Callback opcional para trocar método de pagamento
@@ -136,10 +132,10 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
   currency,
   offerId,
   paypalClientId,
+  enableVault,
   abTestId,
   purchaseEventId,
   selectedOrderBumps,
-  customerData,
   onSuccess,
   onError,
   onSwitchPaymentMethod,
@@ -213,7 +209,8 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
 
     const script = document.createElement("script");
     script.id = scriptId;
-    script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=${currency.toUpperCase()}&intent=capture&disable-funding=card`;
+    const vaultParam = enableVault ? "&vault=true" : "";
+    script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=${currency.toUpperCase()}&intent=capture&disable-funding=card${vaultParam}`;
     script.async = true;
 
     script.onload = () => {
@@ -232,7 +229,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
     return () => {
       // Não remove o script ao desmontar (pode ser reutilizado)
     };
-  }, [paypalClientId, currency, handlePayPalError, scriptLoaded]);
+  }, [paypalClientId, currency, enableVault, handlePayPalError, scriptLoaded]);
 
   // Renderiza os botões do PayPal quando o script estiver carregado
   useEffect(() => {
@@ -279,16 +276,23 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
 
           onApprove: async (data: any) => {
             try {
+              // Lê dados do cliente do DOM no momento do clique (não no render)
+              const freshCustomerData = {
+                name: (document.getElementById("name") as HTMLInputElement)?.value || "",
+                email: (document.getElementById("email") as HTMLInputElement)?.value || "",
+                phone: (document.getElementById("phone") as HTMLInputElement)?.value || "",
+              };
+
               const response = await fetch(`${API_URL}/paypal/capture-order`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   orderId: data.orderID,
                   offerId: offerId,
-                  customerData: customerData,
+                  customerData: freshCustomerData,
                   abTestId: abTestId ?? null,
-                  purchaseEventId: purchaseEventId, // Event ID para deduplicação Facebook
-                  selectedOrderBumps: selectedOrderBumps, // Order bumps selecionados
+                  purchaseEventId: purchaseEventId,
+                  selectedOrderBumps: selectedOrderBumps,
                 }),
               });
 
@@ -319,7 +323,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
       console.error("Failed to render PayPal buttons:", error);
       handlePayPalError(error);
     }
-  }, [scriptLoaded, amount, currency, offerId, customerData, onSuccess, handlePayPalError, abTestId, purchaseEventId, selectedOrderBumps]);
+  }, [scriptLoaded, amount, currency, offerId, onSuccess, handlePayPalError, abTestId, purchaseEventId, selectedOrderBumps]);
 
   return (
     <>
