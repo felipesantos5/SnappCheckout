@@ -363,24 +363,37 @@ export function AllSalesPage() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Sidebar de Filtros */}
-      <aside
-        className={`relative border-r bg-card py-4 overflow-y-auto shrink-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-72 px-4" : "w-12 px-2"
-          }`}
-      >
-        {/* Botão Toggle Sidebar - Dentro do aside */}
+      {/* Botão Toggle Sidebar - Fora do aside quando fechado */}
+      {!isSidebarOpen && (
         <Button
           variant="outline"
           size="icon"
-          className={`z-10 shadow-md hover:shadow-lg transition-all duration-300 ${isSidebarOpen ? "absolute top-4 right-4" : "mx-auto block"
-            }`}
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="fixed top-1/3 left-[208px] z-50 shadow-md hover:shadow-lg"
+          onClick={() => setIsSidebarOpen(true)}
         >
-          {isSidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          <ChevronRight className="h-4 w-4" />
         </Button>
+      )}
+
+      {/* Sidebar de Filtros */}
+      <aside
+        className={`relative border-r bg-card py-4 overflow-y-auto shrink-0 transition-all duration-300 ease-in-out pl-0! ${isSidebarOpen ? "w-72 px-4" : "w-0 px-0 border-r-0"
+          }`}
+      >
+        {/* Botão Toggle Sidebar - Dentro do aside quando aberto */}
+        {isSidebarOpen && (
+          <Button
+            variant="outline"
+            size="icon"
+            className="absolute top-[13px] left-0 z-10 shadow-md hover:shadow-lg"
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        )}
 
         <div className={`space-y-4 ${isSidebarOpen ? "opacity-100 mt-0" : "opacity-0 pointer-events-none h-0 overflow-hidden"} transition-opacity duration-200`}>
-          <div className="flex items-center justify-between pr-12">
+          <div className="flex items-center justify-between pl-14">
             <h2 className="text-lg font-semibold">Filtros</h2>
             <Button variant="ghost" size="sm" onClick={clearAllFilters}>
               <X className="h-4 w-4 mr-1" />
@@ -550,53 +563,34 @@ export function AllSalesPage() {
             <Label className="text-sm font-medium">Método de Pagamento</Label>
             <div className="space-y-2">
               {[
-                { key: "credit_card", label: "Cartão de Crédito" },
-                { key: "paypal", label: "PayPal" },
-                { key: "pix", label: "PIX" },
-              ].map(({ key, label }) => (
+                { key: "credit_card", label: "Cartão de Crédito", type: "payment" },
+                { key: "apple_pay", label: "Apple Pay", type: "wallet" },
+                { key: "google_pay", label: "Google Pay", type: "wallet" },
+                { key: "paypal", label: "PayPal", type: "payment" },
+                { key: "pix", label: "PIX", type: "payment" },
+              ].map(({ key, label, type }) => (
                 <div key={key} className="flex items-center space-x-2">
                   <Checkbox
                     id={`payment-${key}`}
-                    checked={selectedPaymentMethods.includes(key)}
+                    checked={type === "wallet" ? selectedWallets.includes(key) : selectedPaymentMethods.includes(key)}
                     onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedPaymentMethods([...selectedPaymentMethods, key]);
+                      if (type === "wallet") {
+                        if (checked) {
+                          setSelectedWallets([...selectedWallets, key]);
+                        } else {
+                          setSelectedWallets(selectedWallets.filter((w) => w !== key));
+                        }
                       } else {
-                        setSelectedPaymentMethods(selectedPaymentMethods.filter((m) => m !== key));
+                        if (checked) {
+                          setSelectedPaymentMethods([...selectedPaymentMethods, key]);
+                        } else {
+                          setSelectedPaymentMethods(selectedPaymentMethods.filter((m) => m !== key));
+                        }
                       }
                       setPage(1);
                     }}
                   />
                   <label htmlFor={`payment-${key}`} className="text-sm cursor-pointer">
-                    {label}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Wallets Digitais */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Wallets Digitais</Label>
-            <div className="space-y-2">
-              {[
-                { key: "apple_pay", label: " Apple Pay" },
-                { key: "google_pay", label: "🅖 Google Pay" },
-              ].map(({ key, label }) => (
-                <div key={key} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`wallet-${key}`}
-                    checked={selectedWallets.includes(key)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedWallets([...selectedWallets, key]);
-                      } else {
-                        setSelectedWallets(selectedWallets.filter((w) => w !== key));
-                      }
-                      setPage(1);
-                    }}
-                  />
-                  <label htmlFor={`wallet-${key}`} className="text-sm cursor-pointer">
                     {label}
                   </label>
                 </div>
