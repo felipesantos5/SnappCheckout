@@ -198,11 +198,33 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
   useEffect(() => {
     const scriptId = "paypal-sdk-script";
 
-    // Se já existe o script, apenas marca como carregado
+    // Se já existe o script, aguarda o window.paypal estar disponível
     if (document.getElementById(scriptId)) {
       if (window.paypal) {
         setScriptLoaded(true);
         setIsLoading(false);
+      } else {
+        // Script existe mas window.paypal ainda não está pronto
+        // Aguarda até 5 segundos para o PayPal carregar
+        console.log("🔵 [PayPal] Script exists, waiting for window.paypal...");
+        let attempts = 0;
+        const maxAttempts = 50; // 50 * 100ms = 5 segundos
+        const checkInterval = setInterval(() => {
+          attempts++;
+          if (window.paypal) {
+            clearInterval(checkInterval);
+            console.log("✅ [PayPal] window.paypal is now available");
+            setScriptLoaded(true);
+            setIsLoading(false);
+          } else if (attempts >= maxAttempts) {
+            clearInterval(checkInterval);
+            console.error("❌ [PayPal] SDK timeout - script loaded but window.paypal not available");
+            handlePayPalError(new Error("Timeout ao carregar PayPal SDK"));
+            setIsLoading(false);
+          }
+        }, 100);
+
+        return () => clearInterval(checkInterval);
       }
       return;
     }
@@ -213,9 +235,27 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
     script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=${currency.toUpperCase()}&intent=capture&disable-funding=card${vaultParam}`;
     script.async = true;
 
+    console.log("🔵 [PayPal] Loading PayPal SDK script...");
+
     script.onload = () => {
-      setScriptLoaded(true);
-      setIsLoading(false);
+      console.log("🔵 [PayPal] Script loaded, waiting for window.paypal...");
+      // Aguarda window.paypal estar disponível após o script carregar
+      let attempts = 0;
+      const maxAttempts = 50;
+      const checkInterval = setInterval(() => {
+        attempts++;
+        if (window.paypal) {
+          clearInterval(checkInterval);
+          console.log("✅ [PayPal] window.paypal is now available");
+          setScriptLoaded(true);
+          setIsLoading(false);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          console.error("❌ [PayPal] SDK timeout after script load");
+          handlePayPalError(new Error("Timeout ao inicializar PayPal SDK"));
+          setIsLoading(false);
+        }
+      }, 100);
     };
 
     script.onerror = () => {
@@ -229,7 +269,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
     return () => {
       // Não remove o script ao desmontar (pode ser reutilizado)
     };
-  }, [paypalClientId, currency, enableVault, handlePayPalError, scriptLoaded]);
+  }, [paypalClientId, currency, enableVault, handlePayPalError]);
 
   // Renderiza os botões do PayPal quando o script estiver carregado
   useEffect(() => {
@@ -237,6 +277,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
       return;
     }
 
+    console.log("🔵 [PayPal] Rendering PayPal buttons...");
     buttonsRendered.current = true;
 
     try {
@@ -319,8 +360,10 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
           },
         })
         .render(paypalContainerRef.current);
+
+      console.log("✅ [PayPal] Buttons rendered successfully");
     } catch (error) {
-      console.error("Failed to render PayPal buttons:", error);
+      console.error("❌ [PayPal] Failed to render PayPal buttons:", error);
       handlePayPalError(error);
     }
   }, [scriptLoaded, amount, currency, offerId, onSuccess, handlePayPalError, abTestId, purchaseEventId, selectedOrderBumps]);
