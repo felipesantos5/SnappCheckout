@@ -14,33 +14,38 @@ const MAX_RECONNECT_ATTEMPTS = 10;
 let reconnectAttempts = 0;
 
 /**
- * Opções otimizadas para MongoDB em produção
- * - Pool maior para suportar mais conexões simultâneas
- * - Timeouts para evitar travamentos
- * - Heartbeat para manter conexões vivas
+ * Opções otimizadas para MongoDB local na VPS
+ * - bufferCommands true com bufferTimeoutMS para sobreviver a blips de conexão
+ * - Pool dimensionado para tráfego de checkout
+ * - Timeouts ajustados para MongoDB local (baixa latência)
  */
 const mongooseOptions: mongoose.ConnectOptions = {
-  // Pool de conexões - aumentado para suportar picos de tráfego
-  maxPoolSize: 50, // Máximo de conexões simultâneas (padrão era 10)
-  minPoolSize: 5,  // Mínimo de conexões mantidas abertas
+  // Pool de conexões
+  maxPoolSize: 30,  // Reduzido de 50 - suficiente para checkout + webhooks + admin
+  minPoolSize: 5,   // Mantém conexões quentes
 
-  // Timeouts para evitar travamentos
-  serverSelectionTimeoutMS: 10000, // 10s para selecionar servidor
-  socketTimeoutMS: 45000,          // 45s timeout para operações
-  connectTimeoutMS: 10000,         // 10s para estabelecer conexão
+  // Timeouts
+  serverSelectionTimeoutMS: 15000, // 15s para selecionar servidor (aumentado para dar margem em restart do mongo)
+  socketTimeoutMS: 30000,          // 30s timeout para operações (reduzido - operações não devem demorar tanto)
+  connectTimeoutMS: 15000,         // 15s para estabelecer conexão
 
-  // Heartbeat para detectar desconexões mais rápido
+  // Heartbeat para detectar desconexões
   heartbeatFrequencyMS: 10000,     // Ping a cada 10s
 
-  // Manter conexões vivas
+  // Conexões idle
   maxIdleTimeMS: 60000,            // Fecha conexões idle após 60s
 
-  // Retry automático para escritas
+  // Retry automático (crítico para resistir a blips)
   retryWrites: true,
   retryReads: true,
 
-  // Buffer de comandos desabilitado para falhar rápido quando desconectado
-  bufferCommands: false,
+  // CRÍTICO: bufferCommands TRUE para sobreviver a micro-desconexões
+  // Quando o MongoDB desconecta brevemente (restart, network blip),
+  // comandos são bufferizados ao invés de falharem instantaneamente
+  bufferCommands: true,
+
+  // Auto-index em produção desabilitado para performance
+  autoIndex: process.env.NODE_ENV !== "production",
 };
 
 /**
@@ -48,6 +53,7 @@ const mongooseOptions: mongoose.ConnectOptions = {
  */
 async function attemptReconnect(): Promise<void> {
   if (isReconnecting) return;
+  if (process.env.SHUTTING_DOWN === "true") return;
 
   isReconnecting = true;
   reconnectAttempts++;
@@ -68,7 +74,6 @@ async function attemptReconnect(): Promise<void> {
     isReconnecting = false;
 
     if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-      // Agenda próxima tentativa
       attemptReconnect();
     } else {
       console.error("❌ Máximo de tentativas de reconexão atingido. Reiniciando processo...");
@@ -78,11 +83,9 @@ async function attemptReconnect(): Promise<void> {
 }
 
 /**
- * Conecta ao banco de dados MongoDB (Padrão para Containers/VPS).
- * Configurado com pool otimizado e timeouts para evitar travamentos.
+ * Conecta ao banco de dados MongoDB
  */
 async function connectDB() {
-  // Se já estiver conectado ou conectando, não faz nada
   if (mongoose.connection.readyState >= 1) {
     return;
   }
@@ -91,9 +94,9 @@ async function connectDB() {
     await mongoose.connect(MONGO_URI!, mongooseOptions);
     console.log("✅ MongoDB conectado com sucesso.");
     console.log(`   Pool: ${mongooseOptions.minPoolSize}-${mongooseOptions.maxPoolSize} conexões`);
+    console.log(`   Buffer Commands: ${mongooseOptions.bufferCommands ? "ON (resiliente a blips)" : "OFF"}`);
   } catch (error) {
     console.error("❌ Erro ao conectar ao MongoDB:", error);
-    // Lança o erro para que o server.ts decida se mata o processo
     throw error;
   }
 }
@@ -102,7 +105,6 @@ async function connectDB() {
 mongoose.connection.on("disconnected", () => {
   console.warn("⚠️ MongoDB desconectado!");
 
-  // Só tenta reconectar se não estiver em processo de shutdown
   if (process.env.SHUTTING_DOWN !== "true") {
     console.warn("🔄 Iniciando tentativa de reconexão automática...");
     attemptReconnect();
@@ -112,20 +114,32 @@ mongoose.connection.on("disconnected", () => {
 mongoose.connection.on("reconnected", () => {
   console.log("✅ MongoDB reconectado.");
   reconnectAttempts = 0;
+  isReconnecting = false;
 });
 
 mongoose.connection.on("error", (err) => {
-  console.error("❌ Erro na conexão com o MongoDB:", err);
+  console.error("❌ Erro na conexão com o MongoDB:", err.message);
 });
 
-// Evento quando a conexão está pronta
 mongoose.connection.on("connected", () => {
   console.log("📊 MongoDB: Conexão estabelecida");
 });
 
-// Log de monitoramento do pool (útil para debug)
 mongoose.connection.on("close", () => {
   console.log("📊 MongoDB: Conexão fechada");
 });
+
+/**
+ * Verifica se o MongoDB está saudável (para health check)
+ */
+export async function isMongoHealthy(): Promise<boolean> {
+  try {
+    if (mongoose.connection.readyState !== 1) return false;
+    await mongoose.connection.db!.admin().ping();
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export default connectDB;
