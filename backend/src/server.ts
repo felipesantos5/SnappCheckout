@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import app from "./app";
 import connectDB from "./lib/db";
 import { initializeCurrencyService } from "./services/currency-conversion.service";
+import { startFacebookPurchaseJob } from "./jobs/facebook-purchase.job";
 
 // Flag para evitar múltiplos shutdowns
 let isShuttingDown = false;
@@ -103,6 +104,9 @@ async function startServer() {
       console.warn("⚠️ Falha ao inicializar serviço de câmbio, usando taxas padrão:", currencyError);
       // Continua mesmo se falhar - usará taxas em cache
     }
+
+    // Inicia job de envio consolidado de Facebook Purchase
+    startFacebookPurchaseJob();
 
     // Cria servidor HTTP e guarda referência para graceful shutdown
     server = http.createServer(app);

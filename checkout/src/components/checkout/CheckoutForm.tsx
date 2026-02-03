@@ -672,21 +672,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                         purchaseEventId={`${checkoutSessionId}_paypal_purchase`}
                         selectedOrderBumps={selectedBumps}
                         onSuccess={(paypalSaleId: string, purchaseEventId: string, redirectUrl?: string) => {
-                          if (window.fbq) {
-                            window.fbq(
-                              "track",
-                              "Purchase",
-                              {
-                                content_name: offerData.mainProduct.name,
-                                content_ids: [offerData.mainProduct._id],
-                                content_type: "product",
-                                value: totalAmount / 100,
-                                currency: offerData.currency.toUpperCase(),
-                                order_id: paypalSaleId,
-                              },
-                              { eventID: purchaseEventId }
-                            );
-                          }
+                          // Purchase event enviado apenas via CAPI consolidado pelo backend
                           setSaleId(paypalSaleId);
                           setPaypalRedirectUrl(redirectUrl || null);
                           setPaymentSucceeded(true);
@@ -741,21 +727,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                           purchaseEventId={`${checkoutSessionId}_paypal_purchase`}
                           selectedOrderBumps={selectedBumps}
                           onSuccess={(paypalSaleId: string, purchaseEventId: string, redirectUrl?: string) => {
-                            if (window.fbq) {
-                              window.fbq(
-                                "track",
-                                "Purchase",
-                                {
-                                  content_name: offerData.mainProduct.name,
-                                  content_ids: [offerData.mainProduct._id],
-                                  content_type: "product",
-                                  value: totalAmount / 100,
-                                  currency: offerData.currency.toUpperCase(),
-                                  order_id: paypalSaleId,
-                                },
-                                { eventID: purchaseEventId }
-                              );
-                            }
+                            // Purchase event enviado apenas via CAPI consolidado pelo backend
                             setSaleId(paypalSaleId);
                             setPaypalRedirectUrl(redirectUrl || null);
                             setPaymentSucceeded(true);

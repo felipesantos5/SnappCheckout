@@ -4,7 +4,6 @@ import Offer from "../../../models/offer.model";
 import User from "../../../models/user.model";
 import UpsellSession from "../../../models/upsell-session.model";
 import { sendAccessWebhook } from "../../../services/integration.service";
-import { createFacebookUserData, sendFacebookEvent } from "../../../services/facebook.service";
 import { getCountryFromIP } from "../../../helper/getCountryFromIP";
 import { v4 as uuidv4 } from "uuid";
 
@@ -84,8 +83,8 @@ export const handlePaymentCaptureCompleted = async (event: PayPalWebhookEvent): 
         // Enviar webhook para área de membros (Husky)
         await sendAccessWebhook(offer as any, pendingSale, items, "");
 
-        // Enviar evento Purchase para Facebook CAPI
-        await sendFacebookPurchaseEvent(offer, pendingSale, items);
+        // Facebook CAPI (Purchase) - NÃO envia imediatamente
+        // O evento Purchase será enviado consolidado pelo job (facebook-purchase.job.ts)
       }
 
       return;
@@ -275,17 +274,8 @@ const retryAllIntegrations = async (sale: any): Promise<void> => {
       }
     }
 
-    // B: Reenvia para Facebook CAPI se não foi enviado ainda
-    if (!sale.integrationsFacebookSent) {
-      try {
-        console.log(`🔄 [PayPal Webhook] Reenviando evento Facebook para venda ${sale._id}`);
-        await sendFacebookPurchaseEvent(offer, sale, items);
-        sale.integrationsFacebookSent = true;
-        console.log(`✅ [PayPal Webhook] Evento Facebook reenviado com sucesso`);
-      } catch (error: any) {
-        console.error(`❌ [PayPal Webhook] Erro ao reenviar evento Facebook:`, error.message);
-      }
-    }
+    // B: Facebook CAPI (Purchase) - NÃO reenvia aqui
+    // O evento Purchase será enviado consolidado pelo job (facebook-purchase.job.ts)
 
     // C: Reenvia para UTMfy se não foi enviado ainda
     if (!sale.integrationsUtmfySent) {
@@ -330,82 +320,3 @@ const retryAllIntegrations = async (sale: any): Promise<void> => {
   }
 };
 
-/**
- * Envia evento Purchase para o Facebook CAPI
- * NOTA: Sale do webhook pode não ter todos os dados (userAgent, fbc, fbp)
- * pois esses dados são capturados no momento da compra (captureOrder)
- */
-const sendFacebookPurchaseEvent = async (offer: any, sale: any, items: any[]): Promise<void> => {
-  try {
-    // Coletar todos os pixels
-    const pixels: Array<{ pixelId: string; accessToken: string }> = [];
-
-    if (offer.facebookPixels && offer.facebookPixels.length > 0) {
-      pixels.push(...offer.facebookPixels);
-    }
-
-    if (offer.facebookPixelId && offer.facebookAccessToken) {
-      const alreadyExists = pixels.some((p) => p.pixelId === offer.facebookPixelId);
-      if (!alreadyExists) {
-        pixels.push({
-          pixelId: offer.facebookPixelId,
-          accessToken: offer.facebookAccessToken,
-        });
-      }
-    }
-
-    if (pixels.length === 0) return;
-
-    const totalValue = sale.totalAmountInCents / 100;
-
-    // Webhook não tem acesso a userAgent, fbc, fbp (foram capturados no captureOrder)
-    // Mas enviamos o que temos disponível (IP, email, phone, name)
-    const userData = createFacebookUserData(
-      sale.ip || "",
-      sale.userAgent || "", // Pode não estar disponível
-      sale.customerEmail,
-      sale.customerPhone || "",
-      sale.customerName,
-      sale.fbc, // Pode não estar disponível
-      sale.fbp, // Pode não estar disponível
-      sale.addressCity,
-      sale.addressState,
-      sale.addressZipCode,
-      sale.addressCountry
-    );
-
-    const eventData = {
-      event_name: "Purchase" as const,
-      event_time: Math.floor(Date.now() / 1000),
-      event_id: `paypal_purchase_${sale._id}`,
-      action_source: "website" as const,
-      user_data: userData,
-      custom_data: {
-        currency: sale.currency?.toUpperCase() || "BRL",
-        value: totalValue,
-        order_id: String(sale._id),
-        content_ids: items.map((i) => i._id || i.customId || "unknown"),
-        content_type: "product",
-      },
-    };
-
-    console.log(`🔵 [PayPal Webhook] Enviando Purchase para ${pixels.length} pixel(s) Facebook | Valor: ${totalValue}`);
-    console.log(`   - User Data: email=${!!userData.em}, phone=${!!userData.ph}, fbc=${!!userData.fbc}, fbp=${!!userData.fbp}`);
-    console.log(`   - Event Data Completo:`, JSON.stringify(eventData, null, 2));
-
-    const results = await Promise.allSettled(
-      pixels.map((pixel) =>
-        sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventData).catch((err) => {
-          console.error(`❌ Erro Facebook pixel ${pixel.pixelId}:`, err);
-          throw err;
-        })
-      )
-    );
-
-    const successful = results.filter((r) => r.status === "fulfilled").length;
-    const failed = results.filter((r) => r.status === "rejected").length;
-    console.log(`📊 [PayPal Webhook] Facebook Purchase: ${successful} sucesso, ${failed} falhas`);
-  } catch (error: any) {
-    console.error(`❌ [PayPal Webhook] Erro ao enviar evento Facebook:`, error.message);
-  }
-};

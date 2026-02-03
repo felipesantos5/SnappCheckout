@@ -50,6 +50,8 @@ export interface ISale extends Document {
   failureReason?: string; // Motivo da falha (código de erro do Stripe)
   failureMessage?: string; // Mensagem de erro legível
   isUpsell: boolean;
+  parentSaleId?: Schema.Types.ObjectId; // Vincula venda de upsell à venda original (para consolidar Facebook Purchase)
+  facebookPurchaseSendAfter?: Date; // Quando o evento consolidado de Purchase deve ser enviado (now + 10min)
   items: ISaleItem[]; // O que foi comprado
 
   // Tracking de integrações externas (para debugging e reprocessamento)
@@ -96,6 +98,8 @@ const saleSchema = new Schema<ISale>(
     addressCountry: { type: String, default: "" },
 
     isUpsell: { type: Boolean, default: false },
+    parentSaleId: { type: Schema.Types.ObjectId, ref: "Sale", default: null },
+    facebookPurchaseSendAfter: { type: Date, default: null },
 
     totalAmountInCents: { type: Number, required: true },
     platformFeeInCents: { type: Number, required: true },
@@ -157,6 +161,7 @@ const saleSchema = new Schema<ISale>(
 );
 
 saleSchema.index({ offerId: 1, status: 1, createdAt: -1 });
+saleSchema.index({ facebookPurchaseSendAfter: 1, integrationsFacebookSent: 1, status: 1 });
 
 const Sale: Model<ISale> = mongoose.models.Sale || model<ISale>("Sale", saleSchema);
 

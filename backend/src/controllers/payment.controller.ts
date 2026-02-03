@@ -1,6 +1,7 @@
 // src/controllers/payment.controller.ts
 import { Request, Response } from "express";
 import Offer, { IOffer } from "../models/offer.model";
+import Sale from "../models/sale.model";
 import stripe from "../lib/stripe";
 import UpsellSession from "../models/upsell-session.model";
 import { v4 as uuidv4 } from "uuid";
@@ -83,6 +84,9 @@ export const generateUpsellToken = async (req: Request, res: Response) => {
     const customerEmail = metadata.customerEmail || "";
     const customerPhone = metadata.customerPhone || "";
 
+    // Busca a Sale original para vincular ao upsell (consolidação de Facebook Purchase)
+    const originalSale = await Sale.findOne({ stripePaymentIntentId: paymentIntentId });
+
     await UpsellSession.create({
       token,
       accountId: stripeAccountId,
@@ -94,6 +98,7 @@ export const generateUpsellToken = async (req: Request, res: Response) => {
       customerName,
       customerEmail,
       customerPhone,
+      originalSaleId: originalSale?._id || null,
     });
 
     // Constrói a URL de redirecionamento

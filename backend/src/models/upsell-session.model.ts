@@ -15,6 +15,7 @@ export interface IUpsellSession extends Document {
   // Campos específicos do PayPal Vault
   paypalVaultId?: string; // ID do vault token do PayPal
   paypalCustomerId?: string; // Customer ID do PayPal
+  originalSaleId?: mongoose.Schema.Types.ObjectId; // ID da venda original (para vincular upsell)
   createdAt: Date;
 }
 
@@ -33,6 +34,7 @@ const upsellSessionSchema = new Schema<IUpsellSession>(
     // Campos específicos do PayPal Vault
     paypalVaultId: { type: String },
     paypalCustomerId: { type: String },
+    originalSaleId: { type: Schema.Types.ObjectId, ref: "Sale", default: null },
   },
   { timestamps: true }
 );

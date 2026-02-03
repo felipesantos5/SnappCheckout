@@ -2,7 +2,6 @@
 import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
 import { sendAccessWebhook } from "../../../services/integration.service";
-import { createFacebookUserData, sendFacebookEvent } from "../../../services/facebook.service";
 import { processUtmfyIntegrationForPayPal } from "../../../services/utmfy.service";
 
 /**
@@ -32,6 +31,8 @@ export const handleOrderPaid = async (eventData: any) => {
     // Atualiza o status da venda para succeeded
     sale.status = "succeeded";
     sale.integrationsLastAttempt = new Date();
+    // Facebook Purchase consolidado: envia após 10 minutos para agrupar com upsell
+    sale.facebookPurchaseSendAfter = new Date(Date.now() + 10 * 60 * 1000);
     await sale.save();
 
     console.log(`[Pagar.me Webhook] Venda atualizada para succeeded: saleId=${sale._id}`);
@@ -80,15 +81,9 @@ const dispatchAllIntegrations = async (sale: any, offer: any, items: any[]) => {
     sale.integrationsHuskySent = false;
   }
 
-  // B: Facebook CAPI (Purchase Event)
-  try {
-    await sendFacebookPurchaseForPagarme(offer, sale, items);
-    sale.integrationsFacebookSent = true;
-    console.log(`✅ [Pagar.me] Evento Facebook enviado com sucesso`);
-  } catch (error: any) {
-    console.error(`❌ [Pagar.me] Erro ao enviar evento Facebook:`, error.message);
-    sale.integrationsFacebookSent = false;
-  }
+  // B: Facebook CAPI (Purchase) - NÃO envia imediatamente
+  // O evento Purchase será enviado consolidado pelo job (facebook-purchase.job.ts)
+  // após a janela de 10 minutos, agrupando valor do produto principal + order bumps + upsell
 
   // C: Webhook de Rastreamento (UTMfy)
   try {
@@ -124,72 +119,3 @@ const dispatchAllIntegrations = async (sale: any, offer: any, items: any[]) => {
   console.log(`📊 [Pagar.me] Status das integrações: Husky=${sale.integrationsHuskySent}, Facebook=${sale.integrationsFacebookSent}, UTMfy=${sale.integrationsUtmfySent}`);
 };
 
-/**
- * Envia evento Purchase para o Facebook CAPI após pagamento Pagar.me
- */
-const sendFacebookPurchaseForPagarme = async (offer: any, sale: any, items: any[]): Promise<void> => {
-  // Coletar todos os pixels
-  const pixels: Array<{ pixelId: string; accessToken: string }> = [];
-
-  if (offer.facebookPixels && offer.facebookPixels.length > 0) {
-    pixels.push(...offer.facebookPixels);
-  }
-
-  if (offer.facebookPixelId && offer.facebookAccessToken) {
-    const alreadyExists = pixels.some((p) => p.pixelId === offer.facebookPixelId);
-    if (!alreadyExists) {
-      pixels.push({
-        pixelId: offer.facebookPixelId,
-        accessToken: offer.facebookAccessToken,
-      });
-    }
-  }
-
-  if (pixels.length === 0) return;
-
-  const totalValue = sale.totalAmountInCents / 100;
-
-  const userData = createFacebookUserData(
-    sale.ip || "",
-    sale.userAgent || "",
-    sale.customerEmail,
-    sale.customerPhone || "",
-    sale.customerName,
-    sale.fbc,
-    sale.fbp,
-    sale.addressCity,
-    sale.addressState,
-    sale.addressZipCode,
-    sale.addressCountry
-  );
-
-  const eventData = {
-    event_name: "Purchase" as const,
-    event_time: Math.floor(new Date(sale.createdAt).getTime() / 1000),
-    event_id: `pagarme_purchase_${sale._id}`,
-    action_source: "website" as const,
-    user_data: userData,
-    custom_data: {
-      currency: (sale.currency || "BRL").toUpperCase(),
-      value: totalValue,
-      order_id: String(sale._id),
-      content_ids: items.map((i) => i._id || i.customId || "unknown"),
-      content_type: "product",
-    },
-  };
-
-  console.log(`🔵 [Pagar.me] Enviando Purchase para ${pixels.length} pixel(s) Facebook | Valor: ${totalValue}`);
-
-  const results = await Promise.allSettled(
-    pixels.map((pixel) =>
-      sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventData).catch((err) => {
-        console.error(`❌ Erro Facebook pixel ${pixel.pixelId}:`, err);
-        throw err;
-      })
-    )
-  );
-
-  const successful = results.filter((r) => r.status === "fulfilled").length;
-  const failed = results.filter((r) => r.status === "rejected").length;
-  console.log(`📊 [Pagar.me] Facebook Purchase: ${successful} sucesso, ${failed} falhas de ${pixels.length} pixels`);
-};

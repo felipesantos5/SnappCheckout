@@ -2,10 +2,10 @@
 import { Stripe } from "stripe";
 import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
+import UpsellSession from "../../../models/upsell-session.model";
 import { processUtmfyIntegration, sendPurchaseToUTMfyWebhook } from "../../../services/utmfy.service";
 import stripe from "../../../lib/stripe";
 import { sendAccessWebhook } from "../../../services/integration.service";
-import { createFacebookUserData, sendFacebookEvent } from "../../../services/facebook.service";
 import { getCountryFromIP } from "../../../helper/getCountryFromIP";
 
 /**
@@ -535,12 +535,47 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       sale.paymentMethodType = paymentMethodType;
       sale.walletType = walletType;
 
+      // Facebook Purchase consolidado: configura envio agendado ou vincula ao parent
+      if (isUpsell) {
+        // Busca a UpsellSession para obter o originalSaleId
+        const originalSessionToken = metadata.originalSessionToken;
+        if (originalSessionToken) {
+          const upsellSession = await UpsellSession.findOne({ token: originalSessionToken });
+          if (upsellSession?.originalSaleId) {
+            sale.parentSaleId = upsellSession.originalSaleId;
+            console.log(`🔵 [Stripe] Upsell vinculado ao sale pai: ${upsellSession.originalSaleId}`);
+          }
+        }
+      } else {
+        // Venda principal: agenda envio do Facebook Purchase para daqui a 10 minutos
+        sale.facebookPurchaseSendAfter = new Date(Date.now() + 10 * 60 * 1000);
+        console.log(`🔵 [Stripe] Facebook Purchase agendado para: ${sale.facebookPurchaseSendAfter.toISOString()}`);
+      }
+
       await sale.save();
       console.log(`✅ [Stripe] Venda ${sale._id} atualizada para succeeded com sucesso`);
     } else {
       console.log(`⚠️ [Stripe] Venda não encontrada - criando nova venda`);
 
       // 6. Cria nova venda se não existir (fallback para compatibilidade)
+      // Resolve parentSaleId para upsells e facebookPurchaseSendAfter para vendas normais
+      let parentSaleId = null;
+      let facebookPurchaseSendAfter = null;
+
+      if (isUpsell) {
+        const originalSessionToken = metadata.originalSessionToken;
+        if (originalSessionToken) {
+          const upsellSession = await UpsellSession.findOne({ token: originalSessionToken });
+          if (upsellSession?.originalSaleId) {
+            parentSaleId = upsellSession.originalSaleId;
+            console.log(`🔵 [Stripe] Upsell vinculado ao sale pai: ${parentSaleId}`);
+          }
+        }
+      } else {
+        facebookPurchaseSendAfter = new Date(Date.now() + 10 * 60 * 1000);
+        console.log(`🔵 [Stripe] Facebook Purchase agendado para: ${facebookPurchaseSendAfter.toISOString()}`);
+      }
+
       sale = await Sale.create({
         ownerId: offer.ownerId,
         offerId: offer._id,
@@ -557,6 +592,8 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
         currency: offer.currency || "brl",
         status: "succeeded",
         isUpsell: isUpsell,
+        parentSaleId,
+        facebookPurchaseSendAfter,
         items,
         paymentMethodType,
         walletType,
@@ -574,135 +611,9 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     // Marca tentativa de integração
     sale.integrationsLastAttempt = new Date();
 
-    // A: FACEBOOK CAPI (PURCHASE) - BLINDADO COM TRY/CATCH
-    // Se der erro aqui, NÃO trava o resto do código
-    //
-    // ⚠️ IMPORTANTE: Este código envia APENAS 1 evento de Purchase por venda
-    // O valor total já inclui produto principal + order bumps somados
-    // Os content_ids incluem todos os produtos (principal + bumps)
-    try {
-      console.log(`🔵 [Stripe] Iniciando envio para Facebook CAPI...`);
-      // Coletar todos os pixels (novo array + campos antigos para retrocompatibilidade)
-      const pixels: Array<{ pixelId: string; accessToken: string }> = [];
-
-      // Adiciona pixels do novo array
-      if (offer.facebookPixels && offer.facebookPixels.length > 0) {
-        pixels.push(...offer.facebookPixels);
-      }
-
-      // Adiciona pixel antigo se existir e não estiver no array novo (retrocompatibilidade)
-      if (offer.facebookPixelId && offer.facebookAccessToken) {
-        const alreadyExists = pixels.some(p => p.pixelId === offer.facebookPixelId);
-        if (!alreadyExists) {
-          pixels.push({
-            pixelId: offer.facebookPixelId,
-            accessToken: offer.facebookAccessToken,
-          });
-        }
-      }
-
-      if (pixels.length > 0) {
-        const totalValue = paymentIntent.amount / 100; // Stripe usa centavos (JÁ INCLUI produto + order bumps)
-
-        // Dados do Metadata (vindos do frontend)
-        const userAgent = metadata.userAgent || "";
-        const fbc = metadata.fbc;
-        const fbp = metadata.fbp;
-
-        // Dados de endereço (quando disponíveis)
-        const city = metadata.addressCity;
-        const state = metadata.addressState;
-        const zipCode = metadata.addressZipCode;
-        const country = metadata.addressCountry;
-
-        // Cria user_data com TODOS os dados disponíveis
-        const userData = createFacebookUserData(
-          clientIp,
-          userAgent,
-          finalCustomerEmail,
-          customerPhone || metadata.customerPhone,
-          finalCustomerName,
-          fbc,
-          fbp,
-          city,
-          state,
-          zipCode,
-          country
-        );
-
-        console.log(`🔵 Enviando evento Facebook Purchase ÚNICO para ${pixels.length} pixel(s) com dados completos:`, {
-          hasEmail: !!userData.em,
-          hasPhone: !!userData.ph,
-          hasName: !!(userData.fn && userData.ln),
-          hasFbc: !!userData.fbc,
-          hasFbp: !!userData.fbp,
-          hasCity: !!userData.ct,
-          hasState: !!userData.st,
-          hasZipCode: !!userData.zp,
-          hasCountry: !!userData.country,
-          hasEventId: !!metadata.purchaseEventId,
-          eventId: metadata.purchaseEventId,
-          totalValue: totalValue, // Valor TOTAL incluindo order bumps
-          itemCount: items.length, // Total de itens (produto + bumps)
-        });
-
-        const eventData = {
-          event_name: "Purchase" as const,
-          event_time: Math.floor(Date.now() / 1000),
-          event_id: metadata.purchaseEventId, // event_id do frontend para deduplicação
-          action_source: "website" as const,
-          user_data: userData,
-          custom_data: {
-            currency: offer.currency || "BRL",
-            value: totalValue,
-            order_id: String(sale._id), // ID único para deduplicação
-            content_ids: items.map((i) => i._id || i.customId || "unknown"),
-            content_type: "product",
-          },
-        };
-
-        console.log(`   - Event Data Completo:`, JSON.stringify(eventData, null, 2));
-
-        // Envia evento Purchase para todos os pixels em paralelo com tratamento individual de erros
-        // Promise.allSettled garante que todos os pixels sejam processados, mesmo se algum falhar
-        const results = await Promise.allSettled(
-          pixels.map((pixel, index) =>
-            sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventData)
-              .catch((err) => {
-                console.error(`❌ Erro ao enviar Purchase para pixel ${index + 1}/${pixels.length} (${pixel.pixelId}):`, err);
-                throw err; // Re-lança para que o Promise.allSettled capture como rejected
-              })
-          )
-        );
-
-        // Log do resumo final
-        const successful = results.filter(r => r.status === 'fulfilled').length;
-        const failed = results.filter(r => r.status === 'rejected').length;
-        console.log(`📊 Purchase ÚNICO: ${successful} sucesso, ${failed} falhas de ${pixels.length} pixels | Valor: ${totalValue} ${offer.currency?.toUpperCase()} | Itens: ${items.length}`);
-
-        // Log detalhado dos erros
-        results.forEach((result, index) => {
-          if (result.status === 'rejected') {
-            console.error(`❌ Detalhes do erro pixel ${index + 1} (${pixels[index].pixelId}):`, result.reason);
-          }
-        });
-
-        // Marca como enviado se pelo menos um pixel teve sucesso
-        if (successful > 0) {
-          sale.integrationsFacebookSent = true;
-          console.log(`✅ [Stripe] Evento Facebook enviado com sucesso para ${successful}/${pixels.length} pixels`);
-        } else {
-          sale.integrationsFacebookSent = false;
-          console.error(`❌ [Stripe] Falha ao enviar evento Facebook para todos os pixels`);
-        }
-      } else {
-        console.log(`ℹ️ [Stripe] Nenhum pixel Facebook configurado - pulando integração`);
-      }
-    } catch (fbError: any) {
-      console.error("⚠️ [Stripe] Falha no envio ao Facebook (Venda salva normalmente):", fbError.message);
-      console.error("⚠️ [Stripe] Stack trace Facebook:", fbError.stack);
-      sale.integrationsFacebookSent = false;
-    }
+    // A: Facebook CAPI (Purchase) - NÃO envia imediatamente
+    // O evento Purchase será enviado consolidado pelo job (facebook-purchase.job.ts)
+    // após a janela de 10 minutos, agrupando valor do produto principal + order bumps + upsell
 
     // B: Webhook de Área de Membros (Husky/MemberKit)
     try {

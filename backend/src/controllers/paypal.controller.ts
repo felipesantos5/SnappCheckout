@@ -6,7 +6,6 @@ import User from "../models/user.model";
 import UpsellSession from "../models/upsell-session.model";
 import { v4 as uuidv4 } from "uuid";
 import { sendAccessWebhook } from "../services/integration.service";
-import { createFacebookUserData, sendFacebookEvent } from "../services/facebook.service";
 import { getCountryFromIP } from "../helper/getCountryFromIP";
 import { processUtmfyIntegrationForPayPal } from "../services/utmfy.service";
 
@@ -190,6 +189,8 @@ export const captureOrder = async (req: Request, res: Response) => {
         addressState: customerData?.addressState,
         addressZipCode: customerData?.addressZipCode,
         addressCountry: customerData?.addressCountry,
+        // Facebook Purchase consolidado: envia após 10 minutos para agrupar com upsell
+        facebookPurchaseSendAfter: new Date(Date.now() + 10 * 60 * 1000),
         items,
       });
 
@@ -247,15 +248,9 @@ export const captureOrder = async (req: Request, res: Response) => {
         newSale.integrationsHuskySent = false;
       }
 
-      // B: Facebook CAPI (Purchase Event)
-      try {
-        await sendFacebookPurchaseForPayPal(offer, newSale, items, clientIp, customerData, purchaseEventId);
-        newSale.integrationsFacebookSent = true;
-        console.log(`✅ [PayPal] Evento Facebook enviado com sucesso`);
-      } catch (fbError: any) {
-        console.error(`⚠️ [PayPal] Erro ao enviar evento Facebook:`, fbError.message);
-        newSale.integrationsFacebookSent = false;
-      }
+      // B: Facebook CAPI (Purchase) - NÃO envia imediatamente
+      // O evento Purchase será enviado consolidado pelo job (facebook-purchase.job.ts)
+      // após a janela de 10 minutos, agrupando valor do produto principal + order bumps + upsell
 
       // C: Webhook de Rastreamento (UTMfy)
       try {
@@ -350,6 +345,7 @@ export const captureOrder = async (req: Request, res: Response) => {
               customerPhone: customerData?.phone || "",
               paypalVaultId: vaultId,
               paypalCustomerId: paypalCustomerId,
+              originalSaleId: newSale._id, // Vincula ao sale original para consolidar Facebook Purchase
             });
 
             // Constrói URL de redirecionamento para upsell
@@ -394,90 +390,6 @@ export const captureOrder = async (req: Request, res: Response) => {
     console.error("Erro ao capturar ordem PayPal:", error.message);
     res.status(500).json({ error: error.message });
   }
-};
-
-/**
- * Envia evento Purchase para o Facebook CAPI após pagamento PayPal
- */
-const sendFacebookPurchaseForPayPal = async (
-  offer: any,
-  sale: any,
-  items: any[],
-  clientIp: string,
-  customerData: any,
-  purchaseEventId?: string
-): Promise<void> => {
-  // Coletar todos os pixels
-  const pixels: Array<{ pixelId: string; accessToken: string }> = [];
-
-  if (offer.facebookPixels && offer.facebookPixels.length > 0) {
-    pixels.push(...offer.facebookPixels);
-  }
-
-  if (offer.facebookPixelId && offer.facebookAccessToken) {
-    const alreadyExists = pixels.some((p) => p.pixelId === offer.facebookPixelId);
-    if (!alreadyExists) {
-      pixels.push({
-        pixelId: offer.facebookPixelId,
-        accessToken: offer.facebookAccessToken,
-      });
-    }
-  }
-
-  if (pixels.length === 0) return;
-
-  const totalValue = sale.totalAmountInCents / 100;
-
-  // Dados do usuário com todos os parâmetros necessários para o Facebook
-  const userData = createFacebookUserData(
-    clientIp,
-    customerData?.userAgent || "",
-    customerData?.email || sale.customerEmail,
-    customerData?.phone || "",
-    customerData?.name || sale.customerName,
-    customerData?.fbc, // Cookie _fbc do Facebook
-    customerData?.fbp, // Cookie _fbp do Facebook
-    customerData?.addressCity,
-    customerData?.addressState,
-    customerData?.addressZipCode,
-    customerData?.addressCountry
-  );
-
-  // Usa purchaseEventId do frontend se disponível (para deduplicação com Pixel)
-  // Fallback para o formato antigo se não receber do frontend
-  const eventId = purchaseEventId || `paypal_purchase_${sale._id}`;
-
-  const eventData = {
-    event_name: "Purchase" as const,
-    event_time: Math.floor(Date.now() / 1000),
-    event_id: eventId,
-    action_source: "website" as const,
-    user_data: userData,
-    custom_data: {
-      currency: (sale.currency || "BRL").toUpperCase(),
-      value: totalValue,
-      order_id: String(sale._id),
-      content_ids: items.map((i) => i._id || i.customId || "unknown"),
-      content_type: "product",
-    },
-  };
-
-  console.log(`🔵 [PayPal] Enviando Purchase para ${pixels.length} pixel(s) Facebook | Valor: ${totalValue}`);
-  console.log(`   - User Data: email=${!!userData.em}, phone=${!!userData.ph}, fbc=${!!userData.fbc}, fbp=${!!userData.fbp}, userAgent=${!!userData.client_user_agent}`);
-  console.log(`   - Event Data Completo:`, JSON.stringify(eventData, null, 2));
-
-  const results = await Promise.allSettled(
-    pixels.map((pixel) =>
-      sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventData).catch((err) => {
-        console.error(`❌ Erro Facebook pixel ${pixel.pixelId}:`, err);
-        throw err;
-      })
-    )
-  );
-
-  const successful = results.filter((r) => r.status === "fulfilled").length;
-  const failed = results.filter((r) => r.status === "rejected").length;
-  console.log(`📊 [PayPal] Facebook Purchase: ${successful} sucesso, ${failed} falhas de ${pixels.length} pixels`);
 };
 
 /**
@@ -571,6 +483,7 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
         ip: session.ip || "",
         country: session.ip ? getCountryFromIP(session.ip) : "BR",
         isUpsell: true,
+        parentSaleId: session.originalSaleId || null, // Vincula ao sale original para consolidar Facebook Purchase
         items,
       });
 
@@ -581,19 +494,9 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
       // =================================================================
       newSale.integrationsLastAttempt = new Date();
 
-      // A: Facebook CAPI (Purchase)
-      try {
-        await sendFacebookPurchaseForPayPal(offer, newSale, items, session.ip || "", {
-          email: session.customerEmail,
-          name: session.customerName,
-          phone: session.customerPhone,
-        });
-        newSale.integrationsFacebookSent = true;
-        console.log(`✅ [PayPal Upsell] Evento Facebook enviado com sucesso`);
-      } catch (fbError: any) {
-        console.error(`⚠️ [PayPal Upsell] Erro ao enviar evento Facebook:`, fbError.message);
-        newSale.integrationsFacebookSent = false;
-      }
+      // A: Facebook CAPI (Purchase) - NÃO envia imediatamente
+      // O evento Purchase será consolidado pelo job (facebook-purchase.job.ts)
+      // junto com a venda original (parentSaleId)
 
       // B: Webhook de Área de Membros (Husky/MemberKit)
       try {
