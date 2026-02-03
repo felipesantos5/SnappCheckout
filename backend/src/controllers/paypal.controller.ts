@@ -356,25 +356,35 @@ export const captureOrder = async (req: Request, res: Response) => {
             console.log(`✅ [PayPal] Token de upsell gerado: ${token}`);
           } catch (upsellError: any) {
             console.error(`⚠️ [PayPal] Erro ao criar sessão de upsell:`, upsellError.message);
-            // Não impede a resposta - o cliente será redirecionado para thank you page
+            // Fallback: redireciona para a página de upsell normal (sem one-click)
+            if (offer.upsell.redirectUrl && offer.upsell.redirectUrl.trim() !== "") {
+              upsellRedirectUrl = offer.upsell.redirectUrl;
+              console.log(`🔵 [PayPal] Fallback - redirecionando para página de upsell (sem one-click): ${upsellRedirectUrl}`);
+            }
           }
         } else {
           console.warn(`⚠️ [PayPal] Upsell habilitado mas vault não disponível (vault_id: ${vaultId || "N/A"}, customer_id: ${paypalCustomerId || "N/A"}, status: ${vaultStatus || "N/A"})`);
 
-          // Fallback: redireciona para checkout alternativo se configurado
+          // Fallback 1: redireciona para checkout alternativo se configurado
           if (offer.upsell.fallbackCheckoutUrl && offer.upsell.fallbackCheckoutUrl.trim() !== "") {
             upsellRedirectUrl = offer.upsell.fallbackCheckoutUrl;
             console.log(`🔵 [PayPal] Usando fallback checkout URL para upsell: ${upsellRedirectUrl}`);
           }
+          // Fallback 2: redireciona para a página de upsell normal (sem one-click)
+          else if (offer.upsell.redirectUrl && offer.upsell.redirectUrl.trim() !== "") {
+            upsellRedirectUrl = offer.upsell.redirectUrl;
+            console.log(`🔵 [PayPal] Redirecionando para página de upsell (sem one-click): ${upsellRedirectUrl}`);
+          }
         }
       }
 
-      // Fallback para Thank You Page se não tiver upsell
+      // Fallback para Thank You Page se não tiver upsell configurado
       if (!upsellRedirectUrl) {
         upsellRedirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
       }
 
-      console.log(`✅ [PayPal] Venda finalizada - ${upsellToken ? "redirecionando para UPSELL" : "redirecionando para Thank You Page"}`);
+      const redirectType = upsellToken ? "UPSELL (one-click)" : (upsellRedirectUrl && upsellRedirectUrl !== offer.thankYouPageUrl ? "UPSELL (sem one-click)" : "Thank You Page");
+      console.log(`✅ [PayPal] Venda finalizada - redirecionando para ${redirectType}: ${upsellRedirectUrl || "página padrão"}`);
 
       res.json({
         success: true,
