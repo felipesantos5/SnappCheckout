@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import CheckoutPage from "./CheckoutPage";
+import { LayoutLoader } from "../layouts";
 import { getContrast } from "polished";
 import { API_URL } from "../config/BackendUrl";
 import { ThemeContext, type ThemeColors } from "../context/ThemeContext";
@@ -11,10 +11,13 @@ import { useFacebookPixel } from "../hooks/useFacebookPixel";
 import { PurchaseNotification } from "../components/ui/PurchaseNotification";
 import { getCookie } from "../helper/getCookie";
 
+export type LayoutType = 'classic' | 'modern' | 'minimal';
+
 export interface OfferData {
   _id: string;
   slug: string;
   name: string;
+  layoutType?: LayoutType;
   thankYouPageUrl?: string;
   backRedirectUrl?: string;
   language?: Language;
@@ -342,7 +345,13 @@ export function CheckoutSlugPage() {
           config={offerData.autoNotifications}
           productName={offerData.mainProduct.name}
         />
-        <CheckoutPage offerData={offerData} checkoutSessionId={checkoutSessionId.current} generateEventId={generateEventId} abTestId={abTestId} />
+        <LayoutLoader
+          layoutType={offerData.layoutType || 'classic'}
+          offerData={offerData}
+          checkoutSessionId={checkoutSessionId.current}
+          generateEventId={generateEventId}
+          abTestId={abTestId}
+        />
       </ThemeContext.Provider>
     </I18nProvider>
   );

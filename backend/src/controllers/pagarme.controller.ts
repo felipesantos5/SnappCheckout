@@ -16,7 +16,6 @@ export const createPixPayment = async (req: Request, res: Response) => {
     const {
       offerSlug,
       selectedOrderBumps = [],
-      quantity = 1,
       contactInfo,
       addressInfo,
       metadata,
@@ -81,12 +80,12 @@ export const createPixPayment = async (req: Request, res: Response) => {
     }
 
     // Calcula o valor total
-    const mainProductPrice = offer.mainProduct.priceInCents * quantity;
+    const mainProductPrice = offer.mainProduct.priceInCents;
     let orderBumpsTotal = 0;
     const items = [
       {
         name: offer.mainProduct.name,
-        quantity: quantity,
+        quantity: 1,
         amount: offer.mainProduct.priceInCents,
       },
     ];

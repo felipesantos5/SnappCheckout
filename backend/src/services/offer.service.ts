@@ -38,6 +38,7 @@ const transformOfferForFrontend = (offer: IOffer) => {
 export type CreateOfferPayload = {
   name: string;
   bannerImageUrl?: string;
+  layoutType: string;
   mainProduct: any; // Recebe o objeto
   orderBumps: any[]; // Recebe o array de objetos
   currency: string;

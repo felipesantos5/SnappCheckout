@@ -189,11 +189,10 @@ export const processUtmfyIntegration = async (
   }
 
   try {
-    const quantity = parseInt(metadata.quantity || "1", 10);
     const isUpsell = metadata.isUpsell === "true";
     const owner = (offer as any).ownerId;
 
-    // ... (mapeamento de produtos permanece igual)
+    // Mapeamento de produtos
     const utmfyProducts = items.map((item) => {
       let id = item._id ? item._id.toString() : crypto.randomUUID();
       if (!item.isOrderBump && !item._id) {
@@ -202,15 +201,11 @@ export const processUtmfyIntegration = async (
       return { Id: id, Name: item.name };
     });
 
-    // ... (cálculo de preço original permanece igual)
+    // Cálculo de preço original
     let originalTotalInCents = 0;
     items.forEach((item) => {
       const price = item.compareAtPriceInCents && item.compareAtPriceInCents > item.priceInCents ? item.compareAtPriceInCents : item.priceInCents;
-      if (item.isOrderBump) {
-        originalTotalInCents += price;
-      } else {
-        originalTotalInCents += price * (isUpsell ? 1 : quantity);
-      }
+      originalTotalInCents += price;
     });
 
     // Pegar a moeda do PaymentIntent e garantir maiúscula (ex: "usd" -> "USD")
@@ -312,8 +307,7 @@ export const processUtmfyIntegrationForPayPal = async (
   paypalOrderId: string,
   customerData: { email?: string; name?: string; phone?: string },
   metadata: {
-    quantity?: string;
-    isUpsell?: string; // Consistente com Stripe
+    isUpsell?: string;
     ip?: string;
     userAgent?: string;
     utm_source?: string;
@@ -342,11 +336,10 @@ export const processUtmfyIntegrationForPayPal = async (
   }
 
   try {
-    const quantity = parseInt(metadata.quantity || "1", 10);
-    const isUpsell = metadata.isUpsell === "true"; // Consistente com Stripe
+    const isUpsell = metadata.isUpsell === "true";
     const owner = (offer as any).ownerId;
 
-    // Mapeamento de produtos para o formato UTMfy (igual ao Stripe)
+    // Mapeamento de produtos para o formato UTMfy
     const utmfyProducts = items.map((item) => {
       let id = item._id ? item._id.toString() : crypto.randomUUID();
       if (!item.isOrderBump && !item._id) {
@@ -355,15 +348,11 @@ export const processUtmfyIntegrationForPayPal = async (
       return { Id: id, Name: item.name };
     });
 
-    // Cálculo de preço original (igual ao Stripe - considera isUpsell)
+    // Cálculo de preço original
     let originalTotalInCents = 0;
     items.forEach((item) => {
       const price = item.compareAtPriceInCents && item.compareAtPriceInCents > item.priceInCents ? item.compareAtPriceInCents : item.priceInCents;
-      if (item.isOrderBump) {
-        originalTotalInCents += price;
-      } else {
-        originalTotalInCents += price * (isUpsell ? 1 : quantity);
-      }
+      originalTotalInCents += price;
     });
 
     // Pegar a moeda da venda e garantir maiúscula

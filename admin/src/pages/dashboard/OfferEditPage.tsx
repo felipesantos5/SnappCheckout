@@ -32,6 +32,7 @@ interface ApiOfferData {
   slug: string;
   name: string;
   bannerImageUrl?: string;
+  layoutType?: 'classic' | 'modern' | 'minimal';
   secondaryBannerImageUrl?: string;
   thankYouPageUrl?: string;
   backRedirectUrl?: string;
@@ -92,6 +93,7 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
     collectAddress: data.collectAddress,
     collectPhone: data.collectPhone ?? true,
     collectDocument: data.collectDocument ?? true,
+    layoutType: data.layoutType ?? "classic",
 
     primaryColor: data.primaryColor,
     buttonColor: data.buttonColor,

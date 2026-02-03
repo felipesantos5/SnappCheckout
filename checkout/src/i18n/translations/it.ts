@@ -111,7 +111,6 @@ export const it: Translation = {
 
   // Product
   product: {
-    quantity: "Quantità",
     price: "Prezzo",
     discount: "% SCONTO",
   },

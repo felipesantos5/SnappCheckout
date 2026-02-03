@@ -65,7 +65,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
     return "creditCard";
   });
   const [selectedBumps, setSelectedBumps] = useState<string[]>([]);
-  const [quantity, setQuantity] = useState(1);
   const [totalAmount, setTotalAmount] = useState(offerData.mainProduct.priceInCents);
   const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
   const [walletLabel, setWalletLabel] = useState<string | null>(null);
@@ -86,9 +85,9 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
     };
   }, [urlParams]);
 
-  // Atualiza o total baseado em bumps e quantidade
+  // Atualiza o total baseado em bumps
   useEffect(() => {
-    let newTotal = offerData.mainProduct.priceInCents * quantity;
+    let newTotal = offerData.mainProduct.priceInCents;
 
     selectedBumps.forEach((bumpId) => {
       const bump = offerData.orderBumps.find((b) => b?._id === bumpId);
@@ -98,7 +97,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
     });
 
     setTotalAmount(newTotal);
-  }, [selectedBumps, quantity, offerData]);
+  }, [selectedBumps, offerData]);
 
   // Reseta método de pagamento se PayPal não estiver habilitado
   useEffect(() => {
@@ -605,15 +604,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
             style={{ backgroundColor: backgroundColor }} // Mantém consistência ou "flat" design se for igual
           >
             {/* OrderSummary no Mobile - Logo abaixo do banner */}
-            <div className="lg:hidden mb-2">
+            <div className="lg:hidden mb-1">
               <OrderSummary
                 productName={offerData.mainProduct.name}
                 productImageUrl={offerData.mainProduct.imageUrl}
                 totalAmountInCents={totalAmount}
                 basePriceInCents={offerData.mainProduct.priceInCents}
                 currency={offerData.currency}
-                quantity={quantity}
-                setQuantity={setQuantity}
                 originalPriceInCents={offerData.mainProduct.compareAtPriceInCents}
                 discountPercentage={offerData.mainProduct.discountPercentage}
               />
@@ -647,7 +644,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                 />
 
                 {/* Order Bumps aparecem na esquerda em mobile, escondidos em desktop */}
-                <div className="lg:hidden mb-2">
+                <div className="lg:hidden mb-1">
                   <Suspense fallback={<div className="animate-pulse bg-gray-100 h-32 rounded-lg"></div>}>
                     <OrderBump
                       bumps={offerData.orderBumps}
@@ -660,7 +657,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
                 {/* Botão PayPal - Mobile */}
                 {method === "paypal" && offerData.paypalEnabled && paypalClientId && (
-                  <div className="lg:hidden mb-2">
+                  <div className="lg:hidden mb-1">
                     <Suspense fallback={<div className="animate-pulse bg-gray-100 h-12 rounded-lg" />}>
                       <PayPalPayment
                         amount={totalAmount}
@@ -686,7 +683,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
               </div>
 
               {/* COLUNA DIREITA: Resumo do Pedido + Botão */}
-              <div className="lg:sticky lg:top-4 lg:self-start space-y-6">
+              <div className="lg:sticky lg:top-4 lg:self-start space-y-6 mt-3">
                 {/* Resumo do Produto - Desktop Only */}
                 <div className="hidden lg:block ">
                   <OrderSummary
@@ -695,8 +692,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                     totalAmountInCents={totalAmount}
                     basePriceInCents={offerData.mainProduct.priceInCents}
                     currency={offerData.currency}
-                    quantity={quantity}
-                    setQuantity={setQuantity}
                     originalPriceInCents={offerData.mainProduct.compareAtPriceInCents}
                     discountPercentage={offerData.mainProduct.discountPercentage}
                   />

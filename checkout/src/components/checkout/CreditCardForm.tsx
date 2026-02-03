@@ -43,7 +43,7 @@ const StripeElementWrapper: React.FC<{ children: React.ReactNode; label: string;
       <div className="mt-1">
         <div
           // AQUI: Usamos a variável CSS definida no style para o ring e o border
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm transition-all duration-200 focus-within:ring-1 focus-within:ring-(--theme-primary) focus-within:border-(--theme-primary) hover:border-(--theme-primary)"
+          className="w-full px-3 py-[10px] border border-gray-300 rounded-md shadow-sm transition-all duration-200 focus-within:ring-1 focus-within:ring-(--theme-primary) focus-within:border-(--theme-primary) hover:border-(--theme-primary)"
           style={
             {
               "--theme-primary": primary,
@@ -77,7 +77,7 @@ export const CreditCardForm: React.FC = () => {
         {/* 3. Validade (Real) */}
         <div className="w-1/2">
           <StripeElementWrapper label={t.creditCard.expiry} id="card-expiry">
-            <CardExpiryElement id="card-expiry" options={ELEMENT_OPTIONS} />
+            <CardExpiryElement id="card-expiry" options={ELEMENT_OPTIONS} className="" />
           </StripeElementWrapper>
         </div>
 

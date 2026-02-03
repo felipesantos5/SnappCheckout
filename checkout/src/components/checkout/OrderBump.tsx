@@ -37,16 +37,15 @@ const BumpItem = memo<{ bump: Bump; isSelected: boolean; onToggle: () => void; c
     return (
       <div
         onClick={onToggle}
-        className={`w-full mt-6 p-5 pb-4 rounded-lg border-2 transition-all cursor-pointer ${
-          isSelected ? "border-green-500 shadow-md" : "border-gray-300 hover:border-gray-400 hover:shadow-sm border-dashed"
-        }`}
+        className={`w-full mt-6 p-5 pb-4 rounded-lg border-2 transition-all cursor-pointer ${isSelected ? "border-green-500 shadow-md" : "border-gray-300 hover:border-gray-400 hover:shadow-sm border-dashed"
+          }`}
       >
         <div className="flex items-start gap-2">
           {/* Conteúdo */}
           <div className="flex-1 gap-2 min-w-0">
             {/* Headline */}
             <div className="flex justify-between gap-1 items-start">
-              <h3 className="text-base font-bold mb-5 wrap-break-word flex-1 min-w-0" style={{ color: primary }}>
+              <h3 className="text-base font-bold mb-4 wrap-break-word flex-1 min-w-0" style={{ color: primary }}>
                 {bump.headline ? bump.headline : bump.name}
               </h3>
             </div>

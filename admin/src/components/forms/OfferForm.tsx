@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Trash2, ChevronDown, Settings, CreditCard, Box, Layers, ArrowUpCircle, Link as LinkIcon, Code, Copy, Check, Plus, Eye, EyeOff, Bell } from "lucide-react";
+import { Trash2, ChevronDown, Settings, CreditCard, Box, Layers, ArrowUpCircle, Link as LinkIcon, Code, Copy, Check, Plus, Eye, EyeOff, Bell, LayoutTemplate } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 import { API_URL } from "@/config/BackendUrl";
 import { MoneyInput } from "./MoneyInput";
@@ -200,8 +200,11 @@ const facebookPixelSchema = z.object({
   accessToken: z.string().min(1, { message: "Token de acesso é obrigatório." }),
 });
 
+const layoutTypeSchema = z.enum(['classic', 'modern', 'minimal']).default('classic');
+
 const offerFormSchema = z.object({
   name: z.string().min(3, { message: "Nome do link é obrigatório." }),
+  layoutType: layoutTypeSchema,
   bannerImageUrl: optionalUrl,
   secondaryBannerImageUrl: optionalUrl,
   thankYouPageUrl: optionalUrl,
@@ -274,6 +277,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
     resolver: zodResolver(offerFormSchema),
     defaultValues: initialData || {
       name: "",
+      layoutType: "classic",
       bannerImageUrl: "",
       secondaryBannerImageUrl: "",
       thankYouPageUrl: "",
@@ -569,9 +573,39 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         <FormSection
           title="Personalização do Checkout"
           icon={<CreditCard className="w-5 h-5" />}
-          description="Cores e dados que serão solicitados ao cliente."
+          description="Layout, cores e dados que serao solicitados ao cliente."
         >
           <div className="space-y-6">
+            {/* Layout do Checkout */}
+            <FormField
+              control={form.control}
+              name="layoutType"
+              render={({ field }: any) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <LayoutTemplate className="w-4 h-4" />
+                    Layout do Checkout
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value || "classic"}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione o layout" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="classic">Classic (Padrao)</SelectItem>
+                      <SelectItem value="modern">Modern</SelectItem>
+                      <SelectItem value="minimal">Minimal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>Escolha o estilo visual do seu checkout.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Separator />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
@@ -795,7 +829,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
 
             {fields.map((field: any, index: number) => (
               <div key={field.id} className="p-4 rounded-lg border bg-card relative space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <h4 className="font-medium flex items-center gap-2">
                     <div className="bg-primary/10 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
                       {index + 1}
@@ -909,7 +943,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
               control={form.control}
               name="upsell.enabled"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-card">
+                <FormItem className="flex flex-row items-center gap-4 rounded-lg border p-4 bg-card">
                   <FormControl>
                     <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>

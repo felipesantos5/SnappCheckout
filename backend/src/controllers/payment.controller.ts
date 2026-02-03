@@ -11,7 +11,7 @@ import { getStripeAccountId } from "../helper/getStripeAccountId";
 
 export const handleCreatePaymentIntent = async (req: Request, res: Response) => {
   try {
-    const { offerSlug, selectedOrderBumps, quantity, contactInfo, addressInfo, metadata } = req.body;
+    const { offerSlug, selectedOrderBumps, contactInfo, addressInfo, metadata } = req.body;
 
     const offer = await Offer.findOne({ slug: offerSlug });
     if (!offer) {
@@ -20,7 +20,7 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
 
     const stripeAccountId = await getStripeAccountId(offerSlug);
     const customerId = await getOrCreateCustomer(stripeAccountId, contactInfo.email, contactInfo.name, contactInfo.phone);
-    const totalAmount = await calculateTotalAmount(offerSlug, selectedOrderBumps, quantity || 1);
+    const totalAmount = await calculateTotalAmount(offerSlug, selectedOrderBumps);
     const applicationFee = Math.round(totalAmount * 0.05);
 
     const paymentIntent = await stripe.paymentIntents.create(

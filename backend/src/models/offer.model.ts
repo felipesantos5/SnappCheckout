@@ -25,10 +25,13 @@ export interface IProductSubDocument {
   customId?: string;
 }
 
+export type LayoutType = 'classic' | 'modern' | 'minimal';
+
 export interface IOffer extends Document {
   ownerId: Schema.Types.ObjectId;
   name: string;
   slug: string;
+  layoutType: LayoutType;
   customDomain?: string; // Domínio customizado (ex: checkout.cliente.com.br)
   bannerImageUrl?: string;
   secondaryBannerImageUrl?: string;
@@ -105,6 +108,11 @@ const offerSchema = new Schema<IOffer>(
       unique: true,
       lowercase: true,
       trim: true,
+    },
+    layoutType: {
+      type: String,
+      enum: ['classic', 'modern', 'minimal'],
+      default: 'classic',
     },
     customDomain: {
       type: String,

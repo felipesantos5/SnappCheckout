@@ -22,9 +22,13 @@ export const getSales = async (req: Request, res: Response) => {
     // Query Base: Sempre filtrar pelo dono (segurança)
     const query: any = { ownerId: userId };
 
-    // 1. Filtro por Oferta (Opcional)
+    // 1. Filtro por Oferta (Opcional) - Suporta múltiplas ofertas
     if (offerId && offerId !== "all") {
-      query.offerId = offerId;
+      if (Array.isArray(offerId)) {
+        query.offerId = { $in: offerId };
+      } else {
+        query.offerId = offerId;
+      }
     }
 
     // 2. Filtro por Status
@@ -44,14 +48,41 @@ export const getSales = async (req: Request, res: Response) => {
     }
 
     // 4. Filtro por Método de Pagamento
+    // Mapeia valores do frontend para valores do banco:
+    // - "credit_card" → paymentMethod: "stripe" (sem wallet)
+    // - "pix" → paymentMethod: "pagarme"
+    // - "paypal" → paymentMethod: "paypal"
     if (paymentMethod && paymentMethod !== "all") {
-      query.paymentMethod = paymentMethod;
+      const methods = Array.isArray(paymentMethod) ? paymentMethod : [paymentMethod];
+      const mappedMethods: any[] = [];
+
+      methods.forEach((method) => {
+        if (method === "credit_card") {
+          mappedMethods.push({ paymentMethod: "stripe", walletType: null });
+        } else if (method === "pix") {
+          mappedMethods.push({ paymentMethod: "pagarme" });
+        } else if (method === "paypal") {
+          mappedMethods.push({ paymentMethod: "paypal" });
+        }
+      });
+
+      if (mappedMethods.length === 1) {
+        // Único método: adiciona diretamente na query
+        Object.assign(query, mappedMethods[0]);
+      } else if (mappedMethods.length > 1) {
+        // Múltiplos métodos: usa $or
+        query.$or = mappedMethods;
+      }
     }
 
-    // 5. Filtro por Wallet Type
+    // 5. Filtro por Wallet Type (Apple Pay, Google Pay)
+    // Nota: Só aplica se não conflitar com filtro de método de pagamento
     if (walletType && walletType !== "all") {
-      if (walletType === "none") {
-        // Filtra apenas vendas sem wallet (cartão normal)
+      // Se já temos walletType definido pelo filtro de método (credit_card = walletType: null),
+      // o filtro de wallet tem prioridade
+      if (Array.isArray(walletType)) {
+        query.walletType = { $in: walletType };
+      } else if (walletType === "none") {
         query.walletType = null;
       } else {
         query.walletType = walletType;

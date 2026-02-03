@@ -109,7 +109,6 @@ export const es = {
 
   // Product
   product: {
-    quantity: "Cantidad",
     price: "Precio",
     discount: "% DE DESCUENTO",
   },

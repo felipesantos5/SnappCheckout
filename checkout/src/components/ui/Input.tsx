@@ -19,7 +19,7 @@ export const Input: React.FC<InputProps> = ({ label, id, ...props }) => {
         <input
           id={id}
           {...props}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm transition-all duration-200 focus-within:ring-1 focus-within:ring-(--theme-primary) focus-within:border-(--theme-primary) hover:border-(--theme-primary)"
+          className="w-full px-3 py-[6.4px] border border-gray-300 rounded-md shadow-sm transition-all duration-200 focus-within:ring-1 focus-within:ring-(--theme-primary) focus-within:border-(--theme-primary) hover:border-(--theme-primary)"
           style={
             {
               "--theme-primary": primary,

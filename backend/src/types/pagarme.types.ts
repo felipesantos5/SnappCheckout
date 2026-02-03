@@ -221,7 +221,6 @@ export interface ErrorResponse {
 export interface CreatePixPaymentRequest {
   offerSlug: string;
   selectedOrderBumps?: string[];
-  quantity?: number;
   contactInfo: {
     name: string;
     email: string;

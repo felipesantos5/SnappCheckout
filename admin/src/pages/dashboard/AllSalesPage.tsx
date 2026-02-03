@@ -363,28 +363,24 @@ export function AllSalesPage() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Botão Toggle Sidebar - Fixed para ficar sempre visível */}
-      <Button
-        variant="outline"
-        size="icon"
-        className={`fixed z-50 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg ${
-          isSidebarOpen
-            ? "top-[60px] left-[272px]" // 288px (w-72) - 16px = 272px
-            : "top-1/2 -translate-y-1/2 left-[208px]"
-        }`}
-        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-      >
-        {isSidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-      </Button>
-
       {/* Sidebar de Filtros */}
       <aside
-        className={`relative border-r bg-card py-4 overflow-y-auto shrink-0 transition-all duration-300 ease-in-out ${
-          isSidebarOpen ? "w-72 px-4 pl-0" : "w-0 px-0 border-r-0"
-        }`}
+        className={`relative border-r bg-card py-4 overflow-y-auto shrink-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-72 px-4" : "w-12 px-2"
+          }`}
       >
-        <div className={`space-y-4 ${isSidebarOpen ? "opacity-100" : "opacity-0"} transition-opacity duration-200`}>
-          <div className="flex items-center justify-between ml-14">
+        {/* Botão Toggle Sidebar - Dentro do aside */}
+        <Button
+          variant="outline"
+          size="icon"
+          className={`z-10 shadow-md hover:shadow-lg transition-all duration-300 ${isSidebarOpen ? "absolute top-4 right-4" : "mx-auto block"
+            }`}
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        >
+          {isSidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </Button>
+
+        <div className={`space-y-4 ${isSidebarOpen ? "opacity-100 mt-0" : "opacity-0 pointer-events-none h-0 overflow-hidden"} transition-opacity duration-200`}>
+          <div className="flex items-center justify-between pr-12">
             <h2 className="text-lg font-semibold">Filtros</h2>
             <Button variant="ghost" size="sm" onClick={clearAllFilters}>
               <X className="h-4 w-4 mr-1" />
@@ -608,10 +604,9 @@ export function AllSalesPage() {
             </div>
           </div>
 
-          {/* Botão Aplicar */}
-          <Button className="w-full bg-[#fdbf08] hover:bg-[#fdd049] text-black" onClick={() => fetchSales()}>
+          {/* <Button className="w-full bg-[#fdbf08] hover:bg-[#fdd049] text-black" onClick={() => fetchSales()}>
             Aplicar Filtros
-          </Button>
+          </Button> */}
         </div>
       </aside>
 

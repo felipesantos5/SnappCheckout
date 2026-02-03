@@ -111,7 +111,6 @@ export const de: Translation = {
 
   // Product
   product: {
-    quantity: "Menge",
     price: "Preis",
     discount: "% RABATT",
   },

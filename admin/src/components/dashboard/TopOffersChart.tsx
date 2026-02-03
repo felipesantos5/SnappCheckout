@@ -23,12 +23,12 @@ const COLORS = [
 export function TopOffersChart({ data }: TopOffersChartProps) {
   if (!data || data.length === 0) {
     return (
-      <Card>
+      <Card className="h-full">
         <CardHeader>
           <CardTitle className="text-lg">Top Ofertas</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-8">Nenhum dado disponível</p>
+          <p className="text-sm text-muted-foreground text-center py-8 pt-36">Nenhum dado disponível</p>
         </CardContent>
       </Card>
     );
