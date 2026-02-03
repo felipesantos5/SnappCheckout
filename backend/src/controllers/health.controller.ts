@@ -82,7 +82,9 @@ export const handleHealthCheck = async (req: Request, res: Response) => {
     health.status = "degraded";
   }
 
-  const statusCode = health.status === "healthy" ? 200 : health.status === "degraded" ? 200 : 503;
+  // IMPORTANTE: Para auto-heal funcionar, degraded também deve retornar erro
+  // healthy = 200, degraded = 503, unhealthy = 503
+  const statusCode = health.status === "healthy" ? 200 : 503;
 
   res.status(statusCode).json(health);
 };

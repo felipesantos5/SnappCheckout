@@ -136,12 +136,13 @@ export const handleGetABTestBySlug = async (req: Request, res: Response) => {
  * Usado para registrar "initiate_checkout" quando cliente preenche email
  */
 export const handleTrackABTestEvent = async (req: Request, res: Response) => {
+  const { abTestId, offerId, type } = req.body;
+
+  // Resposta imediata para não travar o cliente
+  res.status(200).send();
+
+  // Processamento async isolado para evitar unhandled rejections
   try {
-    const { abTestId, offerId, type } = req.body;
-
-    // Resposta imediata para não travar o cliente
-    res.status(200).send();
-
     if (!abTestId || !offerId || !["initiate_checkout"].includes(type)) {
       return;
     }

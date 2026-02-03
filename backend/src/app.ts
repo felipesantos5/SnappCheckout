@@ -8,6 +8,7 @@ import mainRouter from "./routes";
 import stripeWebhookRouter from "./webhooks/stripe/stripe-webhook.routes";
 import paypalWebhookRouter from "./webhooks/paypal/paypal-webhook.routes";
 import pagarmeWebhookRouter from "./webhooks/pagarme/pagarme-webhook.routes";
+import { isMongoHealthy } from "./lib/db";
 
 const app: Express = express();
 
@@ -52,19 +53,73 @@ app.use(globalLimiter);
 // Webhooks que precisam de RAW body (Stripe)
 app.use("/api/webhooks/stripe", stripeWebhookRouter);
 
-// Middleware para parsear JSON (Global)
-app.use(express.json());
+// Middleware para parsear JSON (Global) - limite de 1MB para prevenir abuso
+app.use(express.json({ limit: "1mb" }));
 
 // Webhooks que podem usar JSON parseado
 app.use("/api/webhooks/paypal", paypalWebhookRouter);
 app.use("/api/webhooks/pagarme", pagarmeWebhookRouter);
 
-// Rota de "health check"
-app.get("/health", (req: Request, res: Response) => {
-  res.status(200).send("API is running!");
+// Rota de "health check" - verifica API + MongoDB + Memória
+// CRÍTICO: Retorna 503 se qualquer problema for detectado (para auto-heal funcionar)
+app.get("/health", async (req: Request, res: Response) => {
+  const startTime = Date.now();
+
+  // 1. Verifica MongoDB
+  const dbHealthy = await isMongoHealthy();
+
+  // 2. Verifica uso de memória (previne OOM)
+  const memUsage = process.memoryUsage();
+  const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+  const heapTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+  const memoryHealthy = heapUsedMB < 1500; // Limite de 1.5GB de heap
+
+  // 3. Verifica se o event loop está responsivo (não travado)
+  const responseTime = Date.now() - startTime;
+  const eventLoopHealthy = responseTime < 5000; // Máximo 5s para responder
+
+  const isHealthy = dbHealthy && memoryHealthy && eventLoopHealthy;
+
+  if (isHealthy) {
+    res.status(200).json({
+      status: "ok",
+      db: "connected",
+      memory: `${heapUsedMB}/${heapTotalMB}MB`,
+      responseTime: `${responseTime}ms`,
+      uptime: Math.round(process.uptime())
+    });
+  } else {
+    res.status(503).json({
+      status: "unhealthy",
+      db: dbHealthy ? "connected" : "disconnected",
+      memory: memoryHealthy ? "ok" : `critical (${heapUsedMB}MB)`,
+      eventLoop: eventLoopHealthy ? "ok" : `slow (${responseTime}ms)`,
+      uptime: Math.round(process.uptime())
+    });
+  }
 });
 
 // Monta o roteador principal na rota /api
 app.use("/api", mainRouter);
+
+// Global error handler - captura erros síncronos de middlewares e rotas
+// DEVE ser o último middleware registrado
+app.use((err: any, req: Request, res: Response, _next: any) => {
+  // Log do erro para debug (sem expor detalhes ao cliente)
+  console.error(`❌ [Express Error] ${req.method} ${req.path}:`, err.message || err);
+
+  if (res.headersSent) {
+    return; // Se já respondeu, não tenta responder de novo
+  }
+
+  const statusCode = err.status || err.statusCode || 500;
+  res.status(statusCode).json({
+    error: {
+      message: process.env.NODE_ENV === "production"
+        ? "Erro interno do servidor"
+        : err.message || "Erro interno do servidor",
+    },
+  });
+});
 
 export default app;

@@ -34,18 +34,19 @@ const getAllOfferIds = async (ownerId: string): Promise<mongoose.Types.ObjectId[
  * Público: Não requer autenticação (pois é chamado pelo checkout do cliente)
  */
 export const handleTrackMetric = async (req: Request, res: Response) => {
+  const { offerId, type, fbc, fbp, email, phone, name, eventId, totalAmount, contentIds } = req.body;
+
+  // Resposta imediata para não travar o cliente (Fire and Forget)
+  res.status(200).send();
+
+  // Todo o processamento async é isolado em try-catch próprio
+  // para evitar unhandled rejections após o response
   try {
-    const { offerId, type, fbc, fbp, email, phone, name, eventId, totalAmount, contentIds } = req.body;
-
-    // Resposta imediata para não travar o cliente (Fire and Forget)
-    res.status(200).send();
-
     const ip = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "";
     const userAgent = req.headers["user-agent"] || "";
     const referer = req.headers["referer"] || "";
 
     if (!offerId || !["view", "view_total", "initiate_checkout"].includes(type)) {
-      // Como já respondemos 200, apenas paramos a execução.
       return;
     }
 
@@ -185,12 +186,13 @@ export const handleTrackMetric = async (req: Request, res: Response) => {
  * Público: Chamado pelo checkout quando a página carrega
  */
 export const handleFacebookInitiateCheckout = async (req: Request, res: Response) => {
+  const { offerId, eventId, totalAmount, contentIds, email, phone, name, fbc, fbp, city, state, zipCode, country } = req.body;
+
+  // Resposta imediata para não travar o cliente (Fire and Forget)
+  res.status(200).send();
+
+  // Processamento async isolado para evitar unhandled rejections
   try {
-    const { offerId, eventId, totalAmount, contentIds, email, phone, name, fbc, fbp, city, state, zipCode, country } = req.body;
-
-    // Resposta imediata para não travar o cliente (Fire and Forget)
-    res.status(200).send();
-
     if (!offerId) return;
 
     const ip = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "";
@@ -301,44 +303,44 @@ export const handleGetConversionFunnel = async (req: Request, res: Response) => 
 
     const offerIds = offers.map((offer) => offer._id);
 
-    const [allMetrics, allSales] = await Promise.all([
-      CheckoutMetric.find({
-        offerId: { $in: offerIds },
-        createdAt: { $gte: startDate, $lte: endDate },
-      })
-        .select("offerId type")
-        .lean(),
+    // Usa aggregation para agrupar por oferta no MongoDB (sem carregar tudo na memória)
+    const [metricsByOffer, salesByOffer] = await Promise.all([
+      CheckoutMetric.aggregate([
+        { $match: { offerId: { $in: offerIds }, createdAt: { $gte: startDate, $lte: endDate } } },
+        { $group: { _id: { offerId: "$offerId", type: "$type" }, count: { $sum: 1 } } },
+      ]),
 
-      Sale.find({
-        offerId: { $in: offerIds },
-        status: "succeeded",
-        createdAt: { $gte: startDate, $lte: endDate },
-      })
-        .select("offerId totalAmountInCents currency")
-        .lean(),
+      Sale.aggregate([
+        { $match: { offerId: { $in: offerIds }, status: "succeeded", createdAt: { $gte: startDate, $lte: endDate } } },
+        { $group: { _id: "$offerId", revenue: { $sum: "$totalAmountInCents" }, count: { $sum: 1 } } },
+      ]),
     ]);
 
-    const metricsPromises = offers.map(async (offer) => {
+    // Monta maps para acesso rápido
+    const metricsMap = new Map<string, { view: number; view_total: number; initiate_checkout: number }>();
+    for (const m of metricsByOffer) {
+      const offId = m._id.offerId.toString();
+      if (!metricsMap.has(offId)) metricsMap.set(offId, { view: 0, view_total: 0, initiate_checkout: 0 });
+      const entry = metricsMap.get(offId)!;
+      if (m._id.type === "view") entry.view = m.count;
+      else if (m._id.type === "view_total") entry.view_total = m.count;
+      else if (m._id.type === "initiate_checkout") entry.initiate_checkout = m.count;
+    }
+
+    const salesMap = new Map<string, { revenue: number; count: number }>();
+    for (const s of salesByOffer) {
+      salesMap.set(s._id.toString(), { revenue: s.revenue, count: s.count });
+    }
+
+    const metrics = offers.map((offer) => {
       const currentOfferId = offer._id.toString();
-      const offerMetrics = allMetrics.filter((m) => m.offerId.toString() === currentOfferId);
-      const offerSales = allSales.filter((s) => s.offerId && s.offerId.toString() === currentOfferId);
+      const offerMetric = metricsMap.get(currentOfferId) || { view: 0, view_total: 0, initiate_checkout: 0 };
+      const offerSale = salesMap.get(currentOfferId) || { revenue: 0, count: 0 };
 
-      // Visualizações únicas (filtradas por IP no handleTrackMetric)
-      const views = offerMetrics.filter((m) => m.type === "view").length;
-      // Visualizações totais (conta todas as aberturas da página)
-      const totalViews = offerMetrics.filter((m) => m.type === "view_total").length;
-      // Conta os checkouts iniciados do CheckoutMetric filtrado por data
-      const initiatedCheckout = offerMetrics.filter((m) => m.type === "initiate_checkout").length;
-      const purchases = offerSales.length;
-
-      let revenueInBRL = 0;
-      await Promise.all(
-        offerSales.map(async (sale) => {
-          const amount = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
-          revenueInBRL += amount;
-        })
-      );
-
+      const views = offerMetric.view;
+      const totalViews = offerMetric.view_total;
+      const initiatedCheckout = offerMetric.initiate_checkout;
+      const purchases = offerSale.count;
       const conversionRate = views > 0 ? (purchases / views) * 100 : 0;
 
       return {
@@ -349,12 +351,11 @@ export const handleGetConversionFunnel = async (req: Request, res: Response) => 
         totalViews,
         initiatedCheckout,
         purchases,
-        revenue: revenueInBRL,
+        revenue: offerSale.revenue,
         conversionRate,
       };
     });
 
-    const metrics = await Promise.all(metricsPromises);
     metrics.sort((a, b) => b.revenue - a.revenue);
 
     res.status(200).json(metrics);
@@ -364,7 +365,6 @@ export const handleGetConversionFunnel = async (req: Request, res: Response) => 
   }
 };
 
-// Manter as funções antigas (handleGetSalesMetrics, etc.) abaixo...
 export const handleGetSalesMetrics = async (req: Request, res: Response) => {
   try {
     const ownerId = req.userId!;
@@ -374,36 +374,24 @@ export const handleGetSalesMetrics = async (req: Request, res: Response) => {
     startDate.setDate(startDate.getDate() - daysParam);
     startDate.setHours(0, 0, 0, 0);
 
-    // Buscar vendas com moeda (TODAS as ofertas para métricas)
-    const sales = await Sale.find({
-      ownerId: new mongoose.Types.ObjectId(ownerId),
-      status: "succeeded",
-      createdAt: { $gte: startDate },
-    })
-      .select("totalAmountInCents currency createdAt")
-      .lean();
-
-    // Agrupar por data e converter para BRL
-    const dailyMetricsMap = new Map<string, { revenue: number; count: number }>();
-
-    for (const sale of sales) {
-      const dateStr = sale.createdAt.toISOString().split("T")[0];
-      const revenueInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
-
-      const existing = dailyMetricsMap.get(dateStr) || { revenue: 0, count: 0 };
-      existing.revenue += revenueInBRL;
-      existing.count += 1;
-      dailyMetricsMap.set(dateStr, existing);
-    }
-
-    // Converter para array e ordenar
-    const metrics = Array.from(dailyMetricsMap.entries())
-      .map(([date, data]) => ({
-        _id: date,
-        revenue: data.revenue,
-        count: data.count,
-      }))
-      .sort((a, b) => a._id.localeCompare(b._id));
+    // Usa aggregation para agrupar por data no MongoDB (sem carregar docs na memória)
+    const metrics = await Sale.aggregate([
+      {
+        $match: {
+          ownerId: new mongoose.Types.ObjectId(ownerId),
+          status: "succeeded",
+          createdAt: { $gte: startDate },
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          revenue: { $sum: "$totalAmountInCents" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
 
     res.status(200).json(metrics);
   } catch (error) {
@@ -416,55 +404,47 @@ export const handleGetOffersRevenue = async (req: Request, res: Response) => {
   try {
     const ownerId = req.userId!;
 
-    // Filtros via query params
-    const days = parseInt(req.query.days as string) || 30; // Padrão: 30 dias
+    const days = parseInt(req.query.days as string) || 30;
     const filterOfferId = req.query.offerId as string | undefined;
 
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     startDate.setHours(0, 0, 0, 0);
 
-    // Construir query com filtros (TODAS as ofertas para métricas)
-    const salesQuery: any = {
+    const matchStage: any = {
       ownerId: new mongoose.Types.ObjectId(ownerId),
       status: "succeeded",
       createdAt: { $gte: startDate },
     };
 
-    // Filtrar por oferta se especificado
     if (filterOfferId && filterOfferId !== "all") {
-      salesQuery.offerId = new mongoose.Types.ObjectId(filterOfferId);
+      matchStage.offerId = new mongoose.Types.ObjectId(filterOfferId);
     }
 
-    // Buscar vendas com moeda e oferta (aplicando filtros)
-    const sales = await Sale.find(salesQuery).select("totalAmountInCents currency offerId").populate("offerId", "name").lean();
+    // Aggregation: agrupa por oferta no MongoDB
+    const aggregated = await Sale.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: "$offerId",
+          revenue: { $sum: "$totalAmountInCents" },
+          salesCount: { $sum: 1 },
+        },
+      },
+      { $sort: { revenue: -1 } },
+    ]);
 
-    // Agrupar por oferta e converter para BRL
-    const offerRevenueMap = new Map<string, { offerName: string; revenue: number; salesCount: number }>();
+    // Busca nomes das ofertas em uma única query
+    const offerIds = aggregated.map((a) => a._id);
+    const offers = await Offer.find({ _id: { $in: offerIds } }, "name").lean();
+    const offerNameMap = new Map(offers.map((o) => [o._id.toString(), o.name]));
 
-    for (const sale of sales) {
-      const offerId = (sale.offerId as any)?._id?.toString();
-      const offerName = (sale.offerId as any)?.name || "Oferta Removida";
-
-      if (!offerId) continue;
-
-      const revenueInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
-
-      const existing = offerRevenueMap.get(offerId) || { offerName, revenue: 0, salesCount: 0 };
-      existing.revenue += revenueInBRL;
-      existing.salesCount += 1;
-      offerRevenueMap.set(offerId, existing);
-    }
-
-    // Converter para array e ordenar por receita
-    const metrics = Array.from(offerRevenueMap.entries())
-      .map(([offerId, data]) => ({
-        _id: offerId,
-        offerName: data.offerName,
-        revenue: data.revenue,
-        salesCount: data.salesCount,
-      }))
-      .sort((a, b) => b.revenue - a.revenue);
+    const metrics = aggregated.map((a) => ({
+      _id: a._id.toString(),
+      offerName: offerNameMap.get(a._id.toString()) || "Oferta Removida",
+      revenue: a.revenue,
+      salesCount: a.salesCount,
+    }));
 
     res.status(200).json(metrics);
   } catch (error) {
@@ -493,24 +473,25 @@ export const handleGetOfferTotalRevenue = async (req: Request, res: Response) =>
       return res.status(404).json({ error: "Oferta não encontrada" });
     }
 
-    // Busca TODAS as vendas aprovadas dessa oferta (sem filtro de data)
-    const sales = await Sale.find({
-      offerId: new mongoose.Types.ObjectId(offerId),
-      status: "succeeded",
-    })
-      .select("totalAmountInCents currency")
-      .lean();
+    // Usa aggregation para calcular total no MongoDB
+    const result = await Sale.aggregate([
+      {
+        $match: {
+          offerId: new mongoose.Types.ObjectId(offerId),
+          status: "succeeded",
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$totalAmountInCents" },
+          totalSales: { $sum: 1 },
+        },
+      },
+    ]);
 
-    // Calcula o faturamento total convertido para BRL
-    let totalRevenueInBRL = 0;
-    await Promise.all(
-      sales.map(async (sale) => {
-        const amountInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
-        totalRevenueInBRL += amountInBRL;
-      })
-    );
-
-    const totalSales = sales.length;
+    const totalRevenueInBRL = result.length > 0 ? result[0].totalRevenue : 0;
+    const totalSales = result.length > 0 ? result[0].totalSales : 0;
 
     res.status(200).json({
       offerId,
@@ -569,22 +550,24 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
       offerIds = allOfferIds;
     }
 
-    const [allSales, allFailedSales, allMetrics] = await Promise.all([
-      // Vendas aprovadas (TODAS as ofertas do usuário)
+    const [allSales, allFailedSalesCount, allMetrics] = await Promise.all([
+      // Vendas aprovadas - seleciona APENAS os campos necessários
       Sale.find({
         ownerId: new mongoose.Types.ObjectId(ownerId),
         status: "succeeded",
         createdAt: { $gte: startDate, $lte: endDate },
         offerId: { $in: offerIds },
-      }).lean(),
+      })
+        .select("totalAmountInCents currency createdAt offerId isUpsell items.isOrderBump items.name items.priceInCents country gateway paymentMethod")
+        .lean(),
 
-      // Vendas falhadas (para calcular taxa de aprovação, TODAS as ofertas)
-      Sale.find({
+      // Vendas falhadas - só precisamos da contagem
+      Sale.countDocuments({
         ownerId: new mongoose.Types.ObjectId(ownerId),
         status: "failed",
         createdAt: { $gte: startDate, $lte: endDate },
         offerId: { $in: offerIds },
-      }).lean(),
+      }),
 
       CheckoutMetric.find({
         offerId: { $in: offerIds },
@@ -635,8 +618,8 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     const checkoutApprovalRate = checkoutsInitiatedCount > 0 ? (totalSales / checkoutsInitiatedCount) * 100 : 0;
 
     // NOVA MÉTRICA: Taxa de Aprovação de Pagamentos (Aprovados / Total de Tentativas)
-    const totalFailedSales = allFailedSales.length;
-    const totalPaymentAttempts = totalSales + totalFailedSales; // Total de tentativas de pagamento
+    const totalFailedSales = allFailedSalesCount;
+    const totalPaymentAttempts = totalSales + totalFailedSales;
     const paymentApprovalRate = totalPaymentAttempts > 0 ? (totalSales / totalPaymentAttempts) * 100 : 0;
 
     // --- GRÁFICOS (PREENCHIMENTO DE GAPS E FORMATAÇÃO) ---
@@ -784,20 +767,22 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     const previousStartDate = new Date(startDate.getTime() - periodDiffMs);
     const previousEndDate = new Date(startDate);
 
-    const [previousSales, previousFailedSales, previousMetrics] = await Promise.all([
+    const [previousSales, previousFailedSalesCount, previousMetrics] = await Promise.all([
       Sale.find({
         ownerId: new mongoose.Types.ObjectId(ownerId),
         status: "succeeded",
         createdAt: { $gte: previousStartDate, $lt: previousEndDate },
         offerId: { $in: offerIds },
-      }).lean(),
+      })
+        .select("totalAmountInCents currency isUpsell items.isOrderBump items.priceInCents")
+        .lean(),
 
-      Sale.find({
+      Sale.countDocuments({
         ownerId: new mongoose.Types.ObjectId(ownerId),
         status: "failed",
         createdAt: { $gte: previousStartDate, $lt: previousEndDate },
         offerId: { $in: offerIds },
-      }).lean(),
+      }),
 
       CheckoutMetric.find({
         offerId: { $in: offerIds },
@@ -838,7 +823,7 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     const previousCheckoutApprovalRate = previousCheckoutsInitiatedCount > 0 ? (previousTotalSales / previousCheckoutsInitiatedCount) * 100 : 0;
 
     // Taxa de aprovação de pagamentos do período anterior
-    const previousTotalFailedSales = previousFailedSales.length;
+    const previousTotalFailedSales = previousFailedSalesCount;
     const previousTotalPaymentAttempts = previousTotalSales + previousTotalFailedSales;
     const previousPaymentApprovalRate = previousTotalPaymentAttempts > 0 ? (previousTotalSales / previousTotalPaymentAttempts) * 100 : 0;
 

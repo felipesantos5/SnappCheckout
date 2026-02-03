@@ -4,19 +4,40 @@ import mongoose from "mongoose";
 import app from "./app";
 import connectDB from "./lib/db";
 import { initializeCurrencyService } from "./services/currency-conversion.service";
-import { startFacebookPurchaseJob } from "./jobs/facebook-purchase.job";
+import { startFacebookPurchaseJob, stopFacebookPurchaseJob } from "./jobs/facebook-purchase.job";
 
 // Flag para evitar múltiplos shutdowns
 let isShuttingDown = false;
 
+// Contador de erros consecutivos para detectar cascata
+let unhandledRejectionCount = 0;
+let lastRejectionReset = Date.now();
+
 process.on("uncaughtException", (error) => {
   console.error("CRITICAL ERROR: Uncaught Exception:", error);
+  // uncaughtException é irrecuperável - encerra o processo
   gracefulShutdown("uncaughtException");
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-  console.error("CRITICAL ERROR: Unhandled Rejection at:", promise, "reason:", reason);
-  gracefulShutdown("unhandledRejection");
+  console.error("WARNING: Unhandled Rejection at:", promise, "reason:", reason);
+
+  // Reseta o contador a cada 60 segundos
+  if (Date.now() - lastRejectionReset > 60000) {
+    unhandledRejectionCount = 0;
+    lastRejectionReset = Date.now();
+  }
+
+  unhandledRejectionCount++;
+
+  // Só mata o processo se houver cascata (10+ rejeições em 60s)
+  // Isso indica problema sistêmico (ex: MongoDB caiu de vez)
+  if (unhandledRejectionCount >= 10) {
+    console.error("CRITICAL: 10+ unhandled rejections in 60s - restarting process");
+    gracefulShutdown("unhandledRejection_cascade");
+  }
+  // Rejeições isoladas são logadas mas NÃO matam o processo
+  // (ex: Facebook API timeout, webhook async error)
 });
 
 const PORT = process.env.PORT || 4242;
@@ -47,6 +68,9 @@ const gracefulShutdown = async (signal: string) => {
   }, SHUTDOWN_TIMEOUT);
 
   try {
+    // 0. Para jobs em background
+    stopFacebookPurchaseJob();
+
     // 1. Para de aceitar novas conexões HTTP
     if (server) {
       console.log("📡 Fechando servidor HTTP (aguardando conexões ativas)...");

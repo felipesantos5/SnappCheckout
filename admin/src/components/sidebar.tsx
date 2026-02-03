@@ -45,15 +45,16 @@ const items = [
     icon: ChartNoAxesCombined,
   },
   {
-    title: "Pagamentos",
-    url: "/payments",
-    icon: Wallet,
-  },
-  {
     title: "Todas as Vendas",
     url: "/all-sales",
     icon: Receipt,
   },
+  {
+    title: "Pagamentos",
+    url: "/payments",
+    icon: Wallet,
+  },
+
   {
     title: "Testes A/B",
     url: "/abtests",
@@ -153,12 +154,9 @@ export function AppSidebar() {
         const startDate = new Date("2020-01-01").toISOString();
         const endDate = new Date().toISOString();
 
-        const response = await axios.get(
-          `${API_URL}/metrics/overview?startDate=${startDate}&endDate=${endDate}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const response = await axios.get(`${API_URL}/metrics/overview?startDate=${startDate}&endDate=${endDate}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         setTotalRevenue(response.data.kpis.totalRevenue || 0);
       } catch (error) {
         console.error("Erro ao carregar faturamento:", error);

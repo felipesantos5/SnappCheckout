@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import axios from "axios";
 import { API_URL } from "@/config/BackendUrl";
 import { toast } from "sonner";
@@ -8,7 +9,21 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Download, RefreshCw, Zap, ArrowUpCircle, ShoppingBag, DollarSign, ShoppingCart, TrendingUp, Percent, X, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Loader2,
+  Download,
+  RefreshCw,
+  Zap,
+  ArrowUpCircle,
+  ShoppingBag,
+  DollarSign,
+  ShoppingCart,
+  TrendingUp,
+  Percent,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { formatCurrency } from "@/helper/formatCurrency";
 import { formatDate } from "@/helper/formatDate";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -75,15 +90,15 @@ const statusConfig = {
 // Taxas de conversão para BRL (atualizadas periodicamente)
 const exchangeRates: Record<string, number> = {
   BRL: 1.0,
-  USD: 5.0,   // 1 USD = ~5 BRL
-  EUR: 5.5,   // 1 EUR = ~5.5 BRL
-  AUD: 3.3,   // 1 AUD = ~3.3 BRL
-  GBP: 6.3,   // 1 GBP = ~6.3 BRL
-  CAD: 3.7,   // 1 CAD = ~3.7 BRL
+  USD: 5.0, // 1 USD = ~5 BRL
+  EUR: 5.5, // 1 EUR = ~5.5 BRL
+  AUD: 3.3, // 1 AUD = ~3.3 BRL
+  GBP: 6.3, // 1 GBP = ~6.3 BRL
+  CAD: 3.7, // 1 CAD = ~3.7 BRL
   JPY: 0.034, // 1 JPY = ~0.034 BRL
-  CHF: 5.8,   // 1 CHF = ~5.8 BRL
-  CNY: 0.70,  // 1 CNY = ~0.70 BRL
-  MXN: 0.30,  // 1 MXN = ~0.30 BRL
+  CHF: 5.8, // 1 CHF = ~5.8 BRL
+  CNY: 0.7, // 1 CNY = ~0.70 BRL
+  MXN: 0.3, // 1 MXN = ~0.30 BRL
   ARS: 0.005, // 1 ARS = ~0.005 BRL
 };
 
@@ -127,13 +142,14 @@ const getSaleTypeIcon = (sale: Sale) => {
 
 export function AllSalesPage() {
   const [sales, setSales] = useState<Sale[]>([]);
+  const [allSalesForMetrics, setAllSalesForMetrics] = useState<Sale[]>([]); // Todas as vendas do filtro para métricas
   const [offers, setOffers] = useState<Offer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);
 
   // Carrega estado do filtro do localStorage
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    const saved = localStorage.getItem('allSalesFilterOpen');
+    const saved = localStorage.getItem("allSalesFilterOpen");
     return saved !== null ? JSON.parse(saved) : true;
   });
 
@@ -151,7 +167,7 @@ export function AllSalesPage() {
 
   // Salva estado do filtro no localStorage
   useEffect(() => {
-    localStorage.setItem('allSalesFilterOpen', JSON.stringify(isSidebarOpen));
+    localStorage.setItem("allSalesFilterOpen", JSON.stringify(isSidebarOpen));
   }, [isSidebarOpen]);
 
   // Buscar ofertas
@@ -168,57 +184,76 @@ export function AllSalesPage() {
     fetchOffers();
   }, []);
 
-  // Buscar vendas
+  // Função auxiliar para construir parâmetros de filtro
+  const buildFilterParams = () => {
+    const params = new URLSearchParams();
+
+    if (selectedStatuses.length > 0 && selectedStatuses.length < 4) {
+      selectedStatuses.forEach((status) => params.append("status", status));
+    }
+
+    if (selectedOffers.length > 0) {
+      selectedOffers.forEach((offerId) => params.append("offerId", offerId));
+    }
+
+    if (selectedPaymentMethods.length > 0) {
+      selectedPaymentMethods.forEach((method) => params.append("paymentMethod", method));
+    }
+
+    if (selectedWallets.length > 0) {
+      selectedWallets.forEach((wallet) => params.append("walletType", wallet));
+    }
+
+    if (searchEmail) params.append("email", searchEmail);
+
+    // Calcular datas baseado no filtro de período
+    if (periodFilter !== "all") {
+      const now = new Date();
+      let calculatedStartDate = startDate;
+      let calculatedEndDate = endDate;
+
+      if (periodFilter === "today") {
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        calculatedStartDate = today.toISOString();
+        calculatedEndDate = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
+      } else if (periodFilter === "week") {
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        calculatedStartDate = weekAgo.toISOString();
+        calculatedEndDate = now.toISOString();
+      } else if (periodFilter === "month") {
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        calculatedStartDate = monthAgo.toISOString();
+        calculatedEndDate = now.toISOString();
+      }
+
+      if (calculatedStartDate) params.append("startDate", calculatedStartDate);
+      if (calculatedEndDate) params.append("endDate", calculatedEndDate);
+    }
+
+    return params;
+  };
+
+  // Buscar TODAS as vendas para cálculo de métricas (sem paginação)
+  const fetchAllSalesForMetrics = async () => {
+    try {
+      const params = buildFilterParams();
+      params.set("limit", "10000"); // Limite alto para pegar todas as vendas
+
+      const response = await axios.get(`${API_URL}/sales?${params.toString()}`);
+      const salesData = response.data?.data || [];
+      setAllSalesForMetrics(Array.isArray(salesData) ? salesData : []);
+    } catch (error) {
+      console.error("Erro ao buscar vendas para métricas:", error);
+    }
+  };
+
+  // Buscar vendas paginadas
   const fetchSales = async () => {
     setIsLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-      });
-
-      if (selectedStatuses.length > 0 && selectedStatuses.length < 4) {
-        selectedStatuses.forEach(status => params.append("status", status));
-      }
-
-      if (selectedOffers.length > 0) {
-        selectedOffers.forEach(offerId => params.append("offerId", offerId));
-      }
-
-      if (selectedPaymentMethods.length > 0) {
-        selectedPaymentMethods.forEach(method => params.append("paymentMethod", method));
-      }
-
-      if (selectedWallets.length > 0) {
-        selectedWallets.forEach(wallet => params.append("walletType", wallet));
-      }
-
-      if (searchEmail) params.append("email", searchEmail);
-
-      // Calcular datas baseado no filtro de período
-      // Só aplica filtro de data se não for "all"
-      if (periodFilter !== "all") {
-        const now = new Date();
-        let calculatedStartDate = startDate;
-        let calculatedEndDate = endDate;
-
-        if (periodFilter === "today") {
-          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          calculatedStartDate = today.toISOString();
-          calculatedEndDate = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
-        } else if (periodFilter === "week") {
-          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          calculatedStartDate = weekAgo.toISOString();
-          calculatedEndDate = now.toISOString();
-        } else if (periodFilter === "month") {
-          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          calculatedStartDate = monthAgo.toISOString();
-          calculatedEndDate = now.toISOString();
-        }
-
-        if (calculatedStartDate) params.append("startDate", calculatedStartDate);
-        if (calculatedEndDate) params.append("endDate", calculatedEndDate);
-      }
+      const params = buildFilterParams();
+      params.set("page", page.toString());
+      params.set("limit", limit.toString());
 
       const response = await axios.get(`${API_URL}/sales?${params.toString()}`);
       const salesData = response.data?.data || [];
@@ -235,13 +270,21 @@ export function AllSalesPage() {
     }
   };
 
+  // Buscar vendas paginadas quando mudar a página
   useEffect(() => {
     fetchSales();
-  }, [page, selectedStatuses, selectedOffers, selectedPaymentMethods, selectedWallets, periodFilter, startDate, endDate]);
+  }, [page]);
 
-  // Métricas calculadas (sempre em BRL)
+  // Buscar todas as vendas para métricas quando mudar os filtros
+  useEffect(() => {
+    fetchAllSalesForMetrics();
+    setPage(1); // Voltar para página 1 quando filtros mudarem
+    fetchSales();
+  }, [selectedStatuses, selectedOffers, selectedPaymentMethods, selectedWallets, periodFilter, startDate, endDate, searchEmail]);
+
+  // Métricas calculadas (sempre em BRL) - baseadas em TODAS as vendas do filtro
   const metrics = useMemo(() => {
-    const succeededSales = sales.filter(s => s.status === "succeeded");
+    const succeededSales = allSalesForMetrics.filter((s) => s.status === "succeeded");
 
     // Converte todas as vendas para BRL antes de somar
     const totalRevenue = succeededSales.reduce((acc, sale) => {
@@ -251,7 +294,7 @@ export function AllSalesPage() {
 
     const totalSales = succeededSales.length;
     const averageTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
-    const approvalRate = sales.length > 0 ? (succeededSales.length / sales.length) * 100 : 0;
+    const approvalRate = allSalesForMetrics.length > 0 ? (succeededSales.length / allSalesForMetrics.length) * 100 : 0;
 
     return {
       totalSales,
@@ -259,7 +302,7 @@ export function AllSalesPage() {
       averageTicket,
       approvalRate,
     };
-  }, [sales]);
+  }, [allSalesForMetrics]);
 
   // Exportar para CSV
   const handleExport = () => {
@@ -324,10 +367,11 @@ export function AllSalesPage() {
       <Button
         variant="outline"
         size="icon"
-        className={`fixed z-50 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg ${isSidebarOpen
-          ? "top-[60px] left-[272px]" // 288px (w-72) - 16px = 272px
-          : "top-1/2 -translate-y-1/2 left-[208px]"
-          }`}
+        className={`fixed z-50 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg ${
+          isSidebarOpen
+            ? "top-[60px] left-[272px]" // 288px (w-72) - 16px = 272px
+            : "top-1/2 -translate-y-1/2 left-[208px]"
+        }`}
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
       >
         {isSidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -335,8 +379,9 @@ export function AllSalesPage() {
 
       {/* Sidebar de Filtros */}
       <aside
-        className={`relative border-r bg-card py-4 overflow-y-auto shrink-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-72 px-4" : "w-0 px-0 border-r-0"
-          }`}
+        className={`relative border-r bg-card py-4 overflow-y-auto shrink-0 transition-all duration-300 ease-in-out ${
+          isSidebarOpen ? "w-72 px-4 pl-0" : "w-0 px-0 border-r-0"
+        }`}
       >
         <div className={`space-y-4 ${isSidebarOpen ? "opacity-100" : "opacity-0"} transition-opacity duration-200`}>
           <div className="flex items-center justify-between ml-14">
@@ -577,9 +622,7 @@ export function AllSalesPage() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold">Todas as Vendas</h1>
-              <p className="text-muted-foreground">
-                {isLoading ? "Carregando..." : `${total} ${total === 1 ? "venda" : "vendas"} encontradas`}
-              </p>
+              <p className="text-muted-foreground">{isLoading ? "Carregando..." : `${total} ${total === 1 ? "venda" : "vendas"} encontradas`}</p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => fetchSales()} disabled={isLoading}>
@@ -685,7 +728,12 @@ export function AllSalesPage() {
                       <TableCell>
                         {sale.offerId ? (
                           <div>
-                            <div className="font-medium text-sm">{sale.offerId.name}</div>
+                            <Link
+                              to={`/offers/${sale.offerId._id}`}
+                              className="font-medium text-sm hover:text-[#fdbf08] hover:underline transition-colors"
+                            >
+                              {sale.offerId.name}
+                            </Link>
                             <div className="text-xs text-muted-foreground">{sale.offerId.slug}</div>
                           </div>
                         ) : (
@@ -695,7 +743,7 @@ export function AllSalesPage() {
 
                       <TableCell>{getSaleTypeIcon(sale)}</TableCell>
 
-                      <TableCell>
+                      <TableCell className="text-center">
                         {sale.status === "failed" && sale.failureMessage ? (
                           <TooltipProvider>
                             <Tooltip>

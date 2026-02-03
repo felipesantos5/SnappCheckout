@@ -163,6 +163,9 @@ const processConsolidatedPurchase = async (parentSale: any): Promise<void> => {
   }
 };
 
+// Referência ao interval para limpeza no shutdown
+let jobInterval: ReturnType<typeof setInterval> | null = null;
+
 /**
  * Inicia o job de envio consolidado de Facebook Purchase
  * Roda a cada 60 segundos e processa vendas pendentes
@@ -176,9 +179,20 @@ export const startFacebookPurchaseJob = (): void => {
   });
 
   // Agenda execução periódica
-  setInterval(() => {
+  jobInterval = setInterval(() => {
     processPendingFacebookPurchases().catch((err) => {
       console.error(`❌ [Facebook Job] Erro no ciclo:`, err.message);
     });
   }, JOB_INTERVAL_MS);
+};
+
+/**
+ * Para o job de Facebook Purchase (chamado no graceful shutdown)
+ */
+export const stopFacebookPurchaseJob = (): void => {
+  if (jobInterval) {
+    clearInterval(jobInterval);
+    jobInterval = null;
+    console.log(`🛑 [Facebook Job] Parado`);
+  }
 };

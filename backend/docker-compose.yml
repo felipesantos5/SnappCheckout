@@ -14,19 +14,41 @@ services:
       - MONGO_URI=mongodb://root:${DB_PASSWORD}@mongodb:27017/checkout?authSource=admin
     restart: unless-stopped
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     networks:
       - app_network
-    # [NOVO] Configuração do Healthcheck
+    # ============================================
+    # HEALTHCHECK OTIMIZADO PARA CHECKOUT
+    # ============================================
+    #
+    # FLUXO DE DETECÇÃO:
+    # 1. API começa a dar erro 500 ou não responde
+    # 2. Healthcheck falha (a cada 15s)
+    # 3. Após 3 falhas consecutivas (45s) → marcado unhealthy
+    # 4. Autoheal detecta (em até 10s) e reinicia
+    # 5. Total worst-case: ~55 segundos até começar restart
+    #
+    # start_period: Tempo de carência após container iniciar
+    # Durante esse período, falhas NÃO contam para o unhealthy
+    # Sua API demora 1-2 min para subir, então usamos 150s de margem
+    #
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4242/health"]
-      interval: 30s       # Verifica a cada 30 segundos
-      timeout: 20s        # Se demorar mais de 10s, considera falha
-      retries: 5          # Precisa falhar 3 vezes seguidas para marcar unhealthy
-      start_period: 120s   # Dá 40s de carência pro Node iniciar antes de testar
-    # [NOVO] Etiqueta para o autoheal saber que deve vigiar este container
+      test: ["CMD", "/healthcheck.sh"]
+      interval: 15s        # Verifica a cada 15 segundos
+      timeout: 10s         # Timeout do check
+      retries: 3           # 3 falhas consecutivas = unhealthy
+      start_period: 150s   # 2.5 min de carência (API demora 1-2 min para subir)
+    # Labels para autoheal
     labels:
       - "autoheal=true"
+    # Limites de recursos para prevenir OOM
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
 
   mongodb:
     image: mongo:6.0
@@ -40,13 +62,30 @@ services:
       - mongo_data:/data/db
     networks:
       - app_network
+    # Healthcheck do MongoDB (usa credenciais de admin)
+    healthcheck:
+      test: ["CMD", "mongosh", "-u", "root", "-p", "${DB_PASSWORD}", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
-  # [NOVO] Serviço Vigilante - Reinicia containers Unhealthy automaticamente
+  # ============================================
+  # AUTOHEAL - Vigilante de containers
+  # ============================================
+  # Reinicia automaticamente containers unhealthy
   autoheal:
-    image: willfarrell/autoheal
+    image: willfarrell/autoheal:latest
     restart: always
     environment:
-      - AUTOHEAL_CONTAINER_LABEL=all  # Monitora todos que tiverem a label, ou use 'all' para todos
+      # Monitora containers com label autoheal=true
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+      # Intervalo de verificação (segundos)
+      - AUTOHEAL_INTERVAL=10
+      # Timeout padrão para restart
+      - AUTOHEAL_DEFAULT_STOP_TIMEOUT=30
+      # Webhook para notificações (opcional - configure se quiser alertas)
+      # - AUTOHEAL_WEBHOOK_URL=https://seu-webhook.com/notify
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
     networks:
