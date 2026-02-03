@@ -214,7 +214,7 @@ export const captureOrder = async (req: Request, res: Response) => {
         // Log crítico com todos os dados para recuperação manual
         console.error(`🚨 [PayPal] CRÍTICO: Pagamento capturado (${captureData.id}) mas venda NÃO foi salva!`, {
           paypalOrderId: captureData.id,
-          offerId: offer._id.toString(),
+          offerId: (offer._id as any).toString(),
           ownerId: offer.ownerId,
           amountInCents,
           customerEmail: customerData?.email,
