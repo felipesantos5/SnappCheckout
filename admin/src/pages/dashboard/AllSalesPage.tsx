@@ -8,7 +8,21 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Download, RefreshCw, Zap, ArrowUpCircle, ShoppingBag, DollarSign, ShoppingCart, TrendingUp, Percent, X, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Loader2,
+  Download,
+  RefreshCw,
+  Zap,
+  ArrowUpCircle,
+  ShoppingBag,
+  DollarSign,
+  ShoppingCart,
+  TrendingUp,
+  Percent,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { formatCurrency } from "@/helper/formatCurrency";
 import { formatDate } from "@/helper/formatDate";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -75,15 +89,15 @@ const statusConfig = {
 // Taxas de conversão para BRL (atualizadas periodicamente)
 const exchangeRates: Record<string, number> = {
   BRL: 1.0,
-  USD: 5.0,   // 1 USD = ~5 BRL
-  EUR: 5.5,   // 1 EUR = ~5.5 BRL
-  AUD: 3.3,   // 1 AUD = ~3.3 BRL
-  GBP: 6.3,   // 1 GBP = ~6.3 BRL
-  CAD: 3.7,   // 1 CAD = ~3.7 BRL
+  USD: 5.0, // 1 USD = ~5 BRL
+  EUR: 5.5, // 1 EUR = ~5.5 BRL
+  AUD: 3.3, // 1 AUD = ~3.3 BRL
+  GBP: 6.3, // 1 GBP = ~6.3 BRL
+  CAD: 3.7, // 1 CAD = ~3.7 BRL
   JPY: 0.034, // 1 JPY = ~0.034 BRL
-  CHF: 5.8,   // 1 CHF = ~5.8 BRL
-  CNY: 0.70,  // 1 CNY = ~0.70 BRL
-  MXN: 0.30,  // 1 MXN = ~0.30 BRL
+  CHF: 5.8, // 1 CHF = ~5.8 BRL
+  CNY: 0.7, // 1 CNY = ~0.70 BRL
+  MXN: 0.3, // 1 MXN = ~0.30 BRL
   ARS: 0.005, // 1 ARS = ~0.005 BRL
 };
 
@@ -133,7 +147,7 @@ export function AllSalesPage() {
 
   // Carrega estado do filtro do localStorage
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    const saved = localStorage.getItem('allSalesFilterOpen');
+    const saved = localStorage.getItem("allSalesFilterOpen");
     return saved !== null ? JSON.parse(saved) : true;
   });
 
@@ -151,7 +165,7 @@ export function AllSalesPage() {
 
   // Salva estado do filtro no localStorage
   useEffect(() => {
-    localStorage.setItem('allSalesFilterOpen', JSON.stringify(isSidebarOpen));
+    localStorage.setItem("allSalesFilterOpen", JSON.stringify(isSidebarOpen));
   }, [isSidebarOpen]);
 
   // Buscar ofertas
@@ -178,19 +192,19 @@ export function AllSalesPage() {
       });
 
       if (selectedStatuses.length > 0 && selectedStatuses.length < 4) {
-        selectedStatuses.forEach(status => params.append("status", status));
+        selectedStatuses.forEach((status) => params.append("status", status));
       }
 
       if (selectedOffers.length > 0) {
-        selectedOffers.forEach(offerId => params.append("offerId", offerId));
+        selectedOffers.forEach((offerId) => params.append("offerId", offerId));
       }
 
       if (selectedPaymentMethods.length > 0) {
-        selectedPaymentMethods.forEach(method => params.append("paymentMethod", method));
+        selectedPaymentMethods.forEach((method) => params.append("paymentMethod", method));
       }
 
       if (selectedWallets.length > 0) {
-        selectedWallets.forEach(wallet => params.append("walletType", wallet));
+        selectedWallets.forEach((wallet) => params.append("walletType", wallet));
       }
 
       if (searchEmail) params.append("email", searchEmail);
@@ -241,7 +255,7 @@ export function AllSalesPage() {
 
   // Métricas calculadas (sempre em BRL)
   const metrics = useMemo(() => {
-    const succeededSales = sales.filter(s => s.status === "succeeded");
+    const succeededSales = sales.filter((s) => s.status === "succeeded");
 
     // Converte todas as vendas para BRL antes de somar
     const totalRevenue = succeededSales.reduce((acc, sale) => {
@@ -324,10 +338,11 @@ export function AllSalesPage() {
       <Button
         variant="outline"
         size="icon"
-        className={`fixed z-50 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg ${isSidebarOpen
-          ? "top-[60px] left-[272px]" // 288px (w-72) - 16px = 272px
-          : "top-1/2 -translate-y-1/2 left-[208px]"
-          }`}
+        className={`fixed z-50 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg ${
+          isSidebarOpen
+            ? "top-[60px] left-[272px]" // 288px (w-72) - 16px = 272px
+            : "top-1/2 -translate-y-1/2 left-[208px]"
+        }`}
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
       >
         {isSidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -335,8 +350,9 @@ export function AllSalesPage() {
 
       {/* Sidebar de Filtros */}
       <aside
-        className={`relative border-r bg-card py-4 overflow-y-auto shrink-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-72 px-4" : "w-0 px-0 border-r-0"
-          }`}
+        className={`relative border-r bg-card py-4 overflow-y-auto shrink-0 transition-all duration-300 ease-in-out ${
+          isSidebarOpen ? "w-72 px-4 pl-0" : "w-0 px-0 border-r-0"
+        }`}
       >
         <div className={`space-y-4 ${isSidebarOpen ? "opacity-100" : "opacity-0"} transition-opacity duration-200`}>
           <div className="flex items-center justify-between ml-14">
@@ -577,9 +593,7 @@ export function AllSalesPage() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold">Todas as Vendas</h1>
-              <p className="text-muted-foreground">
-                {isLoading ? "Carregando..." : `${total} ${total === 1 ? "venda" : "vendas"} encontradas`}
-              </p>
+              <p className="text-muted-foreground">{isLoading ? "Carregando..." : `${total} ${total === 1 ? "venda" : "vendas"} encontradas`}</p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => fetchSales()} disabled={isLoading}>
