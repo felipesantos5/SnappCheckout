@@ -60,13 +60,42 @@ app.use(express.json({ limit: "1mb" }));
 app.use("/api/webhooks/paypal", paypalWebhookRouter);
 app.use("/api/webhooks/pagarme", pagarmeWebhookRouter);
 
-// Rota de "health check" - verifica API + MongoDB
+// Rota de "health check" - verifica API + MongoDB + Memória
+// CRÍTICO: Retorna 503 se qualquer problema for detectado (para auto-heal funcionar)
 app.get("/health", async (req: Request, res: Response) => {
+  const startTime = Date.now();
+
+  // 1. Verifica MongoDB
   const dbHealthy = await isMongoHealthy();
-  if (dbHealthy) {
-    res.status(200).json({ status: "ok", db: "connected" });
+
+  // 2. Verifica uso de memória (previne OOM)
+  const memUsage = process.memoryUsage();
+  const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+  const heapTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+  const memoryHealthy = heapUsedMB < 1500; // Limite de 1.5GB de heap
+
+  // 3. Verifica se o event loop está responsivo (não travado)
+  const responseTime = Date.now() - startTime;
+  const eventLoopHealthy = responseTime < 5000; // Máximo 5s para responder
+
+  const isHealthy = dbHealthy && memoryHealthy && eventLoopHealthy;
+
+  if (isHealthy) {
+    res.status(200).json({
+      status: "ok",
+      db: "connected",
+      memory: `${heapUsedMB}/${heapTotalMB}MB`,
+      responseTime: `${responseTime}ms`,
+      uptime: Math.round(process.uptime())
+    });
   } else {
-    res.status(503).json({ status: "degraded", db: "disconnected" });
+    res.status(503).json({
+      status: "unhealthy",
+      db: dbHealthy ? "connected" : "disconnected",
+      memory: memoryHealthy ? "ok" : `critical (${heapUsedMB}MB)`,
+      eventLoop: eventLoopHealthy ? "ok" : `slow (${responseTime}ms)`,
+      uptime: Math.round(process.uptime())
+    });
   }
 });
 
