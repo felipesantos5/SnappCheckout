@@ -279,7 +279,7 @@ export default function OfferAnalyticsPage() {
 
       {/* Charts Section */}
       <div className="grid gap-4 md:grid-cols-12">
-        <Card className="md:col-span-12 lg:col-span-3">
+        <Card className="md:col-span-12 lg:col-span-4">
           <CardHeader>
             <CardTitle>Funil de Conversão</CardTitle>
             <CardDescription>Visualização do funil.</CardDescription>
@@ -307,7 +307,7 @@ export default function OfferAnalyticsPage() {
         </Card>
 
         {/* Mini Detail Card - Right Side */}
-        <Card className="md:col-span-12 lg:col-span-3">
+        {/* <Card className="md:col-span-12 lg:col-span-3">
           <CardHeader>
             <CardTitle>Detalhes da Receita</CardTitle>
             <CardDescription>Performance financeira.</CardDescription>
@@ -331,10 +331,10 @@ export default function OfferAnalyticsPage() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* Gráfico Diário de Performance */}
-        <div className="md:col-span-12 lg:col-span-6">
+        <div className="md:col-span-12 lg:col-span-8">
           {overviewData && (
             <DailyOfferChart
               data={{

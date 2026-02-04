@@ -1,6 +1,7 @@
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TrendingUp, Eye, ShoppingCart, Percent } from "lucide-react";
 
 interface DailyOfferChartProps {
   data: {
@@ -88,7 +89,7 @@ export function DailyOfferChart({ data }: DailyOfferChartProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px] w-full pt-4">
+        <div className="h-[250px] w-full pt-4">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={combinedData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
@@ -152,7 +153,7 @@ export function DailyOfferChart({ data }: DailyOfferChartProps) {
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 text-[11px] font-medium text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 text-[11px] font-medium text-muted-foreground border-b pb-4">
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full bg-[#fbe298]" />
             Views
@@ -165,6 +166,56 @@ export function DailyOfferChart({ data }: DailyOfferChartProps) {
             <div className="w-2.5 h-2.5 rounded-full bg-[#fdbf08]" />
             Vendas
           </div>
+        </div>
+
+        {/* Daily Metrics TABLE */}
+        <div className="mt-4 max-h-[300px] overflow-y-auto pr-1">
+          <Table>
+            <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="text-[10px] sm:text-xs uppercase font-bold text-muted-foreground w-[100px]">Data</TableHead>
+                <TableHead className="text-center text-[10px] sm:text-xs uppercase font-bold text-muted-foreground">
+                  <div className="flex flex-col items-center">
+                    <Eye className="h-3 w-3 mb-1 text-[#fbe298]" />
+                    Views
+                  </div>
+                </TableHead>
+                <TableHead className="text-center text-[10px] sm:text-xs uppercase font-bold text-muted-foreground">
+                  <div className="flex flex-col items-center">
+                    <ShoppingCart className="h-3 w-3 mb-1 text-[#fdd049]" />
+                    Checkouts
+                  </div>
+                </TableHead>
+                <TableHead className="text-center text-[10px] sm:text-xs uppercase font-bold text-muted-foreground">
+                  <div className="flex flex-col items-center">
+                    <ShoppingCart className="h-3 w-3 mb-1 text-[#fdbf08]" />
+                    Vendas
+                  </div>
+                </TableHead>
+                <TableHead className="text-right text-[10px] sm:text-xs uppercase font-bold text-muted-foreground">
+                  <div className="flex flex-col items-end">
+                    <Percent className="h-3 w-3 mb-1 text-green-500" />
+                    Conversão
+                  </div>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {combinedData.slice().reverse().map((day) => (
+                <TableRow key={day.date} className="hover:bg-muted/30">
+                  <TableCell className="font-semibold text-xs py-3">{formatDateLabel(day.date)}</TableCell>
+                  <TableCell className="text-center font-medium text-xs py-3">{day.views}</TableCell>
+                  <TableCell className="text-center font-medium text-xs py-3">{day.checkouts}</TableCell>
+                  <TableCell className="text-center font-medium text-xs py-3">{day.sales}</TableCell>
+                  <TableCell className="text-right py-3">
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-xs font-bold ring-1 ring-inset ring-green-600/20">
+                      {day.conversion.toFixed(2)}%
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </CardContent>
     </Card>
