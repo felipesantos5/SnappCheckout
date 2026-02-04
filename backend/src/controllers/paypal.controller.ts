@@ -298,76 +298,22 @@ export const captureOrder = async (req: Request, res: Response) => {
 
       if (offer.upsell?.enabled) {
         // Extrai vault_id e customer_id do PayPal (se disponível)
-        // IMPORTANTE: usar "attributes" (plural) não "attribute"
         const paymentSource = captureData.payment_source?.paypal;
         const vaultData = paymentSource?.attributes?.vault;
         let vaultId = vaultData?.id;
         let paypalCustomerId = vaultData?.customer?.id;
-        const vaultStatus = vaultData?.status; // "VAULTED" ou "APPROVED"
+        const vaultStatus = vaultData?.status;
 
-        console.log(`🔵 [PayPal] Vault status: ${vaultStatus || "N/A"}, vault_id: ${vaultId || "N/A"}, customer_id: ${paypalCustomerId || "N/A"}`);
+        console.log(`🔵 [PayPal] Dados do vault: status=${vaultStatus || "N/A"}, vault_id=${vaultId || "N/A"}, customer_id=${paypalCustomerId || "N/A"}`);
 
-        // Se status é APPROVED (assíncrono), o vault_id pode não estar disponível ainda
-        // Estratégia 1: Polling na API v3 do Vault para obter o token
-        if (!vaultId && paypalCustomerId && vaultStatus === "APPROVED") {
-          console.log(`🔵 [PayPal] Vault status APPROVED - iniciando polling para obter token...`);
-          const polledToken = await paypalService.waitForVaultToken(
-            paypalCustomerId,
-            user.paypalClientId,
-            user.paypalClientSecret
-          );
-          if (polledToken) {
-            vaultId = polledToken.id;
-            paypalCustomerId = polledToken.customer.id;
-            console.log(`✅ [PayPal] Token obtido via polling: ${vaultId}`);
-          }
-        }
-
-        // Estratégia 2: Se ainda não temos vault_id mas temos customer_id, tenta buscar diretamente
-        if (!vaultId && paypalCustomerId) {
-          console.log(`🔵 [PayPal] Tentando buscar vault token diretamente pelo customer_id...`);
-          const tokenData = await paypalService.getVaultTokenByCustomerId(
-            paypalCustomerId,
-            user.paypalClientId,
-            user.paypalClientSecret
-          );
-          if (tokenData) {
-            vaultId = tokenData.id;
-            paypalCustomerId = tokenData.customer.id;
-            console.log(`✅ [PayPal] Token obtido via busca direta: ${vaultId}`);
-          }
-        }
-
-        // Estratégia 3: Se ainda não temos customer_id, tenta extrair de outros campos da resposta
-        if (!paypalCustomerId) {
-          // Tenta pegar do payer
-          paypalCustomerId = captureData.payer?.payer_id;
-          console.log(`🔵 [PayPal] Customer ID extraído do payer: ${paypalCustomerId || "N/A"}`);
-          
-          // Se conseguiu customer_id, tenta buscar o vault token
-          if (paypalCustomerId && !vaultId) {
-            console.log(`🔵 [PayPal] Tentando buscar vault token com customer_id do payer...`);
-            const tokenData = await paypalService.getVaultTokenByCustomerId(
-              paypalCustomerId,
-              user.paypalClientId,
-              user.paypalClientSecret
-            );
-            if (tokenData) {
-              vaultId = tokenData.id;
-              paypalCustomerId = tokenData.customer.id;
-              console.log(`✅ [PayPal] Token obtido via payer customer_id: ${vaultId}`);
-            }
-          }
-        }
-
+        // Estratégia simples: Se temos vault_id e customer_id, cria sessão de upsell
+        // Se não, redireciona para página de upsell sem token (checkout normal)
         if (vaultId && paypalCustomerId) {
-          console.log(`🔵 [PayPal] Vault detectado! vault_id: ${vaultId}, customer_id: ${paypalCustomerId}`);
+          console.log(`✅ [PayPal] Vault disponível! Criando sessão de upsell...`);
 
-          // Gera token de upsell
           const token = uuidv4();
 
           try {
-            // Salva sessão de upsell com dados do PayPal Vault
             await UpsellSession.create({
               token,
               accountId: user.paypalClientId,
@@ -381,39 +327,33 @@ export const captureOrder = async (req: Request, res: Response) => {
               customerPhone: customerData?.phone || "",
               paypalVaultId: vaultId,
               paypalCustomerId: paypalCustomerId,
-              originalSaleId: newSale._id, // Vincula ao sale original para consolidar Facebook Purchase
+              originalSaleId: newSale._id,
             });
 
-            // Constrói URL de redirecionamento para upsell
             const separator = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
             upsellRedirectUrl = `${offer.upsell.redirectUrl}${separator}token=${token}&payment_method=paypal`;
             upsellToken = token;
 
-            console.log(`✅ [PayPal] Token de upsell gerado: ${token}`);
+            console.log(`✅ [PayPal] Token de upsell gerado: ${token.substring(0, 8)}...`);
           } catch (upsellError: any) {
             console.error(`⚠️ [PayPal] Erro ao criar sessão de upsell:`, upsellError.message);
-            // Fallback: redireciona para a página de upsell normal (sem one-click)
-            // IMPORTANTE: Ainda adiciona payment_method=paypal para o script saber que foi PayPal
-            if (offer.upsell.redirectUrl && offer.upsell.redirectUrl.trim() !== "") {
+            // Se falhar ao criar sessão, redireciona sem token
+            if (offer.upsell.redirectUrl) {
               const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
               upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal`;
-              console.log(`🔵 [PayPal] Fallback - redirecionando para página de upsell (sem one-click): ${upsellRedirectUrl}`);
             }
           }
         } else {
-          console.warn(`⚠️ [PayPal] Upsell habilitado mas vault não disponível (vault_id: ${vaultId || "N/A"}, customer_id: ${paypalCustomerId || "N/A"}, status: ${vaultStatus || "N/A"})`);
-
-          // Fallback 1: redireciona para checkout alternativo se configurado
-          if (offer.upsell.fallbackCheckoutUrl && offer.upsell.fallbackCheckoutUrl.trim() !== "") {
+          // Vault não disponível - redireciona para upsell sem one-click
+          console.warn(`⚠️ [PayPal] Vault não disponível. Redirecionando para upsell sem one-click.`);
+          
+          if (offer.upsell.fallbackCheckoutUrl) {
             upsellRedirectUrl = offer.upsell.fallbackCheckoutUrl;
-            console.log(`🔵 [PayPal] Usando fallback checkout URL para upsell: ${upsellRedirectUrl}`);
-          }
-          // Fallback 2: redireciona para a página de upsell normal (sem one-click)
-          // IMPORTANTE: Ainda adiciona payment_method=paypal para o script saber que foi PayPal
-          else if (offer.upsell.redirectUrl && offer.upsell.redirectUrl.trim() !== "") {
+            console.log(`🔵 [PayPal] Usando fallback checkout URL: ${upsellRedirectUrl}`);
+          } else if (offer.upsell.redirectUrl) {
             const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
             upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal`;
-            console.log(`🔵 [PayPal] Redirecionando para página de upsell (sem one-click): ${upsellRedirectUrl}`);
+            console.log(`🔵 [PayPal] Redirecionando para upsell (sem one-click): ${upsellRedirectUrl}`);
           }
         }
       }

@@ -54,11 +54,31 @@ export const createOrder = async (amount: number, currency: string, clientId: st
       ],
     };
 
-    // NOTA: Quando usamos JS SDK Buttons, NÃO enviamos payment_source na criação da ordem.
-    // O vault é habilitado via parâmetro na URL do SDK (&vault=true) e via
-    // createOrder attributes no componente frontend.
-    // Enviar payment_source aqui causa conflito: PayPal retorna PAYER_ACTION_REQUIRED
-    // com redirect URL em vez de um order ID que o SDK popup consegue processar.
+    // Se vault está habilitado, adiciona os atributos necessários
+    // IMPORTANTE: Isso só funciona se o vault estiver habilitado na conta PayPal
+    if (enableVault) {
+      console.log(`🔵 [PayPal] Criando ordem com vault habilitado`);
+      orderPayload.payment_source = {
+        paypal: {
+          experience_context: {
+            payment_method_preference: "IMMEDIATE_PAYMENT_REQUIRED",
+            brand_name: "SnappCheckout",
+            locale: "pt-BR",
+            landing_page: "LOGIN",
+            user_action: "PAY_NOW",
+            return_url: "https://backend2.snappcheckout.com/api/paypal/return",
+            cancel_url: "https://backend2.snappcheckout.com/api/paypal/cancel",
+          },
+          attributes: {
+            vault: {
+              store_in_vault: "ON_SUCCESS",
+              usage_type: "MERCHANT",
+              customer_type: "CONSUMER",
+            },
+          },
+        },
+      };
+    }
 
     const response = await axios.post(
       `${PAYPAL_API_URL}/v2/checkout/orders`,
