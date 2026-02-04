@@ -194,6 +194,7 @@ export const createAndCaptureOrderWithVault = async (
     const accessToken = await generateAccessToken(clientId, clientSecret);
 
     // Cria ordem com vault_id (método salvo)
+    // Docs: https://developer.paypal.com/docs/checkout/save-payment-methods/purchase-later/payment-tokens-api/paypal/
     const orderPayload = {
       intent: "CAPTURE",
       purchase_units: [
@@ -207,11 +208,6 @@ export const createAndCaptureOrderWithVault = async (
       payment_source: {
         paypal: {
           vault_id: vaultId,
-          stored_credential: {
-            payment_initiator: "MERCHANT",
-            payment_type: "UNSCHEDULED",
-            usage: "SUBSEQUENT",
-          },
         },
       },
     };
@@ -258,9 +254,16 @@ export const createAndCaptureOrderWithVault = async (
     if (error.response?.data) {
       const paypalError = error.response.data;
       console.error("[PayPal Vault] API Error:", JSON.stringify(paypalError, null, 2));
+      console.error("[PayPal Vault] Request payload:", JSON.stringify({ vaultId, paypalCustomerId, amount, currency: currencyCode }, null, 2));
 
       const details = paypalError.details?.[0];
+      const issue = details?.issue || "";
       const description = details?.description || paypalError.message || "Erro ao processar pagamento com vault";
+
+      // Traduz erros comuns do PayPal
+      if (issue === "INVALID_VAULT_ID" || paypalError.name === "INVALID_REQUEST") {
+        throw new Error("Token de pagamento expirado ou inválido. Por favor, refaça o pagamento.");
+      }
 
       throw new Error(`PayPal: ${description}`);
     }

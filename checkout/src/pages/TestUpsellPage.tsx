@@ -9,6 +9,9 @@ const TestUpsellPage = () => {
   const [status, setStatus] = useState<"waiting" | "processing" | "success" | "error">("waiting");
   const [message, setMessage] = useState("");
 
+  // Pega o método de pagamento da URL (igual ao script de produção)
+  const paymentMethod = searchParams.get("payment_method") || "stripe";
+
   // --- SIMULAÇÃO DO SCRIPT DO CLIENTE ---
   const handleUpsellAction = async (isBuy: boolean) => {
     if (!token) {
@@ -21,8 +24,11 @@ const TestUpsellPage = () => {
     try {
       const endpoint = isBuy ? "one-click-upsell" : "upsell-refuse";
 
+      // Define a rota baseado no método de pagamento (igual ao script de produção)
+      const baseRoute = paymentMethod === "paypal" ? "/paypal/" : "/payments/";
+
       // Chamada direta à API (igual ao script)
-      const res = await fetch(`${API_URL}/payments/${endpoint}`, {
+      const res = await fetch(`${API_URL}${baseRoute}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token }),
@@ -62,10 +68,15 @@ const TestUpsellPage = () => {
 
         <h1 className="text-3xl font-bold text-gray-900 mb-4">Espere! Oferta Especial (Upsell)</h1>
         <p className="text-gray-600 mb-8 text-lg">
-          Esta página simula o site do seu cliente. O token recebido foi:
+          Esta página simula o site do seu cliente.
           <br />
-          <code className="bg-gray-100 px-2 py-1 rounded text-sm text-blue-600 break-all mt-2 block">
+          <span className="block mt-2 text-sm text-gray-500">Token:</span>
+          <code className="bg-gray-100 px-2 py-1 rounded text-sm text-blue-600 break-all mt-1 block">
             {token || "Nenhum token encontrado na URL"}
+          </code>
+          <span className="block mt-2 text-sm text-gray-500">Método de pagamento:</span>
+          <code className={`px-2 py-1 rounded text-sm mt-1 block ${paymentMethod === "paypal" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
+            {paymentMethod.toUpperCase()} → chamará /api{paymentMethod === "paypal" ? "/paypal" : "/payments"}/one-click-upsell
           </code>
         </p>
 

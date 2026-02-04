@@ -409,12 +409,16 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
   try {
     const { token } = req.body;
 
+    console.log(`🔵 [PayPal Upsell] Recebendo requisição com token: ${token ? token.substring(0, 8) + "..." : "VAZIO"}`);
+
     if (!token) {
+      console.error(`❌ [PayPal Upsell] Token não fornecido no body da requisição`);
       return res.status(400).json({ success: false, message: "Token inválido." });
     }
 
     // Busca sessão de upsell
     const session: any = await UpsellSession.findOne({ token }).populate("offerId");
+    console.log(`🔵 [PayPal Upsell] Sessão encontrada: ${session ? "SIM" : "NÃO"}, paymentMethod: ${session?.paymentMethod || "N/A"}, vaultId: ${session?.paypalVaultId ? session.paypalVaultId.substring(0, 8) + "..." : "N/A"}`);
 
     if (!session) {
       return res.status(403).json({ success: false, message: "Sessão expirada ou token já usado." });

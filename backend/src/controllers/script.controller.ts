@@ -165,7 +165,14 @@ export const getUpsellScript = (req: Request, res: Response) => {
 })();
   `;
 
-  // Retorna como Javascript
-  res.setHeader("Content-Type", "application/javascript");
+  // Headers para evitar cache - SEMPRE busca a versão mais recente
+  res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+
+  // CORS - permite que qualquer domínio carregue o script
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
   res.send(scriptContent);
 };
