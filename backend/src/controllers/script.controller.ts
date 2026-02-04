@@ -15,14 +15,31 @@ export const getUpsellScript = (req: Request, res: Response) => {
 
   // 2. Função Principal de Processamento
   async function handleUpsellAction(isBuy, btnElement) {
-    const token = new URLSearchParams(window.location.search).get('token');
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
 
     // Pega a URL de fallback do atributo data-fallback-url do botão
     const fallbackUrl = btnElement.getAttribute('data-fallback-url') || btnElement.dataset.fallbackUrl;
 
     // Pega o método de pagamento: prioridade data-attribute > URL query param > default stripe
-    const urlPaymentMethod = new URLSearchParams(window.location.search).get('payment_method');
+    const urlPaymentMethod = urlParams.get('payment_method');
     const paymentMethod = btnElement.getAttribute('data-payment-method') || btnElement.dataset.paymentMethod || urlPaymentMethod || 'stripe';
+
+    console.log('🔵 [Upsell] URL completa:', window.location.href);
+    console.log('🔵 [Upsell] Token encontrado:', token ? token.substring(0, 8) + '...' : 'NENHUM');
+    console.log('🔵 [Upsell] Método de pagamento:', paymentMethod);
+
+    // Se não tem token e tem fallback URL, redireciona direto (one-click não disponível)
+    if (!token && isBuy) {
+      if (fallbackUrl && fallbackUrl.trim() !== '') {
+        console.log('⚠️ [Upsell] Sem token - redirecionando para checkout alternativo:', fallbackUrl);
+        window.location.href = fallbackUrl;
+        return;
+      }
+      // Se não tem fallback, mostra erro explicativo
+      alert('One-click não disponível. Por favor, complete o pagamento manualmente.');
+      return;
+    }
 
     const originalText = btnElement.innerText;
     btnElement.innerText = "PROCESSANDO...";
@@ -39,7 +56,6 @@ export const getUpsellScript = (req: Request, res: Response) => {
       // Define a rota baseado no método de pagamento
       const baseRoute = paymentMethod === 'paypal' ? '/paypal/' : '/payments/';
 
-      console.log('🔵 [Upsell] Método de pagamento detectado:', paymentMethod);
       console.log('🔵 [Upsell] Chamando endpoint:', apiUrl + baseRoute + endpoint);
 
       const res = await fetch(apiUrl + baseRoute + endpoint, {

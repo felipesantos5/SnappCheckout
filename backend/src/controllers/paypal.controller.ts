@@ -298,6 +298,7 @@ export const captureOrder = async (req: Request, res: Response) => {
 
       if (offer.upsell?.enabled) {
         // Extrai vault_id e customer_id do PayPal (se disponível)
+        // IMPORTANTE: usar "attributes" (plural) não "attribute"
         const paymentSource = captureData.payment_source?.paypal;
         const vaultData = paymentSource?.attributes?.vault;
         let vaultId = vaultData?.id;
@@ -307,7 +308,7 @@ export const captureOrder = async (req: Request, res: Response) => {
         console.log(`🔵 [PayPal] Vault status: ${vaultStatus || "N/A"}, vault_id: ${vaultId || "N/A"}, customer_id: ${paypalCustomerId || "N/A"}`);
 
         // Se status é APPROVED (assíncrono), o vault_id pode não estar disponível ainda
-        // Faz polling na API v3 do Vault para obter o token
+        // Estratégia 1: Polling na API v3 do Vault para obter o token
         if (!vaultId && paypalCustomerId && vaultStatus === "APPROVED") {
           console.log(`🔵 [PayPal] Vault status APPROVED - iniciando polling para obter token...`);
           const polledToken = await paypalService.waitForVaultToken(
@@ -318,12 +319,45 @@ export const captureOrder = async (req: Request, res: Response) => {
           if (polledToken) {
             vaultId = polledToken.id;
             paypalCustomerId = polledToken.customer.id;
+            console.log(`✅ [PayPal] Token obtido via polling: ${vaultId}`);
           }
         }
 
-        // Se ainda não temos customer_id, tenta extrair de outros campos da resposta
+        // Estratégia 2: Se ainda não temos vault_id mas temos customer_id, tenta buscar diretamente
+        if (!vaultId && paypalCustomerId) {
+          console.log(`🔵 [PayPal] Tentando buscar vault token diretamente pelo customer_id...`);
+          const tokenData = await paypalService.getVaultTokenByCustomerId(
+            paypalCustomerId,
+            user.paypalClientId,
+            user.paypalClientSecret
+          );
+          if (tokenData) {
+            vaultId = tokenData.id;
+            paypalCustomerId = tokenData.customer.id;
+            console.log(`✅ [PayPal] Token obtido via busca direta: ${vaultId}`);
+          }
+        }
+
+        // Estratégia 3: Se ainda não temos customer_id, tenta extrair de outros campos da resposta
         if (!paypalCustomerId) {
-          paypalCustomerId = paymentSource?.attributes?.customer?.id;
+          // Tenta pegar do payer
+          paypalCustomerId = captureData.payer?.payer_id;
+          console.log(`🔵 [PayPal] Customer ID extraído do payer: ${paypalCustomerId || "N/A"}`);
+          
+          // Se conseguiu customer_id, tenta buscar o vault token
+          if (paypalCustomerId && !vaultId) {
+            console.log(`🔵 [PayPal] Tentando buscar vault token com customer_id do payer...`);
+            const tokenData = await paypalService.getVaultTokenByCustomerId(
+              paypalCustomerId,
+              user.paypalClientId,
+              user.paypalClientSecret
+            );
+            if (tokenData) {
+              vaultId = tokenData.id;
+              paypalCustomerId = tokenData.customer.id;
+              console.log(`✅ [PayPal] Token obtido via payer customer_id: ${vaultId}`);
+            }
+          }
         }
 
         if (vaultId && paypalCustomerId) {
@@ -461,6 +495,29 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
 
     if (!user || !user.paypalClientId || !user.paypalClientSecret) {
       return res.status(400).json({ success: false, message: "Credenciais do PayPal não configuradas." });
+    }
+
+    // 6. Validar se o vault token ainda existe (pode ter expirado ou sido deletado)
+    console.log(`🔵 [PayPal Upsell] Validando vault token ${session.paypalVaultId}...`);
+    try {
+      const tokenValidation = await paypalService.getVaultTokenByCustomerId(
+        session.paypalCustomerId,
+        user.paypalClientId,
+        user.paypalClientSecret
+      );
+      
+      if (!tokenValidation || tokenValidation.id !== session.paypalVaultId) {
+        console.error(`❌ [PayPal Upsell] Vault token ${session.paypalVaultId} não encontrado ou inválido`);
+        return res.status(400).json({ 
+          success: false, 
+          message: "Token de pagamento expirado. Por favor, refaça o pagamento." 
+        });
+      }
+      
+      console.log(`✅ [PayPal Upsell] Vault token validado com sucesso`);
+    } catch (validationError: any) {
+      console.error(`⚠️ [PayPal Upsell] Erro ao validar vault token:`, validationError.message);
+      // Continua mesmo com erro de validação (pode ser problema temporário da API)
     }
 
     console.log(`🔵 [PayPal Upsell] Processando upsell com vault_id: ${session.paypalVaultId}`);

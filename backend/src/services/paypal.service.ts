@@ -143,13 +143,14 @@ export const getCustomerPaymentTokens = async (
   }
 };
 
-// Polling: aguarda o vault token ficar disponível (máximo 3 tentativas com 2s de intervalo)
+// Polling: aguarda o vault token ficar disponível com exponential backoff
+// Quando vault.status é APPROVED, o token pode levar alguns segundos para ficar disponível
 export const waitForVaultToken = async (
   paypalCustomerId: string,
   clientId: string,
   clientSecret: string,
-  maxAttempts: number = 3,
-  intervalMs: number = 2000
+  maxAttempts: number = 5,
+  baseIntervalMs: number = 2000
 ): Promise<{ id: string; customer: { id: string } } | null> => {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     console.log(`🔵 [PayPal Vault] Polling tentativa ${attempt}/${maxAttempts} para customer ${paypalCustomerId}...`);
@@ -161,7 +162,10 @@ export const waitForVaultToken = async (
     }
 
     if (attempt < maxAttempts) {
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      // Exponential backoff: 2s, 3s, 4.5s, 6.75s
+      const waitTime = baseIntervalMs * Math.pow(1.5, attempt - 1);
+      console.log(`⏳ [PayPal Vault] Aguardando ${Math.round(waitTime)}ms antes da próxima tentativa...`);
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
   }
 
@@ -268,5 +272,31 @@ export const createAndCaptureOrderWithVault = async (
       throw new Error(`PayPal: ${description}`);
     }
     throw error;
+  }
+};
+
+/**
+ * Busca vault token diretamente pelo customer_id como fallback
+ * Útil quando o vault.id não está disponível na resposta do capture
+ */
+export const getVaultTokenByCustomerId = async (
+  paypalCustomerId: string,
+  clientId: string,
+  clientSecret: string
+): Promise<{ id: string; customer: { id: string } } | null> => {
+  console.log(`🔵 [PayPal Vault] Buscando token para customer ${paypalCustomerId}...`);
+  
+  try {
+    const token = await getCustomerPaymentTokens(paypalCustomerId, clientId, clientSecret);
+    if (token) {
+      console.log(`✅ [PayPal Vault] Token encontrado: ${token.id}`);
+      return token;
+    }
+    
+    console.warn(`⚠️ [PayPal Vault] Nenhum token encontrado para customer ${paypalCustomerId}`);
+    return null;
+  } catch (error: any) {
+    console.error(`❌ [PayPal Vault] Erro ao buscar token:`, error.message);
+    return null;
   }
 };
