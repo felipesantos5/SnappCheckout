@@ -162,7 +162,7 @@ export function OffersPage() {
   };
 
   return (
-    <div className="max-w-[1600px] m-auto">
+    <div className="max-w-[1300px] m-auto">
       {/* Cabeçalho da Página (FORA do card, como no protótipo) */}
       <div className="flex justify-between items-center mb-6">
         <div>
