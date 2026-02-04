@@ -108,7 +108,7 @@ export function SalesAreaChart({ chartData }: SalesChartProps) {
             data={aggregatedData}
             layout="vertical"
             margin={{
-              left: 10,
+              left: 0,
               right: 100,
               top: 10,
               bottom: 10,
@@ -121,18 +121,18 @@ export function SalesAreaChart({ chartData }: SalesChartProps) {
               tickLine={false}
               tickMargin={5}
               axisLine={false}
-              width={chartData.length > MAX_CHART_BARS ? 95 : 45}
+              orientation="left"
+              width={chartData.length > MAX_CHART_BARS ? 95 : 55}
               tick={(props: any) => {
-                const { x, y, payload } = props;
+                const { y, payload } = props;
                 return (
                   <text
-                    x={x}
+                    x={0}
                     y={y}
                     fill="hsl(var(--muted-foreground))"
                     fontSize={10}
-                    textAnchor="end"
+                    textAnchor="start"
                     dominantBaseline="middle"
-                    style={{ whiteSpace: "nowrap" }}
                   >
                     {formatDateLabel(payload.value)}
                   </text>
