@@ -17,6 +17,7 @@ export const getUpsellScript = (req: Request, res: Response) => {
   async function handleUpsellAction(isBuy, btnElement) {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
+    const offerId = urlParams.get('offerId');
 
     // Pega a URL de fallback do atributo data-fallback-url do botão
     const fallbackUrl = btnElement.getAttribute('data-fallback-url') || btnElement.dataset.fallbackUrl;
@@ -27,9 +28,10 @@ export const getUpsellScript = (req: Request, res: Response) => {
 
     console.log('🔵 [Upsell] URL completa:', window.location.href);
     console.log('🔵 [Upsell] Token encontrado:', token ? token.substring(0, 8) + '...' : 'NENHUM');
+    console.log('🔵 [Upsell] OfferId encontrado:', offerId);
     console.log('🔵 [Upsell] Método de pagamento:', paymentMethod);
 
-    // Se não tem token e tem fallback URL, redireciona direto (one-click não disponível)
+    // Se não tem token e tem fallback URL (e é BUY), redireciona direto (one-click não disponível)
     if (!token && isBuy) {
       if (fallbackUrl && fallbackUrl.trim() !== '') {
         console.log('⚠️ [Upsell] Sem token - redirecionando para checkout alternativo:', fallbackUrl);
@@ -42,7 +44,9 @@ export const getUpsellScript = (req: Request, res: Response) => {
     }
 
     const originalText = btnElement.innerText;
-    btnElement.innerText = "PROCESSANDO...";
+    if (isBuy) {
+      btnElement.innerText = "PROCESSANDO...";
+    }
     btnElement.classList.add("chk-btn-loading");
 
     // Desabilita todos os botões de upsell para evitar duplo clique
@@ -61,7 +65,7 @@ export const getUpsellScript = (req: Request, res: Response) => {
       const res = await fetch(apiUrl + baseRoute + endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
+        body: JSON.stringify({ token, offerId })
       });
 
       const data = await res.json();
@@ -70,12 +74,13 @@ export const getUpsellScript = (req: Request, res: Response) => {
         if (data.redirectUrl) {
           window.location.href = data.redirectUrl;
         } else {
-          // Se não tiver redirect, recarrega apenas se for recusa. 
-          // Se for compra bem sucedida mas sem redirect (raro), algo está errado mas evitamos alert.
+          // Se não tiver redirect e for recusa, o cliente provavelmente quer ir para o obrigado.
+          // Como não temos a URL, tentamos um reload ou mantemos como está (silencioso).
           if (!isBuy) {
+            console.log('✅ Recusa processada. Sem redirect URL, mantendo página ou recarregando.');
+            // Se o cliente não colocou URL de redirecionamento na oferta, ele fica preso aqui?
+            // Melhor recarregar para limpar parâmetros de token se houver.
             window.location.reload();
-          } else {
-            console.warn('Compra bem sucedida, mas sem redirect URL. Recarregando a página pode ser necessário.');
           }
         }
       } else {

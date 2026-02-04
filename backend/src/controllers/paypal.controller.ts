@@ -332,7 +332,7 @@ export const captureOrder = async (req: Request, res: Response) => {
               });
 
               const separator = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
-              upsellRedirectUrl = `${offer.upsell.redirectUrl}${separator}token=${token}&payment_method=paypal`;
+              upsellRedirectUrl = `${offer.upsell.redirectUrl}${separator}token=${token}&payment_method=paypal&offerId=${offer._id}`;
               upsellToken = token;
 
               console.log(`✅ [PayPal] Token de upsell one-click gerado: ${token.substring(0, 8)}...`);
@@ -341,7 +341,7 @@ export const captureOrder = async (req: Request, res: Response) => {
               // Se falhar, redireciona sem token (checkout normal)
               if (offer.upsell.redirectUrl) {
                 const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
-                upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal`;
+                upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal&offerId=${offer._id}`;
               }
             }
           } else {
@@ -350,7 +350,7 @@ export const captureOrder = async (req: Request, res: Response) => {
             
             if (offer.upsell.redirectUrl) {
               const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
-              upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal`;
+              upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal&offerId=${offer._id}`;
               console.log(`🔵 [PayPal] Redirecionando para upsell (sem one-click): ${upsellRedirectUrl}`);
             }
           }
@@ -363,7 +363,7 @@ export const captureOrder = async (req: Request, res: Response) => {
             console.log(`🔵 [PayPal] Usando fallback checkout URL: ${upsellRedirectUrl}`);
           } else if (offer.upsell.redirectUrl) {
             const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
-            upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal`;
+            upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal&offerId=${offer._id}`;
             console.log(`🔵 [PayPal] Redirecionando para upsell (checkout normal): ${upsellRedirectUrl}`);
           }
         }
@@ -595,34 +595,49 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
  */
 export const handlePayPalUpsellRefuse = async (req: Request, res: Response) => {
   try {
-    const { token } = req.body;
+    const { token, offerId } = req.body;
+    let redirectUrl = null;
 
-    if (!token) {
-      return res.status(400).json({ success: false, message: "Token inválido." });
+    if (token) {
+      const session: any = await UpsellSession.findOne({ token }).populate("offerId");
+
+      if (session) {
+        const offer = session.offerId as any;
+        redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
+        
+        // Deletar sessão
+        await UpsellSession.deleteOne({ token });
+        console.log(`✅ [PayPal Upsell] Oferta recusada e sessão deletada`);
+      } else {
+        console.warn(`⚠️ [PayPal Upsell] Sessão não encontrada ao recusar (token: ${token})`);
+      }
+    } 
+
+    // Se não encontrou URL via sessão, tenta via offerId direto
+    if (!redirectUrl && offerId) {
+      try {
+        const offer = await Offer.findById(offerId);
+        if (offer && offer.thankYouPageUrl) {
+          redirectUrl = offer.thankYouPageUrl;
+          console.log(`✅ [PayPal Upsell] Thank You Page encontrada via offerId: ${redirectUrl}`);
+        }
+      } catch (err) {
+        console.error(`❌ [PayPal Upsell] Erro ao buscar offerId ${offerId}:`, err);
+      }
     }
 
-    const session: any = await UpsellSession.findOne({ token }).populate("offerId");
-
-    if (!session) {
-      return res.status(403).json({ success: false, message: "Sessão expirada." });
-    }
-
-    const offer = session.offerId as any;
-
-    // Deletar sessão
-    await UpsellSession.deleteOne({ token });
-
-    const redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
-
-    console.log(`✅ [PayPal Upsell] Oferta recusada`);
-
-    res.status(200).json({
+    // Mesmo que não tenha token ou sessão, retornamos sucesso para o usuário seguir
+    return res.status(200).json({
       success: true,
       message: "Oferta recusada.",
-      redirectUrl,
+      redirectUrl: redirectUrl,
     });
   } catch (error: any) {
-    console.error("❌ [PayPal Upsell] Erro ao recusar:", error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ [PayPal Upsell] Erro silencioso ao recusar:", error);
+    // Sempre retorna sucesso no refuse para não travar o fluxo do cliente
+    return res.status(200).json({
+      success: true,
+      redirectUrl: null,
+    });
   }
 };
