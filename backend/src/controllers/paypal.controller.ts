@@ -294,58 +294,69 @@ export const captureOrder = async (req: Request, res: Response) => {
       let upsellToken: string | null = null;
       let upsellRedirectUrl: string | null = null;
 
-      console.log(`🔵 [PayPal] Upsell config: enabled=${offer.upsell?.enabled}, redirectUrl=${offer.upsell?.redirectUrl || "N/A"}, fallbackUrl=${offer.upsell?.fallbackCheckoutUrl || "N/A"}`);
+      console.log(`🔵 [PayPal] Upsell config: enabled=${offer.upsell?.enabled}, paypalOneClick=${offer.upsell?.paypalOneClickEnabled}, redirectUrl=${offer.upsell?.redirectUrl || "N/A"}`);
 
       if (offer.upsell?.enabled) {
-        // Extrai vault_id e customer_id do PayPal (se disponível)
-        const paymentSource = captureData.payment_source?.paypal;
-        const vaultData = paymentSource?.attributes?.vault;
-        let vaultId = vaultData?.id;
-        let paypalCustomerId = vaultData?.customer?.id;
-        const vaultStatus = vaultData?.status;
+        // Verifica se o PayPal One-Click está habilitado para esta oferta
+        if (offer.upsell.paypalOneClickEnabled) {
+          // Extrai vault_id e customer_id do PayPal (se disponível)
+          const paymentSource = captureData.payment_source?.paypal;
+          const vaultData = paymentSource?.attributes?.vault;
+          let vaultId = vaultData?.id;
+          let paypalCustomerId = vaultData?.customer?.id;
+          const vaultStatus = vaultData?.status;
 
-        console.log(`🔵 [PayPal] Dados do vault: status=${vaultStatus || "N/A"}, vault_id=${vaultId || "N/A"}, customer_id=${paypalCustomerId || "N/A"}`);
+          console.log(`🔵 [PayPal] Dados do vault: status=${vaultStatus || "N/A"}, vault_id=${vaultId || "N/A"}, customer_id=${paypalCustomerId || "N/A"}`);
 
-        // Estratégia simples: Se temos vault_id e customer_id, cria sessão de upsell
-        // Se não, redireciona para página de upsell sem token (checkout normal)
-        if (vaultId && paypalCustomerId) {
-          console.log(`✅ [PayPal] Vault disponível! Criando sessão de upsell...`);
+          // Se temos vault_id e customer_id, cria sessão de upsell one-click
+          if (vaultId && paypalCustomerId) {
+            console.log(`✅ [PayPal] Vault disponível! Criando sessão de upsell one-click...`);
 
-          const token = uuidv4();
+            const token = uuidv4();
 
-          try {
-            await UpsellSession.create({
-              token,
-              accountId: user.paypalClientId,
-              customerId: paypalCustomerId,
-              paymentMethodId: vaultId,
-              offerId: offer._id,
-              paymentMethod: "paypal",
-              ip: clientIp,
-              customerName: customerData?.name || "",
-              customerEmail: customerData?.email || "",
-              customerPhone: customerData?.phone || "",
-              paypalVaultId: vaultId,
-              paypalCustomerId: paypalCustomerId,
-              originalSaleId: newSale._id,
-            });
+            try {
+              await UpsellSession.create({
+                token,
+                accountId: user.paypalClientId,
+                customerId: paypalCustomerId,
+                paymentMethodId: vaultId,
+                offerId: offer._id,
+                paymentMethod: "paypal",
+                ip: clientIp,
+                customerName: customerData?.name || "",
+                customerEmail: customerData?.email || "",
+                customerPhone: customerData?.phone || "",
+                paypalVaultId: vaultId,
+                paypalCustomerId: paypalCustomerId,
+                originalSaleId: newSale._id,
+              });
 
-            const separator = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
-            upsellRedirectUrl = `${offer.upsell.redirectUrl}${separator}token=${token}&payment_method=paypal`;
-            upsellToken = token;
+              const separator = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
+              upsellRedirectUrl = `${offer.upsell.redirectUrl}${separator}token=${token}&payment_method=paypal`;
+              upsellToken = token;
 
-            console.log(`✅ [PayPal] Token de upsell gerado: ${token.substring(0, 8)}...`);
-          } catch (upsellError: any) {
-            console.error(`⚠️ [PayPal] Erro ao criar sessão de upsell:`, upsellError.message);
-            // Se falhar ao criar sessão, redireciona sem token
+              console.log(`✅ [PayPal] Token de upsell one-click gerado: ${token.substring(0, 8)}...`);
+            } catch (upsellError: any) {
+              console.error(`⚠️ [PayPal] Erro ao criar sessão de upsell:`, upsellError.message);
+              // Se falhar, redireciona sem token (checkout normal)
+              if (offer.upsell.redirectUrl) {
+                const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
+                upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal`;
+              }
+            }
+          } else {
+            // Vault não disponível - redireciona para upsell sem one-click
+            console.warn(`⚠️ [PayPal] Vault não disponível. Redirecionando para upsell sem one-click.`);
+            
             if (offer.upsell.redirectUrl) {
               const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
               upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal`;
+              console.log(`🔵 [PayPal] Redirecionando para upsell (sem one-click): ${upsellRedirectUrl}`);
             }
           }
         } else {
-          // Vault não disponível - redireciona para upsell sem one-click
-          console.warn(`⚠️ [PayPal] Vault não disponível. Redirecionando para upsell sem one-click.`);
+          // PayPal One-Click desabilitado - usa fluxo normal
+          console.log(`🔵 [PayPal] PayPal One-Click desabilitado. Usando fluxo de upsell normal.`);
           
           if (offer.upsell.fallbackCheckoutUrl) {
             upsellRedirectUrl = offer.upsell.fallbackCheckoutUrl;
@@ -353,7 +364,7 @@ export const captureOrder = async (req: Request, res: Response) => {
           } else if (offer.upsell.redirectUrl) {
             const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
             upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal`;
-            console.log(`🔵 [PayPal] Redirecionando para upsell (sem one-click): ${upsellRedirectUrl}`);
+            console.log(`🔵 [PayPal] Redirecionando para upsell (checkout normal): ${upsellRedirectUrl}`);
           }
         }
       }

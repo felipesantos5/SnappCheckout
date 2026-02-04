@@ -60,6 +60,7 @@ interface ApiOfferData {
     price: number;
     redirectUrl: string;
     customId?: string;
+    paypalOneClickEnabled: boolean;
   };
   mainProduct: ApiProductData;
   orderBumps: ApiProductData[];
@@ -128,7 +129,8 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
         name: data.upsell.name,
         price: data.upsell.price ? data.upsell.price / 100 : 0,
         redirectUrl: data.upsell.redirectUrl,
-        customId: data.upsell.customId, // <--- NOVO
+        customId: data.upsell.customId,
+        paypalOneClickEnabled: data.upsell.paypalOneClickEnabled,
       }
       : {
         enabled: false,
@@ -136,6 +138,7 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
         price: 0,
         redirectUrl: "",
         customId: "",
+        paypalOneClickEnabled: false,
       },
 
     // Mapear Produto Principal (incluindo customId)

@@ -173,6 +173,7 @@ const upsellSchema = z.object({
   price: z.coerce.number().min(0, { message: "Preço deve ser maior ou igual a 0." }).optional(),
   redirectUrl: optionalUrl,
   customId: z.string().optional(),
+  paypalOneClickEnabled: z.boolean().default(false),
 });
 
 const membershipWebhookSchema = z.object({
@@ -301,6 +302,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         name: "",
         price: 0,
         redirectUrl: "",
+        paypalOneClickEnabled: false,
       },
       mainProduct: {
         name: "",
@@ -987,6 +989,25 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   />
                 </div>
                 <CustomIdInput name="upsell.customId" />
+
+                {/* --- PAYPAL ONE-CLICK UPSELL --- */}
+                <FormField
+                  control={form.control}
+                  name="upsell.paypalOneClickEnabled"
+                  render={({ field }: any) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-card">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>PayPal One-Click Upsell</FormLabel>
+                        <FormDescription>
+                          Habilita upsell com 1 clique usando PayPal Vault. <strong>Requer vault habilitado na sua conta PayPal.</strong> Se desabilitado, o cliente será redirecionado para checkout normal.
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
 
                 {/* --- BOTÕES DE GERAR SCRIPTS --- */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -65,6 +65,7 @@ export interface IOffer extends Document {
     redirectUrl: string;
     fallbackCheckoutUrl?: string; // URL de checkout alternativo para métodos não-Stripe (PayPal, etc)
     customId?: string;
+    paypalOneClickEnabled?: boolean; // Habilita one-click upsell com PayPal Vault
   };
 
   membershipWebhook?: {
@@ -155,6 +156,7 @@ const offerSchema = new Schema<IOffer>(
       redirectUrl: { type: String, default: "" },
       fallbackCheckoutUrl: { type: String, default: "" }, // URL de checkout alternativo para PayPal
       customId: { type: String, default: "" },
+      paypalOneClickEnabled: { type: Boolean, default: false }, // Habilita one-click upsell com PayPal Vault
     },
     thankYouPageUrl: {
       type: String,
