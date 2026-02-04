@@ -294,6 +294,8 @@ export const captureOrder = async (req: Request, res: Response) => {
       let upsellToken: string | null = null;
       let upsellRedirectUrl: string | null = null;
 
+      console.log(`🔵 [PayPal] Upsell config: enabled=${offer.upsell?.enabled}, redirectUrl=${offer.upsell?.redirectUrl || "N/A"}, fallbackUrl=${offer.upsell?.fallbackCheckoutUrl || "N/A"}`);
+
       if (offer.upsell?.enabled) {
         // Extrai vault_id e customer_id do PayPal (se disponível)
         const paymentSource = captureData.payment_source?.paypal;
@@ -384,7 +386,8 @@ export const captureOrder = async (req: Request, res: Response) => {
       }
 
       const redirectType = upsellToken ? "UPSELL (one-click)" : (upsellRedirectUrl && upsellRedirectUrl !== offer.thankYouPageUrl ? "UPSELL (sem one-click)" : "Thank You Page");
-      console.log(`✅ [PayPal] Venda finalizada - redirecionando para ${redirectType}: ${upsellRedirectUrl || "página padrão"}`);
+      console.log(`✅ [PayPal] Venda finalizada - redirecionando para ${redirectType}`);
+      console.log(`✅ [PayPal] Response: saleId=${newSale._id}, upsellToken=${upsellToken || "null"}, upsellRedirectUrl=${upsellRedirectUrl || "null"}`);
 
       res.json({
         success: true,

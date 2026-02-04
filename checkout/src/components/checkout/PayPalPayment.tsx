@@ -339,8 +339,15 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
 
               const result = await response.json();
 
+              console.log("🔵 [PayPal] Capture response:", {
+                success: result.success,
+                saleId: result.saleId,
+                upsellRedirectUrl: result.upsellRedirectUrl || "null",
+                upsellToken: result.upsellToken || "null",
+              });
+
               if (result.success) {
-                // Passa o redirectUrl do backend (que agora aponta para Thank You Page para PayPal)
+                // Passa o redirectUrl do backend (que agora aponta para upsell ou thank you page)
                 onSuccess(result.saleId, purchaseEventId, result.upsellRedirectUrl);
               } else {
                 throw new Error(result.message || "Pagamento não aprovado.");

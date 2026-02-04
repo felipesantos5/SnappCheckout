@@ -301,15 +301,34 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
       const timer = setTimeout(async () => {
         // 1. PRIORIDADE: PayPal - Usa URL do backend (upsell com vault ou thank you page)
         if (saleId && !paymentIntentId) {
+          // Backend retornou URL de redirecionamento (upsell ou thank you)
           if (paypalRedirectUrl) {
+            console.log("🔵 [Checkout] PayPal: Redirecionando para URL do backend:", paypalRedirectUrl);
             window.location.href = paypalRedirectUrl;
             return;
           }
-          // Fallback: Se backend não retornou URL, usa thank you page da oferta
+
+          // Fallback 1: Se tem upsell configurado, redireciona para lá (mesmo sem token)
+          if (offerData.upsell?.enabled && offerData.upsell?.redirectUrl) {
+            console.log("🔵 [Checkout] PayPal: Backend não retornou URL, usando upsell da oferta");
+            window.location.href = offerData.upsell.redirectUrl;
+            return;
+          }
+
+          // Fallback 2: Usa thank you page da oferta
           if (offerData.thankYouPageUrl) {
+            console.log("🔵 [Checkout] PayPal: Redirecionando para thank you page da oferta");
             window.location.href = offerData.thankYouPageUrl;
             return;
           }
+
+          // Fallback 3: Página de sucesso padrão
+          console.log("🔵 [Checkout] PayPal: Nenhuma URL configurada, usando página de sucesso padrão");
+          const params = new URLSearchParams();
+          params.append("offerName", offerData.mainProduct.name);
+          params.append("lang", offerData.language || "pt");
+          navigate(`/success?${params.toString()}`);
+          return;
         }
 
         // 2. PRIORIDADE: Upsell Habilitado (somente Stripe)
