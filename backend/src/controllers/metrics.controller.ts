@@ -755,7 +755,6 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     }
     const topCountries = Array.from(topCountriesMap.entries())
       .sort((a, b) => b[1].revenue - a[1].revenue)
-      .slice(0, 5)
       .map(([name, data]) => ({ name, value: data.revenue / 100, count: data.count }));
     const topProducts = Array.from(topProductsMap.values())
       .sort((a, b) => b.revenue - a.revenue)
