@@ -623,7 +623,7 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     const paymentApprovalRate = totalPaymentAttempts > 0 ? (totalSales / totalPaymentAttempts) * 100 : 0;
 
     // --- GRÁFICOS (PREENCHIMENTO DE GAPS E FORMATAÇÃO) ---
-    const dailyMap = new Map<string, { revenue: number; salesCount: number; visitorsCount: number; label: string }>();
+    const dailyMap = new Map<string, { revenue: number; salesCount: number; visitorsCount: number; checkoutCount: number; label: string }>();
 
     // Função auxiliar para gerar a chave de agrupamento e o label
     const formatKeyAndLabel = (dateInput: Date | string) => {
@@ -653,7 +653,7 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     while (current <= endLoop || (isHourly && current.getDate() === endLoop.getDate() && current.getHours() <= endLoop.getHours())) {
       const { key, label } = formatKeyAndLabel(current);
       if (!dailyMap.has(key)) {
-        dailyMap.set(key, { revenue: 0, salesCount: 0, visitorsCount: 0, label });
+        dailyMap.set(key, { revenue: 0, salesCount: 0, visitorsCount: 0, checkoutCount: 0, label });
       }
 
       // Incremento
@@ -676,10 +676,15 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
       }
     }
 
-    for (const metric of views) {
+    for (const metric of allMetrics) {
       const { key } = formatKeyAndLabel(metric.createdAt);
       if (dailyMap.has(key)) {
-        dailyMap.get(key)!.visitorsCount += 1;
+        const entry = dailyMap.get(key)!;
+        if (metric.type === "view") {
+          entry.visitorsCount += 1;
+        } else if (metric.type === "initiate_checkout") {
+          entry.checkoutCount += 1;
+        }
       }
     }
 
@@ -689,6 +694,7 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     const revenueChart = sortedKeys.map((key) => ({ date: dailyMap.get(key)!.label, value: dailyMap.get(key)!.revenue / 100 }));
     const salesChart = sortedKeys.map((key) => ({ date: dailyMap.get(key)!.label, value: dailyMap.get(key)!.salesCount }));
     const visitorsChart = sortedKeys.map((key) => ({ date: dailyMap.get(key)!.label, value: dailyMap.get(key)!.visitorsCount }));
+    const checkoutsChart = sortedKeys.map((key) => ({ date: dailyMap.get(key)!.label, value: dailyMap.get(key)!.checkoutCount }));
 
     const ticketChart = sortedKeys.map((key) => {
       const data = dailyMap.get(key)!;
@@ -867,6 +873,7 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
         sales: salesChart,
         ticket: ticketChart,
         visitors: visitorsChart,
+        checkouts: checkoutsChart,
         conversionRate: conversionRateChart,
       },
       topOffers,
