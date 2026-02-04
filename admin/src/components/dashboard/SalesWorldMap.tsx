@@ -85,7 +85,7 @@ export function SalesWorldMap({ data }: SalesWorldMapProps) {
         <CardTitle className="text-base sm:text-lg">Vendas por Região</CardTitle>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-2 sm:gap-3 flex-1 p-3 sm:p-6 pt-0">
+      <CardContent className="flex flex-col gap-2 sm:gap-3 flex-1 p-3 sm:p-6 pt-0 pb-0">
         {/* --- MAPA MUNDI --- */}
         <div className="w-full h-[180px] sm:h-[280px] bg-slate-50/50 dark:bg-slate-800/20 rounded-lg border border-slate-100 dark:border-slate-700 relative overflow-hidden flex items-center justify-center">
           {mounted && (
@@ -151,16 +151,6 @@ export function SalesWorldMap({ data }: SalesWorldMapProps) {
             </div>
           ))}
         </div>
-
-        {/* Indicador de países adicionais */}
-        {data.length > (isDesktop ? 9 : 6) && (
-          <div className="text-center">
-            <span className="text-[10px] sm:text-xs text-muted-foreground">
-              + {data.length - (isDesktop ? 9 : 6)} outros países
-            </span>
-          </div>
-        )}
-
         {data.length === 0 && <div className="text-center py-4 text-muted-foreground text-xs sm:text-sm">Nenhuma venda registrada.</div>}
       </CardContent>
     </Card>
