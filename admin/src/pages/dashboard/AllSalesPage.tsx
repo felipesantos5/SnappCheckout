@@ -161,7 +161,7 @@ export function AllSalesPage() {
   const [selectedOffers, setSelectedOffers] = useState<string[]>([]);
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
   const [selectedWallets, setSelectedWallets] = useState<string[]>([]);
-  const [periodFilter, setPeriodFilter] = useState<"all" | "today" | "week" | "month" | "custom">("all");
+  const [periodFilter, setPeriodFilter] = useState<"all" | "today" | "yesterday" | "week" | "month" | "custom">("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -216,6 +216,10 @@ export function AllSalesPage() {
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         calculatedStartDate = today.toISOString();
         calculatedEndDate = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
+      } else if (periodFilter === "yesterday") {
+        const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        calculatedStartDate = yesterday.toISOString();
+        calculatedEndDate = new Date(yesterday.getTime() + 24 * 60 * 60 * 1000).toISOString();
       } else if (periodFilter === "week") {
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         calculatedStartDate = weekAgo.toISOString();
@@ -368,439 +372,456 @@ export function AllSalesPage() {
         <Button
           variant="outline"
           size="icon"
-          className="fixed top-[60px] left-[208px] z-50 shadow-md hover:shadow-lg"
+          className="fixed w-8 h-8 top-[60px] left-0 md:left-[210px] z-50 shadow-md hover:shadow-lg bg-background"
           onClick={() => setIsSidebarOpen(true)}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
       )}
 
+      {/* Overlay para mobile quando o filtro está aberto */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar de Filtros */}
       <aside
-        className={`relative border-r bg-card py-4 overflow-y-auto shrink-0 transition-all duration-300 ease-in-out pl-0! ${isSidebarOpen ? "w-72 px-4" : "w-0 px-0 border-r-0"
+        className={`fixed lg:relative top-0 left-0 h-full lg:h-auto z-50 bg-card border-r shadow-xl lg:shadow-none transition-all duration-300 ease-in-out ${isSidebarOpen
+          ? "w-[280px] sm:w-72 px-4 opacity-100 translate-x-0"
+          : "w-0 px-0 opacity-0 -translate-x-full lg:translate-x-0 lg:w-0 lg:px-0 lg:border-r-0"
           }`}
       >
-        {/* Botão Toggle Sidebar - Dentro do aside quando aberto */}
-        {isSidebarOpen && (
-          <Button
-            variant="outline"
-            size="icon"
-            className="absolute top-[13px] left-0 z-10 shadow-md hover:shadow-lg"
-            onClick={() => setIsSidebarOpen(false)}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-        )}
-
-        <div className={`space-y-4 ${isSidebarOpen ? "opacity-100 mt-0" : "opacity-0 pointer-events-none h-0 overflow-hidden"} transition-opacity duration-200`}>
-          <div className="flex items-center justify-between pl-14">
-            <h2 className="text-lg font-semibold">Filtros</h2>
-            <Button variant="ghost" size="sm" onClick={clearAllFilters}>
-              <X className="h-4 w-4 mr-1" />
-              Limpar
+        <div className="py-4 overflow-y-auto h-full lg:h-auto">
+          {/* Botão Toggle Sidebar - Dentro do aside quando aberto */}
+          {isSidebarOpen && (
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute top-[13px] left-0 z-10 shadow-md hover:shadow-lg"
+              onClick={() => setIsSidebarOpen(false)}
+            >
+              <ChevronLeft className="h-4 w-4" />
             </Button>
-          </div>
+          )}
 
-          {/* Período */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Período</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant={periodFilter === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setPeriodFilter("all");
-                  setStartDate("");
-                  setEndDate("");
-                  setPage(1);
-                }}
-                className={periodFilter === "all" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
-              >
-                Todas
-              </Button>
-              <Button
-                variant={periodFilter === "today" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setPeriodFilter("today");
-                  setStartDate("");
-                  setEndDate("");
-                  setPage(1);
-                }}
-                className={periodFilter === "today" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
-              >
-                Hoje
-              </Button>
-              {/* <Button
-                variant={periodFilter === "week" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setPeriodFilter("week");
-                  setStartDate("");
-                  setEndDate("");
-                  setPage(1);
-                }}
-                className={periodFilter === "week" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
-              >
-                7 dias
-              </Button> */}
-              <Button
-                variant={periodFilter === "month" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setPeriodFilter("month");
-                  setStartDate("");
-                  setEndDate("");
-                  setPage(1);
-                }}
-                className={periodFilter === "month" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
-              >
-                30 dias
-              </Button>
-              <Button
-                variant={periodFilter === "custom" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPeriodFilter("custom")}
-                className={periodFilter === "custom" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
-              >
-                Personalizado
+          <div className={`space-y-4 ${isSidebarOpen ? "opacity-100 mt-0" : "opacity-0 pointer-events-none h-0 overflow-hidden"} transition-opacity duration-200`}>
+            <div className="flex items-center justify-between pl-14">
+              <h2 className="text-lg font-semibold">Filtros</h2>
+              <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+                <X className="h-4 w-4 mr-1" />
+                Limpar
               </Button>
             </div>
-            {periodFilter === "custom" && (
-              <div className="space-y-2 pt-2">
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
+
+            {/* Período */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Período</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={periodFilter === "today" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setPeriodFilter("today");
+                    setStartDate("");
+                    setEndDate("");
                     setPage(1);
                   }}
-                  placeholder="Data inicial"
-                />
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setEndDate(e.target.value);
+                  className={periodFilter === "today" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
+                >
+                  Hoje
+                </Button>
+                <Button
+                  variant={periodFilter === "yesterday" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setPeriodFilter("yesterday");
+                    setStartDate("");
+                    setEndDate("");
                     setPage(1);
                   }}
-                  placeholder="Data final"
-                />
+                  className={periodFilter === "yesterday" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
+                >
+                  Ontem
+                </Button>
+                <Button
+                  variant={periodFilter === "month" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setPeriodFilter("month");
+                    setStartDate("");
+                    setEndDate("");
+                    setPage(1);
+                  }}
+                  className={periodFilter === "month" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
+                >
+                  30 dias
+                </Button>
+                <Button
+                  variant={periodFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setPeriodFilter("all");
+                    setStartDate("");
+                    setEndDate("");
+                    setPage(1);
+                  }}
+                  className={periodFilter === "all" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}
+                >
+                  Todas
+                </Button>
+                <Button
+                  variant={periodFilter === "custom" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setPeriodFilter("custom")}
+                  className={`col-span-2 ${periodFilter === "custom" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""
+                    }`}
+                >
+                  Personalizado
+                </Button>
               </div>
-            )}
-          </div>
-
-          {/* Buscar por Email */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Email do Cliente</Label>
-            <Input
-              placeholder="Buscar por email..."
-              value={searchEmail}
-              onChange={(e) => setSearchEmail(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === "Enter") {
-                  setPage(1);
-                  fetchSales();
-                }
-              }}
-            />
-          </div>
-
-          {/* Status */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Status</Label>
-            <div className="space-y-2">
-              {Object.entries(statusConfig).map(([key, config]) => (
-                <div key={key} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`status-${key}`}
-                    checked={selectedStatuses.includes(key)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedStatuses([...selectedStatuses, key]);
-                      } else {
-                        setSelectedStatuses(selectedStatuses.filter((s) => s !== key));
-                      }
+              {periodFilter === "custom" && (
+                <div className="space-y-2 pt-2">
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
                       setPage(1);
                     }}
+                    placeholder="Data inicial"
                   />
-                  <label htmlFor={`status-${key}`} className="text-sm cursor-pointer">
-                    {config.icon} {config.label}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Ofertas */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Ofertas</Label>
-            <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
-              {offers.map((offer) => (
-                <div key={offer._id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`offer-${offer._id}`}
-                    checked={selectedOffers.includes(offer._id)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedOffers([...selectedOffers, offer._id]);
-                      } else {
-                        setSelectedOffers(selectedOffers.filter((o) => o !== offer._id));
-                      }
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
                       setPage(1);
                     }}
+                    placeholder="Data final"
                   />
-                  <label htmlFor={`offer-${offer._id}`} className="text-sm cursor-pointer truncate">
-                    {offer.name}
-                  </label>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
 
-          {/* Métodos de Pagamento */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Método de Pagamento</Label>
-            <div className="space-y-2">
-              {[
-                { key: "credit_card", label: "Cartão de Crédito", type: "payment" },
-                { key: "apple_pay", label: "Apple Pay", type: "wallet" },
-                { key: "google_pay", label: "Google Pay", type: "wallet" },
-                { key: "paypal", label: "PayPal", type: "payment" },
-                { key: "pix", label: "PIX", type: "payment" },
-              ].map(({ key, label, type }) => (
-                <div key={key} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`payment-${key}`}
-                    checked={type === "wallet" ? selectedWallets.includes(key) : selectedPaymentMethods.includes(key)}
-                    onCheckedChange={(checked) => {
-                      if (type === "wallet") {
+            {/* Buscar por Email */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Email do Cliente</Label>
+              <Input
+                placeholder="Buscar por email..."
+                value={searchEmail}
+                onChange={(e) => setSearchEmail(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") {
+                    setPage(1);
+                    fetchSales();
+                  }
+                }}
+              />
+            </div>
+
+            {/* Status */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Status</Label>
+              <div className="space-y-2">
+                {Object.entries(statusConfig).map(([key, config]) => (
+                  <div key={key} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`status-${key}`}
+                      checked={selectedStatuses.includes(key)}
+                      onCheckedChange={(checked) => {
                         if (checked) {
-                          setSelectedWallets([...selectedWallets, key]);
+                          setSelectedStatuses([...selectedStatuses, key]);
                         } else {
-                          setSelectedWallets(selectedWallets.filter((w) => w !== key));
+                          setSelectedStatuses(selectedStatuses.filter((s) => s !== key));
                         }
-                      } else {
-                        if (checked) {
-                          setSelectedPaymentMethods([...selectedPaymentMethods, key]);
-                        } else {
-                          setSelectedPaymentMethods(selectedPaymentMethods.filter((m) => m !== key));
-                        }
-                      }
-                      setPage(1);
-                    }}
-                  />
-                  <label htmlFor={`payment-${key}`} className="text-sm cursor-pointer">
-                    {label}
-                  </label>
-                </div>
-              ))}
+                        setPage(1);
+                      }}
+                    />
+                    <label htmlFor={`status-${key}`} className="text-sm cursor-pointer">
+                      {config.icon} {config.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* <Button className="w-full bg-[#fdbf08] hover:bg-[#fdd049] text-black" onClick={() => fetchSales()}>
+            {/* Ofertas */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Ofertas</Label>
+              <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
+                {offers.map((offer) => (
+                  <div key={offer._id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`offer-${offer._id}`}
+                      checked={selectedOffers.includes(offer._id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedOffers([...selectedOffers, offer._id]);
+                        } else {
+                          setSelectedOffers(selectedOffers.filter((o) => o !== offer._id));
+                        }
+                        setPage(1);
+                      }}
+                    />
+                    <label htmlFor={`offer-${offer._id}`} className="text-sm cursor-pointer truncate">
+                      {offer.name}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Métodos de Pagamento */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Método de Pagamento</Label>
+              <div className="space-y-2">
+                {[
+                  { key: "credit_card", label: "Cartão de Crédito", type: "payment" },
+                  { key: "apple_pay", label: "Apple Pay", type: "wallet" },
+                  { key: "google_pay", label: "Google Pay", type: "wallet" },
+                  { key: "paypal", label: "PayPal", type: "payment" },
+                  { key: "pix", label: "PIX", type: "payment" },
+                ].map(({ key, label, type }) => (
+                  <div key={key} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`payment-${key}`}
+                      checked={type === "wallet" ? selectedWallets.includes(key) : selectedPaymentMethods.includes(key)}
+                      onCheckedChange={(checked) => {
+                        if (type === "wallet") {
+                          if (checked) {
+                            setSelectedWallets([...selectedWallets, key]);
+                          } else {
+                            setSelectedWallets(selectedWallets.filter((w) => w !== key));
+                          }
+                        } else {
+                          if (checked) {
+                            setSelectedPaymentMethods([...selectedPaymentMethods, key]);
+                          } else {
+                            setSelectedPaymentMethods(selectedPaymentMethods.filter((m) => m !== key));
+                          }
+                        }
+                        setPage(1);
+                      }}
+                    />
+                    <label htmlFor={`payment-${key}`} className="text-sm cursor-pointer">
+                      {label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* <Button className="w-full bg-[#fdbf08] hover:bg-[#fdd049] text-black" onClick={() => fetchSales()}>
             Aplicar Filtros
           </Button> */}
+          </div>
         </div>
       </aside>
 
       {/* Conteúdo Principal */}
-      <main className="flex-1">
-        <div className="p-4 px-6 space-y-4">
+      <main className="flex-1 min-w-0">
+        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
           {/* Cabeçalho */}
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-bold">Todas as Vendas</h1>
-              <p className="text-muted-foreground">{isLoading ? "Carregando..." : `${total} ${total === 1 ? "venda" : "vendas"} encontradas`}</p>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Todas as Vendas</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">{isLoading ? "Carregando..." : `${total} ${total === 1 ? "venda" : "vendas"} encontradas`}</p>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => fetchSales()} disabled={isLoading}>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button variant="outline" size="sm" className="flex-1 sm:flex-none h-9" onClick={() => fetchSales()} disabled={isLoading}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-                Atualizar
+                <span className="hidden sm:inline">Atualizar</span>
+                <span className="sm:hidden">Atualizar</span>
               </Button>
-              <Button variant="outline" onClick={handleExport} disabled={sales.length === 0}>
+              <Button variant="outline" size="sm" className="flex-1 sm:flex-none h-9" onClick={handleExport} disabled={sales.length === 0}>
                 <Download className="h-4 w-4 mr-2" />
-                Exportar CSV
+                <span className="hidden sm:inline">Exportar CSV</span>
+                <span className="sm:hidden">Exportar</span>
               </Button>
             </div>
           </div>
 
           {/* Cards de Métricas */}
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-2 sm:gap-4 grid-cols-2 lg:grid-cols-4">
             <Card className="border-[#fdbf08]/20">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total de Vendas</CardTitle>
-                <ShoppingCart className="h-4 w-4 text-[#fdbf08]" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
+                <CardTitle className="text-[10px] sm:text-sm font-medium text-muted-foreground uppercase tracking-wider">Total de Vendas</CardTitle>
+                <ShoppingCart className="h-4 w-4 text-[#fdbf08] hidden sm:block" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{metrics.totalSales}</div>
-                <p className="text-xs text-muted-foreground">Vendas aprovadas</p>
+              <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
+                <div className="text-lg sm:text-2xl font-bold">{metrics.totalSales}</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Vendas aprovadas</p>
               </CardContent>
             </Card>
 
             <Card className="border-[#fdbf08]/20">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
-                <DollarSign className="h-4 w-4 text-[#fdbf08]" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
+                <CardTitle className="text-[10px] sm:text-sm font-medium text-muted-foreground uppercase tracking-wider">Valor Total</CardTitle>
+                <DollarSign className="h-4 w-4 text-[#fdbf08] hidden sm:block" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(metrics.totalRevenue)}</div>
-                <p className="text-xs text-muted-foreground">Receita total aprovada</p>
+              <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0 pb-0">
+                <div className="text-lg sm:text-2xl font-bold">{formatCurrency(metrics.totalRevenue)}</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Receita total aprovada</p>
               </CardContent>
             </Card>
 
             <Card className="border-[#fdbf08]/20">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Ticket Médio</CardTitle>
-                <TrendingUp className="h-4 w-4 text-[#fdbf08]" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
+                <CardTitle className="text-[10px] sm:text-sm font-medium text-muted-foreground uppercase tracking-wider">Ticket Médio</CardTitle>
+                <TrendingUp className="h-4 w-4 text-[#fdbf08] hidden sm:block" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(metrics.averageTicket)}</div>
-                <p className="text-xs text-muted-foreground">Por venda aprovada</p>
+              <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
+                <div className="text-lg sm:text-2xl font-bold">{formatCurrency(metrics.averageTicket)}</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Por venda aprovada</p>
               </CardContent>
             </Card>
 
             <Card className="border-[#fdbf08]/20">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Taxa de Aprovação</CardTitle>
-                <Percent className="h-4 w-4 text-[#fdbf08]" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
+                <CardTitle className="text-[10px] sm:text-sm font-medium text-muted-foreground uppercase tracking-wider">Aprovação</CardTitle>
+                <Percent className="h-4 w-4 text-[#fdbf08] hidden sm:block" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{metrics.approvalRate.toFixed(1)}%</div>
-                <p className="text-xs text-muted-foreground">Vendas aprovadas / total</p>
+              <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
+                <div className="text-lg sm:text-2xl font-bold">{metrics.approvalRate.toFixed(1)}%</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Vendas aprovadas</p>
               </CardContent>
             </Card>
           </div>
 
           {/* Tabela */}
-          <Card className="overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="w-[120px]">Data</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Oferta</TableHead>
-                  <TableHead className="w-[120px]">Tipo</TableHead>
-                  <TableHead className="w-[120px]">Status</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                  <TableHead className="w-[80px] text-center">País</TableHead>
-                  <TableHead className="w-[120px]">Método</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-48 text-center">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                    </TableCell>
+          <Card className="overflow-hidden border-none sm:border shadow-none sm:shadow-sm">
+            <div className="overflow-x-auto overflow-y-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="w-[120px]">Data</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Oferta</TableHead>
+                    <TableHead className="w-[120px]">Tipo</TableHead>
+                    <TableHead className="w-[120px]">Status</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="w-[80px] text-center">País</TableHead>
+                    <TableHead className="w-[120px]">Método</TableHead>
                   </TableRow>
-                ) : !sales || sales.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-48 text-center text-muted-foreground">
-                      Nenhuma venda encontrada com os filtros aplicados.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  sales.map((sale) => (
-                    <TableRow key={sale._id} className="hover:bg-muted/50">
-                      <TableCell>
-                        <div className="text-sm">{sale.createdAt ? formatDate(sale.createdAt) : "N/A"}</div>
-                      </TableCell>
-
-                      <TableCell>
-                        <div>
-                          <div className="font-medium text-sm">{sale.customerName}</div>
-                          <div className="text-xs text-muted-foreground">{sale.customerEmail}</div>
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        {sale.offerId ? (
-                          <div>
-                            <Link
-                              to={`/offers/${sale.offerId._id}`}
-                              className="font-medium text-sm hover:text-[#fdbf08] hover:underline transition-colors"
-                            >
-                              {sale.offerId.name}
-                            </Link>
-                            <div className="text-xs text-muted-foreground">{sale.offerId.slug}</div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Oferta removida</span>
-                        )}
-                      </TableCell>
-
-                      <TableCell>{getSaleTypeIcon(sale)}</TableCell>
-
-                      <TableCell className="text-center">
-                        {sale.status === "failed" && sale.failureMessage ? (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Badge variant="outline" className={statusConfig[sale.status]?.color || ""}>
-                                  {statusConfig[sale.status]?.icon || ""} {statusConfig[sale.status]?.label || sale.status}
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs bg-destructive text-destructive-foreground border-destructive">
-                                <p className="font-semibold">Motivo: {sale.failureReason}</p>
-                                <p className="text-xs mt-1">{sale.failureMessage}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ) : (
-                          <Badge variant="outline" className={statusConfig[sale.status]?.color || ""}>
-                            {statusConfig[sale.status]?.icon || ""} {statusConfig[sale.status]?.label || sale.status}
-                          </Badge>
-                        )}
-                      </TableCell>
-
-                      <TableCell className="text-right">
-                        <div className="font-semibold">
-                          {sale.totalAmountInCents && sale.currency ? formatCurrency(sale.totalAmountInCents, sale.currency) : "N/A"}
-                        </div>
-                      </TableCell>
-
-                      <TableCell className="text-center">
-                        <CountryFlag countryCode={sale.country} />
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {sale.walletType === "apple_pay" && (
-                            <Badge variant="default" className="text-xs bg-black text-white hover:bg-black/90">
-                              Apple Pay
-                            </Badge>
-                          )}
-                          {sale.walletType === "google_pay" && (
-                            <Badge variant="default" className="text-xs bg-blue-600 text-white hover:bg-blue-700">
-                              Google Pay
-                            </Badge>
-                          )}
-
-                          {!sale.walletType && (
-                            <Badge variant="secondary" className="text-xs">
-                              {sale.paymentMethod === "credit_card" && "Cartão"}
-                              {sale.paymentMethod === "paypal" && "PayPal"}
-                              {sale.paymentMethod === "pix" && "PIX"}
-                              {sale.paymentMethodType === "card" && "Cartão"}
-                              {!["credit_card", "paypal", "pix", "card"].includes(sale.paymentMethod) &&
-                                !["credit_card", "paypal", "pix", "card"].includes(sale.paymentMethodType || "") &&
-                                (sale.paymentMethodType || sale.paymentMethod)}
-                            </Badge>
-                          )}
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="h-48 text-center">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : !sales || sales.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="h-48 text-center text-muted-foreground">
+                        Nenhuma venda encontrada com os filtros aplicados.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    sales.map((sale) => (
+                      <TableRow key={sale._id} className="hover:bg-muted/50">
+                        <TableCell>
+                          <div className="text-sm">{sale.createdAt ? formatDate(sale.createdAt) : "N/A"}</div>
+                        </TableCell>
+
+                        <TableCell>
+                          <div>
+                            <div className="font-medium text-sm">{sale.customerName}</div>
+                            <div className="text-xs text-muted-foreground">{sale.customerEmail}</div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          {sale.offerId ? (
+                            <div>
+                              <Link
+                                to={`/offers/${sale.offerId._id}`}
+                                className="font-medium text-sm hover:text-[#fdbf08] hover:underline transition-colors"
+                              >
+                                {sale.offerId.name}
+                              </Link>
+                              <div className="text-xs text-muted-foreground">{sale.offerId.slug}</div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Oferta removida</span>
+                          )}
+                        </TableCell>
+
+                        <TableCell>{getSaleTypeIcon(sale)}</TableCell>
+
+                        <TableCell className="text-center">
+                          {sale.status === "failed" && sale.failureMessage ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Badge variant="outline" className={statusConfig[sale.status]?.color || ""}>
+                                    {statusConfig[sale.status]?.icon || ""} {statusConfig[sale.status]?.label || sale.status}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs bg-destructive text-destructive-foreground border-destructive">
+                                  <p className="font-semibold">Motivo: {sale.failureReason}</p>
+                                  <p className="text-xs mt-1">{sale.failureMessage}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <Badge variant="outline" className={statusConfig[sale.status]?.color || ""}>
+                              {statusConfig[sale.status]?.icon || ""} {statusConfig[sale.status]?.label || sale.status}
+                            </Badge>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <div className="font-semibold">
+                            {sale.totalAmountInCents && sale.currency ? formatCurrency(sale.totalAmountInCents, sale.currency) : "N/A"}
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-center">
+                          <CountryFlag countryCode={sale.country} />
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            {sale.walletType === "apple_pay" && (
+                              <Badge variant="default" className="text-xs bg-black text-white hover:bg-black/90">
+                                Apple Pay
+                              </Badge>
+                            )}
+                            {sale.walletType === "google_pay" && (
+                              <Badge variant="default" className="text-xs bg-blue-600 text-white hover:bg-blue-700">
+                                Google Pay
+                              </Badge>
+                            )}
+
+                            {!sale.walletType && (
+                              <Badge variant="secondary" className="text-xs">
+                                {sale.paymentMethod === "credit_card" && "Cartão"}
+                                {sale.paymentMethod === "paypal" && "PayPal"}
+                                {sale.paymentMethod === "pix" && "PIX"}
+                                {sale.paymentMethodType === "card" && "Cartão"}
+                                {!["credit_card", "paypal", "pix", "card"].includes(sale.paymentMethod) &&
+                                  !["credit_card", "paypal", "pix", "card"].includes(sale.paymentMethodType || "") &&
+                                  (sale.paymentMethodType || sale.paymentMethod)}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </Card>
 
           {/* Paginação */}
           {!isLoading && sales && sales.length > 0 && (
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Página {page} de {totalPages} ({total} {total === 1 ? "venda" : "vendas"})
               </p>
               <div className="flex gap-2">

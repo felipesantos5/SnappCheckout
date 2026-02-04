@@ -28,7 +28,7 @@ export function TopOffersChart({ data }: TopOffersChartProps) {
           <CardTitle className="text-lg">Top Ofertas</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-8 pt-36">Nenhum dado disponível</p>
+          <p className="text-sm text-muted-foreground text-center py-8 pt-4 lg:pt-36">Nenhum dado disponível</p>
         </CardContent>
       </Card>
     );

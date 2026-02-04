@@ -39,19 +39,19 @@ export function KpiCard({
           {showChange && (
             <span
               className={`text-[10px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 rounded-full ${destaque
-                  ? isPositive
-                    ? "bg-white text-yellow-500 dark:bg-zinc-800"
-                    : "bg-white text-yellow-500 dark:bg-zinc-800"
-                  : isPositive
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                ? isPositive
+                  ? "bg-white text-yellow-500 dark:bg-zinc-800"
+                  : "bg-white text-yellow-500 dark:bg-zinc-800"
+                : isPositive
+                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                  : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                 }`}
             >
               {isPositive ? "+" : ""}
               {changePercentage.toFixed(1)}%
             </span>
           )}
-          <Icon className={`h-3.5 w-3.5 sm:h-5 sm:w-5 ${destaque ? "text-white" : "text-muted-foreground"}`} />
+          <Icon className={`h-3.5 w-3.5 sm:h-5 sm:w-5 hidden sm:block ${destaque ? "text-white" : "text-muted-foreground"}`} />
         </div>
       </CardHeader>
       <CardContent className="px-3 sm:px-4 pb-0">
