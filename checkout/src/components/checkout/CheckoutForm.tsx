@@ -70,6 +70,16 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
   const [walletLabel, setWalletLabel] = useState<string | null>(null);
   const [paypalClientId, setPaypalClientId] = useState<string | null>(null);
 
+  // Estados para validação dos campos de contato (obrigatórios)
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactName, setContactName] = useState("");
+
+  // Verifica se os campos obrigatórios estão preenchidos
+  const isContactValid = useMemo(() => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return contactName.trim().length >= 2 && emailRegex.test(contactEmail.trim());
+  }, [contactEmail, contactName]);
+
   // Armazena event_ids gerados para cada evento
   const addPaymentInfoEventId = useRef<string | null>(null);
 
@@ -644,6 +654,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                   showDocument={offerData.collectDocument}
                   offerID={offerData._id}
                   abTestId={abTestId}
+                  onEmailChange={setContactEmail}
+                  onNameChange={setContactName}
                 />
 
                 {offerData.collectAddress && (
@@ -677,26 +689,34 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                 {/* Botão PayPal - Mobile */}
                 {method === "paypal" && offerData.paypalEnabled && paypalClientId && (
                   <div className="lg:hidden mb-1">
-                    <Suspense fallback={<div className="animate-pulse bg-gray-100 h-12 rounded-lg" />}>
-                      <PayPalPayment
-                        amount={totalAmount}
-                        currency={offerData.currency}
-                        offerId={offerData._id}
-                        paypalClientId={paypalClientId}
-                        enableVault={!!offerData.upsell?.enabled}
-                        abTestId={abTestId}
-                        purchaseEventId={`${checkoutSessionId}_paypal_purchase`}
-                        selectedOrderBumps={selectedBumps}
-                        onSuccess={(paypalSaleId: string, purchaseEventId: string, redirectUrl?: string) => {
-                          // Purchase event enviado apenas via CAPI consolidado pelo backend
-                          setSaleId(paypalSaleId);
-                          setPaypalRedirectUrl(redirectUrl || null);
-                          setPaymentSucceeded(true);
-                        }}
-                        onError={(msg) => setErrorMessage(msg)}
-                        onSwitchPaymentMethod={() => setMethod("creditCard")}
-                      />
-                    </Suspense>
+                    {!isContactValid ? (
+                      <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
+                        <p className="text-amber-700 text-sm font-medium">
+                          {t.messages?.fillRequiredFields || "Preencha seu nome e e-mail para continuar"}
+                        </p>
+                      </div>
+                    ) : (
+                      <Suspense fallback={<div className="animate-pulse bg-gray-100 h-12 rounded-lg" />}>
+                        <PayPalPayment
+                          amount={totalAmount}
+                          currency={offerData.currency}
+                          offerId={offerData._id}
+                          paypalClientId={paypalClientId}
+                          enableVault={!!offerData.upsell?.enabled}
+                          abTestId={abTestId}
+                          purchaseEventId={`${checkoutSessionId}_paypal_purchase`}
+                          selectedOrderBumps={selectedBumps}
+                          onSuccess={(paypalSaleId: string, purchaseEventId: string, redirectUrl?: string) => {
+                            // Purchase event enviado apenas via CAPI consolidado pelo backend
+                            setSaleId(paypalSaleId);
+                            setPaypalRedirectUrl(redirectUrl || null);
+                            setPaymentSucceeded(true);
+                          }}
+                          onError={(msg) => setErrorMessage(msg)}
+                          onSwitchPaymentMethod={() => setMethod("creditCard")}
+                        />
+                      </Suspense>
+                    )}
                   </div>
                 )}
               </div>
@@ -730,26 +750,34 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                   {/* Botão PayPal - Desktop */}
                   {method === "paypal" && offerData.paypalEnabled && paypalClientId && (
                     <div className="mt-6">
-                      <Suspense fallback={<div className="animate-pulse bg-gray-100 h-12 rounded-lg" />}>
-                        <PayPalPayment
-                          amount={totalAmount}
-                          currency={offerData.currency}
-                          offerId={offerData._id}
-                          paypalClientId={paypalClientId}
-                          enableVault={!!offerData.upsell?.enabled}
-                          abTestId={abTestId}
-                          purchaseEventId={`${checkoutSessionId}_paypal_purchase`}
-                          selectedOrderBumps={selectedBumps}
-                          onSuccess={(paypalSaleId: string, purchaseEventId: string, redirectUrl?: string) => {
-                            // Purchase event enviado apenas via CAPI consolidado pelo backend
-                            setSaleId(paypalSaleId);
-                            setPaypalRedirectUrl(redirectUrl || null);
-                            setPaymentSucceeded(true);
-                          }}
-                          onError={(msg) => setErrorMessage(msg)}
-                          onSwitchPaymentMethod={() => setMethod("creditCard")}
-                        />
-                      </Suspense>
+                      {!isContactValid ? (
+                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
+                          <p className="text-amber-700 text-sm font-medium">
+                            {t.messages?.fillRequiredFields || "Preencha seu nome e e-mail para continuar"}
+                          </p>
+                        </div>
+                      ) : (
+                        <Suspense fallback={<div className="animate-pulse bg-gray-100 h-12 rounded-lg" />}>
+                          <PayPalPayment
+                            amount={totalAmount}
+                            currency={offerData.currency}
+                            offerId={offerData._id}
+                            paypalClientId={paypalClientId}
+                            enableVault={!!offerData.upsell?.enabled}
+                            abTestId={abTestId}
+                            purchaseEventId={`${checkoutSessionId}_paypal_purchase`}
+                            selectedOrderBumps={selectedBumps}
+                            onSuccess={(paypalSaleId: string, purchaseEventId: string, redirectUrl?: string) => {
+                              // Purchase event enviado apenas via CAPI consolidado pelo backend
+                              setSaleId(paypalSaleId);
+                              setPaypalRedirectUrl(redirectUrl || null);
+                              setPaymentSucceeded(true);
+                            }}
+                            onError={(msg) => setErrorMessage(msg)}
+                            onSwitchPaymentMethod={() => setMethod("creditCard")}
+                          />
+                        </Suspense>
+                      )}
                     </div>
                   )}
                 </div>
@@ -758,12 +786,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                 {method !== "wallet" && method !== "paypal" && (
                   <button
                     type="submit"
-                    disabled={!stripe || loading || paymentSucceeded}
+                    disabled={!stripe || loading || paymentSucceeded || !isContactValid}
                     className="w-full font-bold py-[12px] px-6 rounded-md text-lg transition-all duration-300 disabled:opacity-50 hover:opacity-90 cursor-pointer shadow-lg hover:shadow-xl relative overflow-hidden group"
                     style={{
-                      backgroundColor: loading || paymentSucceeded ? "#ccc" : button,
+                      backgroundColor: loading || paymentSucceeded || !isContactValid ? "#ccc" : button,
                       color: buttonForeground,
-                      opacity: loading || paymentSucceeded ? 0.7 : 1,
+                      opacity: loading || paymentSucceeded || !isContactValid ? 0.7 : 1,
                     }}
                   >
                     <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-linear-to-r from-transparent via-white/20 to-transparent"></div>

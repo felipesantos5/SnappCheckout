@@ -107,6 +107,7 @@ export const en: Translation = {
     pixGenerated: "PIX generated successfully!",
     loading: "Loading...",
     redirecting: "Redirecting securely...",
+    fillRequiredFields: "Please fill in your name and email to continue",
   },
 
   // Product

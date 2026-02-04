@@ -9,9 +9,11 @@ interface ContactInfoProps {
   showDocument?: boolean;
   offerID: string;
   abTestId?: string | null;
+  onEmailChange?: (email: string) => void;
+  onNameChange?: (name: string) => void;
 }
 
-export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, showDocument = false, offerID, abTestId }) => {
+export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, showDocument = false, offerID, abTestId, onEmailChange, onNameChange }) => {
   const { t } = useTranslation();
   const { textColor } = useTheme(); // Hook do tema
   const [phone, setPhone] = useState("");
@@ -20,6 +22,9 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, show
 
   const handleEmailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const email = e.target.value;
+
+    // Notifica o parent sobre a mudança do email
+    onEmailChange?.(email);
 
     // Só dispara quando o email tem pelo menos 3 caracteres antes do @ e contém @
     // Exemplo: "abc@" já seria suficiente para contar como checkout iniciado
@@ -120,7 +125,14 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, show
           placeholder={t.contact.emailPlaceholder}
           onChange={handleEmailChange}
         />
-        <Input label={t.contact.name} id="name" type="text" required placeholder={t.contact.namePlaceholder} />
+        <Input
+          label={t.contact.name}
+          id="name"
+          type="text"
+          required
+          placeholder={t.contact.namePlaceholder}
+          onChange={(e) => onNameChange?.(e.target.value)}
+        />
         {showPhone && (
           <Input
             label={t.contact.phone || "Telefone"}

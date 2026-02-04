@@ -105,6 +105,7 @@ export const es = {
     pixGenerated: "¡PIX generado con éxito!",
     loading: "Cargando...",
     redirecting: "Redirigiendo de forma segura...",
+    fillRequiredFields: "Complete su nombre y correo electrónico para continuar",
   },
 
   // Product
