@@ -359,8 +359,10 @@ export const captureOrder = async (req: Request, res: Response) => {
           } catch (upsellError: any) {
             console.error(`⚠️ [PayPal] Erro ao criar sessão de upsell:`, upsellError.message);
             // Fallback: redireciona para a página de upsell normal (sem one-click)
+            // IMPORTANTE: Ainda adiciona payment_method=paypal para o script saber que foi PayPal
             if (offer.upsell.redirectUrl && offer.upsell.redirectUrl.trim() !== "") {
-              upsellRedirectUrl = offer.upsell.redirectUrl;
+              const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
+              upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal`;
               console.log(`🔵 [PayPal] Fallback - redirecionando para página de upsell (sem one-click): ${upsellRedirectUrl}`);
             }
           }
@@ -373,8 +375,10 @@ export const captureOrder = async (req: Request, res: Response) => {
             console.log(`🔵 [PayPal] Usando fallback checkout URL para upsell: ${upsellRedirectUrl}`);
           }
           // Fallback 2: redireciona para a página de upsell normal (sem one-click)
+          // IMPORTANTE: Ainda adiciona payment_method=paypal para o script saber que foi PayPal
           else if (offer.upsell.redirectUrl && offer.upsell.redirectUrl.trim() !== "") {
-            upsellRedirectUrl = offer.upsell.redirectUrl;
+            const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
+            upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal`;
             console.log(`🔵 [PayPal] Redirecionando para página de upsell (sem one-click): ${upsellRedirectUrl}`);
           }
         }

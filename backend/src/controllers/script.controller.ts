@@ -39,6 +39,9 @@ export const getUpsellScript = (req: Request, res: Response) => {
       // Define a rota baseado no método de pagamento
       const baseRoute = paymentMethod === 'paypal' ? '/paypal/' : '/payments/';
 
+      console.log('🔵 [Upsell] Método de pagamento detectado:', paymentMethod);
+      console.log('🔵 [Upsell] Chamando endpoint:', apiUrl + baseRoute + endpoint);
+
       const res = await fetch(apiUrl + baseRoute + endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -88,8 +91,6 @@ export const getUpsellScript = (req: Request, res: Response) => {
   function initUpsellButtons() {
     // Verifica se já inicializou (evita duplicação)
     if (window._chkUpsellInit) return;
-
-    console.log('🚀 Inicializando Upsell Script...');
 
     // Encontra botões de compra
     const buyBtns = document.querySelectorAll('.chk-buy');
