@@ -84,8 +84,8 @@ export function SalesWorldMap({ data }: SalesWorldMapProps) {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base sm:text-lg">Vendas por Região</CardTitle>
       </CardHeader>
-
-      <CardContent className="flex flex-col gap-2 sm:gap-3 flex-1 p-3 sm:p-6 pt-0 pb-0">
+      1
+      <CardContent className="flex flex-col gap-2 sm:gap-3 flex-1 p-3 sm:p-6 pt-0 pb-0!">
         {/* --- MAPA MUNDI --- */}
         <div className="w-full h-[180px] sm:h-[280px] bg-slate-50/50 dark:bg-slate-800/20 rounded-lg border border-slate-100 dark:border-slate-700 relative overflow-hidden flex items-center justify-center">
           {mounted && (

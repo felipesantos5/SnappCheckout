@@ -368,7 +368,7 @@ export function AllSalesPage() {
         <Button
           variant="outline"
           size="icon"
-          className="fixed top-[70px] left-[208px] z-50 shadow-md hover:shadow-lg"
+          className="fixed top-[60px] left-[208px] z-50 shadow-md hover:shadow-lg"
           onClick={() => setIsSidebarOpen(true)}
         >
           <ChevronRight className="h-4 w-4" />
