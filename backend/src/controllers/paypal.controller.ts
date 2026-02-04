@@ -72,8 +72,8 @@ export const createOrder = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Credenciais do PayPal não configuradas." });
     }
 
-    // Habilita vault se a oferta tiver upsell ativo
-    const enableVault = offer.upsell?.enabled === true;
+    // Habilita vault apenas se a oferta tiver upsell ativo E o PayPal One-Click estiver habilitado
+    const enableVault = offer.upsell?.enabled === true && offer.upsell?.paypalOneClickEnabled === true;
 
     console.log(`🔵 [PayPal] Criando ordem com vault ${enableVault ? "HABILITADO" : "DESABILITADO"}`);
 

@@ -36,8 +36,8 @@ export const getUpsellScript = (req: Request, res: Response) => {
         window.location.href = fallbackUrl;
         return;
       }
-      // Se não tem fallback, mostra erro explicativo
-      alert('One-click não disponível. Por favor, complete o pagamento manualmente.');
+      // Se não tem fallback, não mostra erro (silencioso)
+      console.warn('One-click não disponível e fallback URL não configurada.');
       return;
     }
 
@@ -70,20 +70,27 @@ export const getUpsellScript = (req: Request, res: Response) => {
         if (data.redirectUrl) {
           window.location.href = data.redirectUrl;
         } else {
-          alert(data.message || (isBuy ? 'Compra realizada!' : 'Oferta recusada.'));
-          // Se não tiver redirect, reabilita (caso raro)
-          window.location.reload();
+          // Se não tiver redirect, recarrega apenas se for recusa. 
+          // Se for compra bem sucedida mas sem redirect (raro), algo está errado mas evitamos alert.
+          if (!isBuy) {
+            window.location.reload();
+          } else {
+            console.warn('Compra bem sucedida, mas sem redirect URL. Recarregando a página pode ser necessário.');
+          }
         }
       } else {
-        // Se a requisição falhou E tem fallback URL configurada, redireciona
+        // Se a requisição falhou E é compra, redireciona para fallback
         if (isBuy && fallbackUrl && fallbackUrl.trim() !== '') {
           console.log('✅ Redirecionando para checkout alternativo:', fallbackUrl);
           window.location.href = fallbackUrl;
-          return; // Importante: não executa o resto do código
+          return;
         }
 
-        // Se não tem fallback, mostra o erro normalmente
-        throw new Error(data.message || 'Erro desconhecido');
+        // Se não tem fallback, apenas loga e reabilita (para não travar a página)
+        console.error('Erro na requisição:', data.message);
+        document.querySelectorAll('.chk-buy, .chk-refuse').forEach(b => b.disabled = false);
+        btnElement.innerText = originalText;
+        btnElement.classList.remove("chk-btn-loading");
       }
 
     } catch (e) {
@@ -94,9 +101,8 @@ export const getUpsellScript = (req: Request, res: Response) => {
         return;
       }
 
-      // Se não tem fallback, mostra o erro
-      alert(e.message || 'Erro de conexão. Tente novamente.');
-      // Reabilita os botões em caso de erro
+      // Se não tem fallback, apenas loga e reabilita
+      console.error('Erro de conexão:', e.message);
       document.querySelectorAll('.chk-buy, .chk-refuse').forEach(b => b.disabled = false);
       btnElement.innerText = originalText;
       btnElement.classList.remove("chk-btn-loading");
@@ -114,7 +120,7 @@ export const getUpsellScript = (req: Request, res: Response) => {
     buyBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
-        handleUpsellAction(true, e.target);
+        handleUpsellAction(true, e.currentTarget || e.target);
       });
     });
 
@@ -124,7 +130,7 @@ export const getUpsellScript = (req: Request, res: Response) => {
     refuseBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
-        handleUpsellAction(false, e.target);
+        handleUpsellAction(false, e.currentTarget || e.target);
       });
     });
 
@@ -138,12 +144,9 @@ export const getUpsellScript = (req: Request, res: Response) => {
   // 4. Auto-Inicialização Inteligente
   // Tenta inicializar imediatamente se o DOM já estiver pronto
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    console.log('📄 DOM já está pronto, inicializando imediatamente...');
     // Pequeno delay para garantir que elementos renderizados via JS estejam prontos
     setTimeout(initUpsellButtons, 100);
   } else {
-    // Se não, espera o DOMContentLoaded
-    console.log('⏳ Aguardando DOMContentLoaded...');
     document.addEventListener('DOMContentLoaded', initUpsellButtons);
   }
 
