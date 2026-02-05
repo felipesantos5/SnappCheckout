@@ -104,7 +104,7 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
 
   return (
     <Card className="w-full shadow-md border-gray-200 dark:border-gray-700 gap-0">
-      <CardHeader className="pb-0 px-3 sm:px-6 pt-3 sm:pt-6">
+      <CardHeader className="pb-0 px-3 sm:px-6 pt-3 sm:pt-6 pt-0!">
         <div className="min-w-0">
           <CardTitle className="text-base sm:text-xl font-bold text-foreground">Vendas Recentes</CardTitle>
           <CardDescription className="text-xs sm:text-sm">

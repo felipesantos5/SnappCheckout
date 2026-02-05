@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Bar, BarChart, XAxis, YAxis, LabelList } from "recharts";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 
 interface SalesChartProps {
@@ -149,7 +149,7 @@ export function SalesAreaChart({ chartData }: SalesChartProps) {
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-2 sm:pb-4">
         <CardTitle className="text-base sm:text-lg">Histórico de Vendas</CardTitle>
-        <CardDescription className="text-xs sm:text-sm">Receita no período selecionado</CardDescription>
+        {/* <CardDescription className="text-xs sm:text-sm">Receita no período selecionado</CardDescription> */}
       </CardHeader>
 
       <CardContent className="flex-1 pb-3 sm:pb-4">
@@ -173,7 +173,7 @@ export function SalesAreaChart({ chartData }: SalesChartProps) {
               tickMargin={5}
               axisLine={false}
               orientation="left"
-              width={60}
+              width={80}
               tick={(props: any) => {
                 const { y, payload } = props;
                 return (
