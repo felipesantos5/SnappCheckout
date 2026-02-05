@@ -60,6 +60,13 @@ export interface ISale extends Document {
   integrationsUtmfySent?: boolean; // Se o webhook foi enviado para UTMfy
   integrationsLastAttempt?: Date; // Última tentativa de envio das integrações
 
+  // UTM Tracking fields
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
+
   createdAt: Date;
 }
 
@@ -154,6 +161,13 @@ const saleSchema = new Schema<ISale>(
     integrationsHuskySent: { type: Boolean, default: false },
     integrationsUtmfySent: { type: Boolean, default: false },
     integrationsLastAttempt: { type: Date, default: null },
+
+    // UTM Tracking fields
+    utm_source: { type: String, default: "" },
+    utm_medium: { type: String, default: "" },
+    utm_campaign: { type: String, default: "" },
+    utm_term: { type: String, default: "" },
+    utm_content: { type: String, default: "" },
 
     items: [saleItemSchema],
   },

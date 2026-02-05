@@ -422,11 +422,11 @@ export const processUtmfyIntegrationForPayPal = async (
           Url: `${process.env.FRONTEND_URL || "https://pay.snappcheckout.com"}/p/${offer.slug}`,
         },
         Utm: {
-          UtmSource: metadata.utm_source || null,
-          UtmMedium: metadata.utm_medium || null,
-          UtmCampaign: metadata.utm_campaign || null,
-          UtmTerm: metadata.utm_term || null,
-          UtmContent: metadata.utm_content || null,
+          UtmSource: metadata.utm_source || sale.utm_source || null,
+          UtmMedium: metadata.utm_medium || sale.utm_medium || null,
+          UtmCampaign: metadata.utm_campaign || sale.utm_campaign || null,
+          UtmTerm: metadata.utm_term || sale.utm_term || null,
+          UtmContent: metadata.utm_content || sale.utm_content || null,
         },
         DeviceInfo: {
           UserAgent: metadata.userAgent || null,

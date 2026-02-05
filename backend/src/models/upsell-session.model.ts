@@ -16,6 +16,14 @@ export interface IUpsellSession extends Document {
   paypalVaultId?: string; // ID do vault token do PayPal
   paypalCustomerId?: string; // Customer ID do PayPal
   originalSaleId?: mongoose.Schema.Types.ObjectId; // ID da venda original (para vincular upsell)
+
+  // UTM Tracking fields
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
+
   createdAt: Date;
 }
 
@@ -35,6 +43,13 @@ const upsellSessionSchema = new Schema<IUpsellSession>(
     paypalVaultId: { type: String },
     paypalCustomerId: { type: String },
     originalSaleId: { type: Schema.Types.ObjectId, ref: "Sale", default: null },
+
+    // UTM Tracking fields
+    utm_source: { type: String, default: "" },
+    utm_medium: { type: String, default: "" },
+    utm_campaign: { type: String, default: "" },
+    utm_term: { type: String, default: "" },
+    utm_content: { type: String, default: "" },
   },
   { timestamps: true }
 );

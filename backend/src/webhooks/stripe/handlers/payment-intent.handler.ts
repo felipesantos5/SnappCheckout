@@ -188,6 +188,13 @@ export const handlePaymentIntentCreated = async (paymentIntent: Stripe.PaymentIn
       status: "pending", // Tentativa iniciada
       isUpsell: isUpsell,
       items,
+
+      // UTM Tracking
+      utm_source: metadata.utm_source || "",
+      utm_medium: metadata.utm_medium || "",
+      utm_campaign: metadata.utm_campaign || "",
+      utm_term: metadata.utm_term || "",
+      utm_content: metadata.utm_content || "",
     });
   } catch (error: any) {
     console.error(`❌ Erro ao registrar tentativa de compra: ${error.message}`);
@@ -359,6 +366,13 @@ export const handlePaymentIntentFailed = async (paymentIntent: Stripe.PaymentInt
       failureMessage: failureMessage,
       isUpsell: isUpsell,
       items,
+
+      // UTM Tracking
+      utm_source: metadata.utm_source || "",
+      utm_medium: metadata.utm_medium || "",
+      utm_campaign: metadata.utm_campaign || "",
+      utm_term: metadata.utm_term || "",
+      utm_content: metadata.utm_content || "",
     });
   } catch (error: any) {
     console.error(`❌ Erro ao processar pagamento falhado: ${error.message}`);
@@ -535,6 +549,13 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       sale.paymentMethodType = paymentMethodType;
       sale.walletType = walletType;
 
+      // UTM Tracking
+      sale.utm_source = metadata.utm_source || sale.utm_source || "";
+      sale.utm_medium = metadata.utm_medium || sale.utm_medium || "";
+      sale.utm_campaign = metadata.utm_campaign || sale.utm_campaign || "";
+      sale.utm_term = metadata.utm_term || sale.utm_term || "";
+      sale.utm_content = metadata.utm_content || sale.utm_content || "";
+
       // Facebook Purchase consolidado: configura envio agendado ou vincula ao parent
       if (isUpsell) {
         // Busca a UpsellSession para obter o originalSaleId
@@ -597,6 +618,13 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
         items,
         paymentMethodType,
         walletType,
+
+        // UTM Tracking
+        utm_source: metadata.utm_source || "",
+        utm_medium: metadata.utm_medium || "",
+        utm_campaign: metadata.utm_campaign || "",
+        utm_term: metadata.utm_term || "",
+        utm_content: metadata.utm_content || "",
       });
 
       console.log(`✅ [Stripe] Nova venda criada: ${sale._id}`);

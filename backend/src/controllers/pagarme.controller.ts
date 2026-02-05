@@ -158,6 +158,13 @@ export const createPixPayment = async (req: Request, res: Response) => {
       gateway: "pagarme",
       isUpsell: false,
       items: saleItems,
+
+      // UTM Tracking
+      utm_source: metadata?.utm_source || "",
+      utm_medium: metadata?.utm_medium || "",
+      utm_campaign: metadata?.utm_campaign || "",
+      utm_term: metadata?.utm_term || "",
+      utm_content: metadata?.utm_content || "",
     });
 
     console.log(`[Pagar.me Controller] Venda criada: saleId=${sale._id}, orderId=${pixOrder.orderId}`);

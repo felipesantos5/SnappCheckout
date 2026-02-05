@@ -192,6 +192,13 @@ export const captureOrder = async (req: Request, res: Response) => {
         // Facebook Purchase consolidado: envia após 10 minutos para agrupar com upsell
         facebookPurchaseSendAfter: new Date(Date.now() + 10 * 60 * 1000),
         items,
+
+        // UTM Tracking
+        utm_source: customerData?.utm_source || "",
+        utm_medium: customerData?.utm_medium || "",
+        utm_campaign: customerData?.utm_campaign || "",
+        utm_term: customerData?.utm_term || "",
+        utm_content: customerData?.utm_content || "",
       });
 
       // CRÍTICO: O pagamento já foi capturado pelo PayPal. Se o save falhar,
@@ -267,11 +274,11 @@ export const captureOrder = async (req: Request, res: Response) => {
           {
             ip: clientIp,
             // UTMs podem vir do frontend se forem passados no customerData
-            utm_source: customerData?.utm_source,
-            utm_medium: customerData?.utm_medium,
-            utm_campaign: customerData?.utm_campaign,
-            utm_term: customerData?.utm_term,
-            utm_content: customerData?.utm_content,
+            utm_source: newSale.utm_source,
+            utm_medium: newSale.utm_medium,
+            utm_campaign: newSale.utm_campaign,
+            utm_term: newSale.utm_term,
+            utm_content: newSale.utm_content,
             userAgent: customerData?.userAgent,
           }
         );
@@ -329,6 +336,12 @@ export const captureOrder = async (req: Request, res: Response) => {
                 paypalVaultId: vaultId,
                 paypalCustomerId: paypalCustomerId,
                 originalSaleId: newSale._id,
+                // Pass UTMs to the upsell session
+                utm_source: newSale.utm_source,
+                utm_medium: newSale.utm_medium,
+                utm_campaign: newSale.utm_campaign,
+                utm_term: newSale.utm_term,
+                utm_content: newSale.utm_content,
               });
 
               const separator = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
@@ -514,6 +527,13 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
         isUpsell: true,
         parentSaleId: session.originalSaleId || null, // Vincula ao sale original para consolidar Facebook Purchase
         items,
+
+        // UTM Tracking (Extract from session meta if available or body)
+        utm_source: session.utm_source || req.body.utm_source || "",
+        utm_medium: session.utm_medium || req.body.utm_medium || "",
+        utm_campaign: session.utm_campaign || req.body.utm_campaign || "",
+        utm_term: session.utm_term || req.body.utm_term || "",
+        utm_content: session.utm_content || req.body.utm_content || "",
       });
 
       await newSale.save();
@@ -549,7 +569,14 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
             name: session.customerName,
             phone: session.customerPhone,
           },
-          { ip: session.ip || "" }
+          { 
+            ip: session.ip || "",
+            utm_source: newSale.utm_source,
+            utm_medium: newSale.utm_medium,
+            utm_campaign: newSale.utm_campaign,
+            utm_term: newSale.utm_term,
+            utm_content: newSale.utm_content,
+          }
         );
         newSale.integrationsUtmfySent = true;
         console.log(`✅ [PayPal Upsell] Webhook UTMfy enviado com sucesso`);

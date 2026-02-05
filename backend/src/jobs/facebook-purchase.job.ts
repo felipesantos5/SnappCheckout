@@ -111,11 +111,22 @@ const processConsolidatedPurchase = async (parentSale: any): Promise<void> => {
   );
 
   // 6. Monta evento Purchase consolidado
+  const baseUrl = `${process.env.FRONTEND_URL || "https://pay.snappcheckout.com"}/p/${offer.slug}`;
+  const utmParams = new URLSearchParams();
+  if (parentSale.utm_source) utmParams.set("utm_source", parentSale.utm_source);
+  if (parentSale.utm_medium) utmParams.set("utm_medium", parentSale.utm_medium);
+  if (parentSale.utm_campaign) utmParams.set("utm_campaign", parentSale.utm_campaign);
+  if (parentSale.utm_term) utmParams.set("utm_term", parentSale.utm_term);
+  if (parentSale.utm_content) utmParams.set("utm_content", parentSale.utm_content);
+
+  const eventSourceUrl = utmParams.toString() ? `${baseUrl}?${utmParams.toString()}` : baseUrl;
+
   const eventData = {
     event_name: "Purchase" as const,
     event_time: Math.floor(new Date(parentSale.createdAt).getTime() / 1000),
     event_id: `consolidated_purchase_${parentSale._id}`,
     action_source: "website" as const,
+    event_source_url: eventSourceUrl,
     user_data: userData,
     custom_data: {
       currency: (parentSale.currency || "BRL").toUpperCase(),
@@ -123,6 +134,12 @@ const processConsolidatedPurchase = async (parentSale: any): Promise<void> => {
       order_id: String(parentSale._id),
       content_ids: allItems.map((i: any) => i._id?.toString() || i.customId || "unknown"),
       content_type: "product",
+      // UTM Tracking
+      utm_source: parentSale.utm_source || "",
+      utm_medium: parentSale.utm_medium || "",
+      utm_campaign: parentSale.utm_campaign || "",
+      utm_term: parentSale.utm_term || "",
+      utm_content: parentSale.utm_content || "",
     },
   };
 

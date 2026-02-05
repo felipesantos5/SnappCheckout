@@ -334,6 +334,13 @@ export const handleWebhook = async (req: Request, res: Response) => {
           gateway: "stripe",
           isUpsell: isUpsell,
           items: items,
+
+          // UTM Tracking
+          utm_source: metadata.utm_source || "",
+          utm_medium: metadata.utm_medium || "",
+          utm_campaign: metadata.utm_campaign || "",
+          utm_term: metadata.utm_term || "",
+          utm_content: metadata.utm_content || "",
         });
 
         await newSale.save();

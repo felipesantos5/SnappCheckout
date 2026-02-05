@@ -29,6 +29,12 @@ interface FacebookEventPayload {
     content_ids?: string[];
     content_type?: string;
     order_id?: string;
+    // UTM parameters for custom tracking
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+    utm_term?: string;
+    utm_content?: string;
   };
 }
 

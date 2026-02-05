@@ -56,6 +56,11 @@ interface Sale {
     priceInCents: number;
     isOrderBump: boolean;
   }>;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
 }
 
 interface Offer {
@@ -317,7 +322,7 @@ export function AllSalesPage() {
 
     try {
       const csvContent = [
-        ["Data", "Cliente", "Email", "Oferta", "Tipo", "Status", "Valor", "Moeda", "País", "Método"].join(","),
+        ["Data", "Cliente", "Email", "Oferta", "Tipo", "Status", "Valor", "Moeda", "País", "Método", "UTM Source", "UTM Medium", "UTM Campaign"].join(","),
         ...sales.map((sale) => {
           let tipo = "Venda";
           if (sale.isUpsell) tipo = "Upsell";
@@ -325,15 +330,18 @@ export function AllSalesPage() {
 
           return [
             new Date(sale.createdAt).toLocaleDateString(),
-            sale.customerName || "",
-            sale.customerEmail || "",
-            sale.offerId?.name || "N/A",
+            `"${sale.customerName || ""}"`,
+            `"${sale.customerEmail || ""}"`,
+            `"${sale.offerId?.name || "N/A"}"`,
             tipo,
             statusConfig[sale.status]?.label || sale.status,
             (sale.totalAmountInCents / 100).toFixed(2),
             (sale.currency || "BRL").toUpperCase(),
             sale.country || "N/A",
             sale.paymentMethod || "N/A",
+            `"${sale.utm_source || ""}"`,
+            `"${sale.utm_medium || ""}"`,
+            `"${sale.utm_campaign || ""}"`,
           ].join(",");
         }),
       ].join("\n");
@@ -701,6 +709,7 @@ export function AllSalesPage() {
                     <TableHead>Cliente</TableHead>
                     <TableHead>Oferta</TableHead>
                     <TableHead className="w-[120px]">Tipo</TableHead>
+                    <TableHead className="w-[150px]">UTM</TableHead>
                     <TableHead className="w-[120px]">Status</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead className="w-[80px] text-center">País</TableHead>
@@ -751,6 +760,68 @@ export function AllSalesPage() {
                         </TableCell>
 
                         <TableCell>{getSaleTypeIcon(sale)}</TableCell>
+
+                        <TableCell>
+                          {sale.utm_source || sale.utm_medium || sale.utm_campaign ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="cursor-help space-y-1">
+                                    {sale.utm_source && (
+                                      <div className="text-[10px] leading-tight flex items-center gap-1">
+                                        <span className="text-muted-foreground font-medium uppercase text-[8px]">Src:</span>
+                                        <span className="truncate max-w-[100px]">{sale.utm_source}</span>
+                                      </div>
+                                    )}
+                                    {sale.utm_medium && (
+                                      <div className="text-[10px] leading-tight flex items-center gap-1">
+                                        <span className="text-muted-foreground font-medium uppercase text-[8px]">Med:</span>
+                                        <span className="truncate max-w-[100px]">{sale.utm_medium}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="p-3 w-64 bg-card border shadow-lg text-card-foreground">
+                                  <div className="space-y-2">
+                                    <div className="text-xs font-bold border-bottom pb-1 mb-1 uppercase tracking-wider text-muted-foreground">Parâmetros UTM</div>
+                                    {sale.utm_source && (
+                                      <div className="flex justify-between gap-2 overflow-hidden">
+                                        <span className="text-muted-foreground shrink-0 text-[10px]">Source:</span>
+                                        <span className="font-medium truncate text-[10px]">{sale.utm_source}</span>
+                                      </div>
+                                    )}
+                                    {sale.utm_medium && (
+                                      <div className="flex justify-between gap-2 overflow-hidden">
+                                        <span className="text-muted-foreground shrink-0 text-[10px]">Medium:</span>
+                                        <span className="font-medium truncate text-[10px]">{sale.utm_medium}</span>
+                                      </div>
+                                    )}
+                                    {sale.utm_campaign && (
+                                      <div className="flex justify-between gap-2 overflow-hidden">
+                                        <span className="text-muted-foreground shrink-0 text-[10px]">Campaign:</span>
+                                        <span className="font-medium truncate text-[10px]">{sale.utm_campaign}</span>
+                                      </div>
+                                    )}
+                                    {sale.utm_content && (
+                                      <div className="flex justify-between gap-2 overflow-hidden">
+                                        <span className="text-muted-foreground shrink-0 text-[10px]">Content:</span>
+                                        <span className="font-medium truncate text-[10px]">{sale.utm_content}</span>
+                                      </div>
+                                    )}
+                                    {sale.utm_term && (
+                                      <div className="flex justify-between gap-2 overflow-hidden">
+                                        <span className="text-muted-foreground shrink-0 text-[10px]">Term:</span>
+                                        <span className="font-medium truncate text-[10px]">{sale.utm_term}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <span className="text-muted-foreground text-[10px] italic">Sem UTM</span>
+                          )}
+                        </TableCell>
 
                         <TableCell className="text-center">
                           {sale.status === "failed" && sale.failureMessage ? (
