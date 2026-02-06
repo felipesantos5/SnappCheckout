@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Bar, BarChart, XAxis, YAxis, LabelList } from "recharts";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 
 interface SalesChartProps {
@@ -17,7 +17,13 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 // Número máximo de barras no gráfico para boa visualização
-const MAX_CHART_BARS = 15;
+const MAX_CHART_BARS = 12;
+
+// Limite de dias para usar agregação mensal (mais de 60 dias = usa meses)
+const MONTHLY_THRESHOLD_DAYS = 60;
+
+// Nomes dos meses abreviados
+const MONTH_NAMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 export function SalesAreaChart({ chartData }: SalesChartProps) {
   // Formata valor para o tooltip (BRL)
@@ -40,8 +46,48 @@ export function SalesAreaChart({ chartData }: SalesChartProps) {
     return value;
   };
 
-  // Agrega os dados quando houver muitos pontos para melhor visualização
+  // Agrega os dados de forma inteligente
   const aggregatedData = useMemo(() => {
+    if (chartData.length === 0) return [];
+
+    // Verifica se os dados são diários no formato YYYY-MM-DD
+    const isDailyData = chartData.length > 0 && chartData[0].date.match(/^\d{4}-\d{2}-\d{2}$/);
+
+    // Se período é longo (mais de 60 dias) E são dados diários, agrupa por mês
+    if (isDailyData && chartData.length > MONTHLY_THRESHOLD_DAYS) {
+      // Agrupa por mês
+      const monthlyMap = new Map<string, number>();
+
+      chartData.forEach((item) => {
+        const [year, month] = item.date.split("-");
+        const key = `${year}-${month}`;
+        monthlyMap.set(key, (monthlyMap.get(key) || 0) + item.value);
+      });
+
+      // Converte para array e ordena por data
+      const monthlyData = Array.from(monthlyMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([key, value]) => {
+          const [year, month] = key.split("-");
+          const monthIndex = parseInt(month, 10) - 1;
+          const monthName = MONTH_NAMES[monthIndex];
+          // Formato: "Jan/24" ou "Fev/25"
+          const yearShort = year.slice(2);
+          return {
+            date: `${monthName}/${yearShort}`,
+            value,
+          };
+        });
+
+      // Se tem mais de MAX_CHART_BARS meses, pega os últimos MAX_CHART_BARS
+      if (monthlyData.length > MAX_CHART_BARS) {
+        return monthlyData.slice(-MAX_CHART_BARS);
+      }
+
+      return monthlyData;
+    }
+
+    // Para períodos curtos, usa a lógica anterior de agrupamento por dias
     if (chartData.length <= MAX_CHART_BARS) {
       return chartData;
     }
@@ -75,14 +121,19 @@ export function SalesAreaChart({ chartData }: SalesChartProps) {
         const first = formatDate(firstDate);
         const last = formatDate(lastDate);
         // Formato compacto: "05-12/01" (mesmo mês) ou "28/01-03/02" (meses diferentes)
-        if (first.month === last.month) {
-          dateLabel = `${first.day}-${last.day}/${first.month}`;
+        if (first.month && last.month) {
+          if (first.month === last.month) {
+            dateLabel = `${first.day}-${last.day}/${first.month}`;
+          } else {
+            dateLabel = `${first.day}/${first.month}-${last.day}/${last.month}`;
+          }
         } else {
-          dateLabel = `${first.day}/${first.month}-${last.day}/${last.month}`;
+          // Se não tem mês (ex: horas), mostra apenas o range
+          dateLabel = `${first.day}-${last.day}`;
         }
       } else {
         const first = formatDate(firstDate);
-        dateLabel = `${first.day}/${first.month}`;
+        dateLabel = first.month ? `${first.day}/${first.month}` : first.day;
       }
 
       result.push({
@@ -98,7 +149,7 @@ export function SalesAreaChart({ chartData }: SalesChartProps) {
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-2 sm:pb-4">
         <CardTitle className="text-base sm:text-lg">Histórico de Vendas</CardTitle>
-        <CardDescription className="text-xs sm:text-sm">Receita no período selecionado</CardDescription>
+        {/* <CardDescription className="text-xs sm:text-sm">Receita no período selecionado</CardDescription> */}
       </CardHeader>
 
       <CardContent className="flex-1 pb-3 sm:pb-4">
@@ -122,7 +173,7 @@ export function SalesAreaChart({ chartData }: SalesChartProps) {
               tickMargin={5}
               axisLine={false}
               orientation="left"
-              width={chartData.length > MAX_CHART_BARS ? 95 : 55}
+              width={80}
               tick={(props: any) => {
                 const { y, payload } = props;
                 return (

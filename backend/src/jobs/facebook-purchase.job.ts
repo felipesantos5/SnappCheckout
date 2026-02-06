@@ -23,7 +23,6 @@ const processPendingFacebookPurchases = async (): Promise<void> => {
 
     if (pendingSales.length === 0) return;
 
-    console.log(`🔵 [Facebook Job] Processando ${pendingSales.length} venda(s) pendente(s) de Facebook Purchase`);
 
     for (const sale of pendingSales) {
       try {
@@ -70,7 +69,6 @@ const processConsolidatedPurchase = async (parentSale: any): Promise<void> => {
   }
 
   if (pixels.length === 0) {
-    console.log(`ℹ️ [Facebook Job] Nenhum pixel configurado para oferta ${offer.name} - marcando como enviado`);
     parentSale.integrationsFacebookSent = true;
     await parentSale.save();
     return;
@@ -93,7 +91,6 @@ const processConsolidatedPurchase = async (parentSale: any): Promise<void> => {
 
   const totalValue = totalAmountInCents / 100;
 
-  console.log(`🔵 [Facebook Job] Venda ${parentSale._id}: valor pai=${parentSale.totalAmountInCents / 100}, upsells=${childSales.length}, valor total consolidado=${totalValue}`);
 
   // 5. Cria user_data com dados disponíveis do sale
   const userData = createFacebookUserData(
@@ -111,11 +108,22 @@ const processConsolidatedPurchase = async (parentSale: any): Promise<void> => {
   );
 
   // 6. Monta evento Purchase consolidado
+  const baseUrl = `${process.env.FRONTEND_URL || "https://pay.snappcheckout.com"}/p/${offer.slug}`;
+  const utmParams = new URLSearchParams();
+  if (parentSale.utm_source) utmParams.set("utm_source", parentSale.utm_source);
+  if (parentSale.utm_medium) utmParams.set("utm_medium", parentSale.utm_medium);
+  if (parentSale.utm_campaign) utmParams.set("utm_campaign", parentSale.utm_campaign);
+  if (parentSale.utm_term) utmParams.set("utm_term", parentSale.utm_term);
+  if (parentSale.utm_content) utmParams.set("utm_content", parentSale.utm_content);
+
+  const eventSourceUrl = utmParams.toString() ? `${baseUrl}?${utmParams.toString()}` : baseUrl;
+
   const eventData = {
     event_name: "Purchase" as const,
     event_time: Math.floor(new Date(parentSale.createdAt).getTime() / 1000),
     event_id: `consolidated_purchase_${parentSale._id}`,
     action_source: "website" as const,
+    event_source_url: eventSourceUrl,
     user_data: userData,
     custom_data: {
       currency: (parentSale.currency || "BRL").toUpperCase(),
@@ -123,10 +131,15 @@ const processConsolidatedPurchase = async (parentSale: any): Promise<void> => {
       order_id: String(parentSale._id),
       content_ids: allItems.map((i: any) => i._id?.toString() || i.customId || "unknown"),
       content_type: "product",
+      // UTM Tracking
+      utm_source: parentSale.utm_source || "",
+      utm_medium: parentSale.utm_medium || "",
+      utm_campaign: parentSale.utm_campaign || "",
+      utm_term: parentSale.utm_term || "",
+      utm_content: parentSale.utm_content || "",
     },
   };
 
-  console.log(`🔵 [Facebook Job] Enviando Purchase consolidado para ${pixels.length} pixel(s) | Valor: ${totalValue} ${parentSale.currency?.toUpperCase()} | Itens: ${allItems.length}`);
 
   // 7. Envia para todos os pixels
   const results = await Promise.allSettled(
@@ -140,7 +153,6 @@ const processConsolidatedPurchase = async (parentSale: any): Promise<void> => {
 
   const successful = results.filter((r) => r.status === "fulfilled").length;
   const failed = results.filter((r) => r.status === "rejected").length;
-  console.log(`📊 [Facebook Job] Purchase consolidado: ${successful} sucesso, ${failed} falhas de ${pixels.length} pixels`);
 
   // 8. Marca venda pai como enviada se pelo menos 1 pixel teve sucesso
   if (successful > 0) {
@@ -153,10 +165,8 @@ const processConsolidatedPurchase = async (parentSale: any): Promise<void> => {
         { _id: { $in: childSales.map((s) => s._id) } },
         { $set: { integrationsFacebookSent: true } }
       );
-      console.log(`✅ [Facebook Job] Marcadas ${childSales.length} venda(s) filha(s) como Facebook enviado`);
     }
 
-    console.log(`✅ [Facebook Job] Venda ${parentSale._id} - Purchase consolidado enviado com sucesso`);
   } else {
     console.error(`❌ [Facebook Job] Falha ao enviar Purchase para todos os pixels da venda ${parentSale._id}`);
     // Não marca como enviado - tentará novamente no próximo ciclo
@@ -171,7 +181,6 @@ let jobInterval: ReturnType<typeof setInterval> | null = null;
  * Roda a cada 60 segundos e processa vendas pendentes
  */
 export const startFacebookPurchaseJob = (): void => {
-  console.log(`🚀 [Facebook Job] Iniciado - verificando a cada ${JOB_INTERVAL_MS / 1000}s`);
 
   // Processa imediatamente na inicialização (recovery de vendas atrasadas)
   processPendingFacebookPurchases().catch((err) => {
@@ -193,6 +202,5 @@ export const stopFacebookPurchaseJob = (): void => {
   if (jobInterval) {
     clearInterval(jobInterval);
     jobInterval = null;
-    console.log(`🛑 [Facebook Job] Parado`);
   }
 };

@@ -144,6 +144,11 @@ export function DashboardOverview() {
       if (days === "1") {
         // Hoje: do início até o fim do dia atual
         startDate = startOfDay(now).toISOString();
+      } else if (days === "yesterday") {
+        // Ontem: do início ao fim do dia anterior
+        const yesterday = subDays(now, 1);
+        startDate = startOfDay(yesterday).toISOString();
+        endDate = endOfDay(yesterday).toISOString();
       } else if (days === "7") {
         // Últimos 7 dias: inclui hoje
         startDate = startOfDay(subDays(now, 6)).toISOString();
@@ -196,6 +201,8 @@ export function DashboardOverview() {
         return "Tempo Total";
       case "1":
         return "Hoje";
+      case "yesterday":
+        return "Ontem";
       case "7":
         return "Últimos 7 dias";
       case "30":
@@ -251,10 +258,11 @@ export function DashboardOverview() {
                 <SelectValue placeholder="Período" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tempo Total</SelectItem>
                 <SelectItem value="1">Hoje</SelectItem>
-                <SelectItem value="7">Últimos 7 dias</SelectItem>
+                <SelectItem value="yesterday">Ontem</SelectItem>
                 <SelectItem value="30">Últimos 30 dias</SelectItem>
+                <SelectItem value="all">Tempo Total</SelectItem>
+                <SelectItem value="7">Últimos 7 dias</SelectItem>
                 <SelectItem value="90">Últimos 3 meses</SelectItem>
                 <SelectItem value="custom">Personalizado</SelectItem>
               </SelectContent>

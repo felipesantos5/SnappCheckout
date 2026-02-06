@@ -60,13 +60,11 @@ async function attemptReconnect(): Promise<void> {
 
   const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000); // Max 30s
 
-  console.log(`🔄 Tentativa de reconexão ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} em ${delay / 1000}s...`);
 
   await new Promise(resolve => setTimeout(resolve, delay));
 
   try {
     await mongoose.connect(MONGO_URI!, mongooseOptions);
-    console.log("✅ MongoDB reconectado com sucesso!");
     reconnectAttempts = 0;
     isReconnecting = false;
   } catch (error) {
@@ -92,9 +90,6 @@ async function connectDB() {
 
   try {
     await mongoose.connect(MONGO_URI!, mongooseOptions);
-    console.log("✅ MongoDB conectado com sucesso.");
-    console.log(`   Pool: ${mongooseOptions.minPoolSize}-${mongooseOptions.maxPoolSize} conexões`);
-    console.log(`   Buffer Commands: ${mongooseOptions.bufferCommands ? "ON (resiliente a blips)" : "OFF"}`);
   } catch (error) {
     console.error("❌ Erro ao conectar ao MongoDB:", error);
     throw error;
@@ -112,7 +107,6 @@ mongoose.connection.on("disconnected", () => {
 });
 
 mongoose.connection.on("reconnected", () => {
-  console.log("✅ MongoDB reconectado.");
   reconnectAttempts = 0;
   isReconnecting = false;
 });
@@ -122,11 +116,9 @@ mongoose.connection.on("error", (err) => {
 });
 
 mongoose.connection.on("connected", () => {
-  console.log("📊 MongoDB: Conexão estabelecida");
 });
 
 mongoose.connection.on("close", () => {
-  console.log("📊 MongoDB: Conexão fechada");
 });
 
 /**

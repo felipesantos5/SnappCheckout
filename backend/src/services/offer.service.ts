@@ -149,23 +149,33 @@ export const listOffersByOwner = async (ownerId: string, archived?: boolean): Pr
 
     const offers = await Offer.find(filter).sort({ createdAt: -1 });
 
-    // Para cada oferta, busca o número de vendas
-    const offersWithSalesCount = await Promise.all(
+    // For each offer, seeks the metrics (sales count and total revenue)
+    const offersWithMetrics = await Promise.all(
       offers.map(async (offer) => {
-        const salesCount = await Sale.countDocuments({
-          offerId: offer._id,
-          status: "succeeded", // Conta apenas vendas bem-sucedidas
-        });
+        const metrics = await Sale.aggregate([
+          { $match: { offerId: offer._id, status: "succeeded" } },
+          {
+            $group: {
+              _id: null,
+              salesCount: { $sum: 1 },
+              totalRevenue: { $sum: "$totalAmountInCents" },
+            },
+          },
+        ]);
+
+        const salesCount = metrics.length > 0 ? metrics[0].salesCount : 0;
+        const totalRevenue = metrics.length > 0 ? metrics[0].totalRevenue : 0;
 
         return {
           ...offer.toObject(),
           salesCount,
+          totalRevenue,
           checkoutStarted: offer.checkoutStarted || 0, // Inclui o contador de checkout iniciado
         };
       })
     );
 
-    return offersWithSalesCount;
+    return offersWithMetrics;
   } catch (error) {
     throw new Error("Falha ao listar ofertas.");
   }
@@ -392,9 +402,6 @@ export const migrateIsActive = async (ownerId: string) => {
       }
     );
 
-    console.log(`✅ Migração isActive concluída para usuário ${ownerId}:`);
-    console.log(`   - Ofertas encontradas: ${result.matchedCount}`);
-    console.log(`   - Ofertas atualizadas: ${result.modifiedCount}`);
 
     return result;
   } catch (error) {

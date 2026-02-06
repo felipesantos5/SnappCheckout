@@ -35,11 +35,22 @@ export const sendConversionToUTMfy = async (payload: UTMfyPayload): Promise<void
       return;
     }
 
-    console.log(`📤 Enviando conversão para UTMfy: ${payload.transactionId}`);
-
     // Converte para BRL (UTMfy sempre espera valores em BRL)
     const amountInBRL = await convertToBRL(payload.amountInCents, payload.currency);
     const valueInReais = centsToUnits(amountInBRL);
+
+    const body = {
+      email: payload.email,
+      name: payload.name,
+      value: valueInReais, // Valor em reais (BRL)
+      currency: "BRL", // Sempre BRL
+      transaction_id: payload.transactionId,
+      product_name: payload.productName,
+      offer_id: payload.offerId,
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log("🚀 [UTMfy] Sending conversion payload:", JSON.stringify(body, null, 2));
 
     // Faz a requisição para a UTMfy (com timeout de 30s)
     const response = await fetchWithTimeout(utmfyApiUrl, {
@@ -48,16 +59,7 @@ export const sendConversionToUTMfy = async (payload: UTMfyPayload): Promise<void
         "Content-Type": "application/json",
         Authorization: `Bearer ${utmfyApiKey}`,
       },
-      body: JSON.stringify({
-        email: payload.email,
-        name: payload.name,
-        value: valueInReais, // Valor em reais (BRL)
-        currency: "BRL", // Sempre BRL
-        transaction_id: payload.transactionId,
-        product_name: payload.productName,
-        offer_id: payload.offerId,
-        timestamp: new Date().toISOString(),
-      }),
+      body: JSON.stringify(body),
       timeout: 30000, // 30 segundos
     });
 
@@ -68,7 +70,6 @@ export const sendConversionToUTMfy = async (payload: UTMfyPayload): Promise<void
     }
 
     const responseData = await response.json();
-    console.log("✅ Conversão enviada para UTMfy com sucesso:", responseData);
   } catch (error) {
     // IMPORTANTE: Não re-lançar o erro
     // Isso evita que o webhook do Stripe falhe se a UTMfy estiver fora do ar
@@ -97,7 +98,13 @@ export const sendRefundToUTMfy = async (transactionId: string): Promise<void> =>
       return;
     }
 
-    console.log(`📤 Enviando reembolso para UTMfy: ${transactionId}`);
+
+    const body = {
+      transaction_id: transactionId,
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log("🚀 [UTMfy Refund] Sending payload:", JSON.stringify(body, null, 2));
 
     const response = await fetchWithTimeout(`${utmfyApiUrl}/refund`, {
       method: "POST",
@@ -105,10 +112,7 @@ export const sendRefundToUTMfy = async (transactionId: string): Promise<void> =>
         "Content-Type": "application/json",
         Authorization: `Bearer ${utmfyApiKey}`,
       },
-      body: JSON.stringify({
-        transaction_id: transactionId,
-        timestamp: new Date().toISOString(),
-      }),
+      body: JSON.stringify(body),
       timeout: 30000,
     });
 
@@ -117,7 +121,6 @@ export const sendRefundToUTMfy = async (transactionId: string): Promise<void> =>
       throw new Error(`UTMfy Refund API retornou ${response.status}: ${errorText}`);
     }
 
-    console.log("✅ Reembolso enviado para UTMfy com sucesso");
   } catch (error) {
     console.error("❌ Erro ao enviar reembolso para UTMfy:", error);
   }
@@ -132,7 +135,7 @@ export const sendRefundToUTMfy = async (transactionId: string): Promise<void> =>
  */
 export const sendPurchaseToUTMfyWebhook = async (webhookUrl: string, payload: any): Promise<void> => {
   try {
-    console.log(`📤 Enviando conversão (V2) para Webhook UTMfy: ${payload.Data.Purchase.PaymentId}`);
+    console.log(`🚀 [UTMfy Webhook] Sending payload to ${webhookUrl}:`, JSON.stringify(payload, null, 2));
 
     const response = await fetchWithTimeout(webhookUrl, {
       method: "POST",
@@ -151,10 +154,8 @@ export const sendPurchaseToUTMfyWebhook = async (webhookUrl: string, payload: an
 
     // Webhooks podem responder com 204 (No Content)
     if (response.status === 204) {
-      console.log("✅ Conversão (V2) enviada para UTMfy com sucesso (204 No Content)");
     } else {
       const responseData = await response.json();
-      console.log("✅ Conversão (V2) enviada para UTMfy com sucesso:", responseData);
     }
   } catch (error) {
     // IMPORTANTE: Não re-lançar o erro
@@ -276,10 +277,8 @@ export const processUtmfyIntegration = async (
       },
     };
 
-    console.log('utmfyPayloadStripe', JSON.stringify(utmfyPayload, null, 2))
 
     // Envia para todas as URLs configuradas em paralelo
-    console.log(`📤 Enviando para ${webhookUrls.length} webhook(s) UTMfy...`);
     await Promise.all(webhookUrls.map((url) => sendPurchaseToUTMfyWebhook(url, utmfyPayload)));
   } catch (error) {
     console.error("Erro na lógica do serviço UTMfy:", error);
@@ -422,11 +421,11 @@ export const processUtmfyIntegrationForPayPal = async (
           Url: `${process.env.FRONTEND_URL || "https://pay.snappcheckout.com"}/p/${offer.slug}`,
         },
         Utm: {
-          UtmSource: metadata.utm_source || null,
-          UtmMedium: metadata.utm_medium || null,
-          UtmCampaign: metadata.utm_campaign || null,
-          UtmTerm: metadata.utm_term || null,
-          UtmContent: metadata.utm_content || null,
+          UtmSource: metadata.utm_source || sale.utm_source || null,
+          UtmMedium: metadata.utm_medium || sale.utm_medium || null,
+          UtmCampaign: metadata.utm_campaign || sale.utm_campaign || null,
+          UtmTerm: metadata.utm_term || sale.utm_term || null,
+          UtmContent: metadata.utm_content || sale.utm_content || null,
         },
         DeviceInfo: {
           UserAgent: metadata.userAgent || null,
@@ -435,10 +434,8 @@ export const processUtmfyIntegrationForPayPal = async (
       },
     };
 
-    console.log('utmfyPayloadPaypal', JSON.stringify(utmfyPayload, null, 2))
 
     // Envia para todas as URLs configuradas em paralelo
-    console.log(`📤 [PayPal] Enviando para ${webhookUrls.length} webhook(s) UTMfy...`);
     await Promise.all(webhookUrls.map((url) => sendPurchaseToUTMfyWebhook(url, utmfyPayload)));
   } catch (error) {
     console.error("❌ [PayPal] Erro na lógica do serviço UTMfy:", error);

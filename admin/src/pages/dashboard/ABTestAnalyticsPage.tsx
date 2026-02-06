@@ -12,6 +12,8 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 
+import { subDays, startOfDay, endOfDay } from "date-fns";
+
 interface OfferMetrics {
   offerId: string;
   offerName: string;
@@ -81,7 +83,7 @@ export function ABTestAnalyticsPage() {
   const navigate = useNavigate();
   const [metrics, setMetrics] = useState<ABTestMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Filtro com persistência no localStorage (específico para analytics de A/B test)
   const [dateRange, setDateRange] = useState(() => {
     return localStorage.getItem("abtest_analytics_period") || "30";
@@ -96,9 +98,24 @@ export function ABTestAnalyticsPage() {
     const fetchMetrics = async () => {
       setIsLoading(true);
       try {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - parseInt(dateRange));
+        const now = new Date();
+        let startDate: Date;
+        let endDate: Date = now;
+
+        if (dateRange === "today") {
+          startDate = startOfDay(now);
+          endDate = endOfDay(now);
+        } else if (dateRange === "yesterday") {
+          const yesterday = subDays(now, 1);
+          startDate = startOfDay(yesterday);
+          endDate = endOfDay(yesterday);
+        } else if (dateRange === "all") {
+          startDate = new Date("2020-01-01");
+          endDate = endOfDay(now);
+        } else {
+          startDate = startOfDay(subDays(now, parseInt(dateRange) - 1));
+          endDate = endOfDay(now);
+        }
 
         const response = await axios.get(`${API_URL}/metrics/abtest/${id}`, {
           params: {
@@ -204,11 +221,13 @@ export function ABTestAnalyticsPage() {
               <SelectValue placeholder="Período" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="today">Hoje</SelectItem>
+              <SelectItem value="yesterday">Ontem</SelectItem>
               <SelectItem value="7">Últimos 7 dias</SelectItem>
               <SelectItem value="14">Últimos 14 dias</SelectItem>
               <SelectItem value="30">Últimos 30 dias</SelectItem>
-              <SelectItem value="60">Últimos 60 dias</SelectItem>
               <SelectItem value="90">Últimos 90 dias</SelectItem>
+              <SelectItem value="all">Tempo Total</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={() => window.open(`https://pay.snappcheckout.com/c/${metrics.abTestSlug}`, "_blank")} className="gap-2">
@@ -274,9 +293,8 @@ export function ABTestAnalyticsPage() {
               return (
                 <div
                   key={offer.offerId}
-                  className={`p-4 rounded-lg border bg-card transition-all hover:shadow-md ${
-                    (isBestConversion || isBestRevenue) && hasSales ? "ring-2 ring-yellow-400" : ""
-                  }`}
+                  className={`p-4 rounded-lg border bg-card transition-all hover:shadow-md ${(isBestConversion || isBestRevenue) && hasSales ? "ring-2 ring-yellow-400" : ""
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">

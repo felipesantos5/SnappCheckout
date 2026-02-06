@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 interface TopOffer {
@@ -28,7 +28,7 @@ export function TopOffersChart({ data }: TopOffersChartProps) {
           <CardTitle className="text-lg">Top Ofertas</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-8 pt-36">Nenhum dado disponível</p>
+          <p className="text-sm text-muted-foreground text-center py-8 pt-4 lg:pt-36">Nenhum dado disponível</p>
         </CardContent>
       </Card>
     );
@@ -38,7 +38,7 @@ export function TopOffersChart({ data }: TopOffersChartProps) {
     <Card className="h-full">
       <CardHeader className="pb-2 sm:pb-4">
         <CardTitle className="text-base sm:text-lg">Top Ofertas</CardTitle>
-        <CardDescription className="text-xs sm:text-sm">Receita por oferta</CardDescription>
+        {/* <CardDescription className="text-xs sm:text-sm">Receita por oferta</CardDescription> */}
       </CardHeader>
       <CardContent className="pb-3 sm:pb-4">
         <div className="h-[180px] sm:h-[280px] flex items-center justify-center">

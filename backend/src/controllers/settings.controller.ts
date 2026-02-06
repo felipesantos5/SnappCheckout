@@ -91,7 +91,6 @@ export const updateSettings = async (req: Request, res: Response) => {
             });
           }
 
-          console.log("[Settings] Credenciais Pagar.me validadas com sucesso");
         } catch (error: any) {
           console.error("[Settings] Erro ao validar credenciais Pagar.me:", error);
           return res.status(400).json({ 

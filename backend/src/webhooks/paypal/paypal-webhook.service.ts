@@ -84,7 +84,6 @@ export const verifyPayPalWebhookSignature = async (rawBody: string, headers: Web
     });
 
     const verificationStatus = response.data.verification_status;
-    console.log(`🔐 [PayPal] Verificação de assinatura: ${verificationStatus}`);
 
     return verificationStatus === "SUCCESS";
   } catch (error: any) {

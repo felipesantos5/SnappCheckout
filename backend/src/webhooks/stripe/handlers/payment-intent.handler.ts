@@ -21,7 +21,6 @@ const extractPaymentMethodDetails = (paymentIntent: Stripe.PaymentIntent): {
     const piAny = paymentIntent as any;
     const charge = piAny.latest_charge || piAny.charges?.data?.[0];
     if (!charge || !charge.payment_method_details) {
-      console.log("⚠️ Charge ou payment_method_details não encontrado no PaymentIntent");
       return { paymentMethodType: "card", walletType: null };
     }
 
@@ -32,13 +31,11 @@ const extractPaymentMethodDetails = (paymentIntent: Stripe.PaymentIntent): {
     let walletType: "apple_pay" | "google_pay" | "samsung_pay" | null = null;
     if (type === "card" && details.card?.wallet) {
       const walletTypeRaw = details.card.wallet.type;
-      console.log(`💳 Wallet detectada: ${walletTypeRaw}`);
       if (walletTypeRaw === "apple_pay" || walletTypeRaw === "google_pay" || walletTypeRaw === "samsung_pay") {
         walletType = walletTypeRaw;
       }
     }
 
-    console.log(`✅ Método de pagamento extraído: type=${type}, wallet=${walletType || 'none'}`);
     return { paymentMethodType: type, walletType };
   } catch (error) {
     console.error("❌ Erro ao extrair detalhes do método de pagamento:", error);
@@ -188,6 +185,13 @@ export const handlePaymentIntentCreated = async (paymentIntent: Stripe.PaymentIn
       status: "pending", // Tentativa iniciada
       isUpsell: isUpsell,
       items,
+
+      // UTM Tracking
+      utm_source: metadata.utm_source || "",
+      utm_medium: metadata.utm_medium || "",
+      utm_campaign: metadata.utm_campaign || "",
+      utm_term: metadata.utm_term || "",
+      utm_content: metadata.utm_content || "",
     });
   } catch (error: any) {
     console.error(`❌ Erro ao registrar tentativa de compra: ${error.message}`);
@@ -359,6 +363,13 @@ export const handlePaymentIntentFailed = async (paymentIntent: Stripe.PaymentInt
       failureMessage: failureMessage,
       isUpsell: isUpsell,
       items,
+
+      // UTM Tracking
+      utm_source: metadata.utm_source || "",
+      utm_medium: metadata.utm_medium || "",
+      utm_campaign: metadata.utm_campaign || "",
+      utm_term: metadata.utm_term || "",
+      utm_content: metadata.utm_content || "",
     });
   } catch (error: any) {
     console.error(`❌ Erro ao processar pagamento falhado: ${error.message}`);
@@ -374,14 +385,12 @@ export const handlePaymentIntentFailed = async (paymentIntent: Stripe.PaymentInt
  */
 export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.PaymentIntent): Promise<void> => {
   const paymentIntentId = paymentIntent.id;
-  console.log(`🔵 [Stripe] Iniciando processamento de payment_intent.succeeded: ${paymentIntentId}`);
 
   try {
     const metadata = paymentIntent.metadata || {};
     const offerSlug = metadata.offerSlug || metadata.originalOfferSlug;
     const isUpsell = metadata.isUpsell === "true";
 
-    console.log(`🔵 [Stripe] Metadata: offerSlug=${offerSlug}, isUpsell=${isUpsell}`);
 
     if (!offerSlug) {
       console.error(`❌ [Stripe] Metadata 'offerSlug' não encontrado no PaymentIntent ${paymentIntentId}`);
@@ -389,32 +398,27 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     }
 
     // 1. Busca Oferta e Dono PRIMEIRO (precisamos do stripeAccountId para expandir o PaymentIntent)
-    console.log(`🔵 [Stripe] Buscando oferta: ${offerSlug}`);
     const offer = await Offer.findOne({ slug: offerSlug }).populate("ownerId");
     if (!offer) {
       console.error(`❌ [Stripe] Oferta '${offerSlug}' não encontrada`);
       throw new Error(`Oferta '${offerSlug}' não encontrada.`);
     }
-    console.log(`✅ [Stripe] Oferta encontrada: ${offer.name} (ID: ${offer._id})`);
 
     const owner = offer.ownerId as any;
     if (!owner.stripeAccountId) {
       console.error(`❌ [Stripe] Vendedor ${owner._id} sem conta Stripe conectada`);
       throw new Error("Vendedor sem conta Stripe conectada.");
     }
-    console.log(`✅ [Stripe] Vendedor: ${owner.email} (Stripe Account: ${owner.stripeAccountId})`);
 
     // Expande o PaymentIntent para ter acesso aos detalhes do charge (incluindo wallet)
     // IMPORTANTE: Usa stripeAccount porque o PaymentIntent foi criado na conta conectada
     try {
-      console.log(`🔵 [Stripe] Expandindo PaymentIntent para obter detalhes do charge...`);
       const expandedPaymentIntent = await stripe.paymentIntents.retrieve(paymentIntent.id, {
         expand: ['latest_charge.payment_method_details'],
       }, {
         stripeAccount: owner.stripeAccountId,
       });
       paymentIntent = expandedPaymentIntent;
-      console.log(`✅ [Stripe] PaymentIntent expandido com sucesso`);
     } catch (expandError: any) {
       console.warn(`⚠️ [Stripe] Não foi possível expandir PaymentIntent: ${expandError.message}. Continuando com dados básicos.`);
     }
@@ -510,19 +514,15 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     const { paymentMethodType, walletType } = extractPaymentMethodDetails(paymentIntent);
 
     // 5. Busca registro existente (criado por payment_intent.created)
-    console.log(`🔵 [Stripe] Buscando venda existente com PaymentIntent: ${paymentIntent.id}`);
     let sale = await Sale.findOne({ stripePaymentIntentId: paymentIntent.id });
 
     if (sale) {
-      console.log(`✅ [Stripe] Venda encontrada: ${sale._id} (Status atual: ${sale.status})`);
 
       // Se já existe com status succeeded, não processa novamente
       if (sale.status === "succeeded") {
-        console.log(`⚠️ [Stripe] Venda ${sale._id} já está com status succeeded - pulando processamento`);
         return;
       }
 
-      console.log(`🔵 [Stripe] Atualizando venda ${sale._id} de ${sale.status} para succeeded`);
 
       // Atualiza o registro existente (que estava pending)
       sale.status = "succeeded";
@@ -535,6 +535,13 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       sale.paymentMethodType = paymentMethodType;
       sale.walletType = walletType;
 
+      // UTM Tracking
+      sale.utm_source = metadata.utm_source || sale.utm_source || "";
+      sale.utm_medium = metadata.utm_medium || sale.utm_medium || "";
+      sale.utm_campaign = metadata.utm_campaign || sale.utm_campaign || "";
+      sale.utm_term = metadata.utm_term || sale.utm_term || "";
+      sale.utm_content = metadata.utm_content || sale.utm_content || "";
+
       // Facebook Purchase consolidado: configura envio agendado ou vincula ao parent
       if (isUpsell) {
         // Busca a UpsellSession para obter o originalSaleId
@@ -543,19 +550,15 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
           const upsellSession = await UpsellSession.findOne({ token: originalSessionToken });
           if (upsellSession?.originalSaleId) {
             sale.parentSaleId = upsellSession.originalSaleId;
-            console.log(`🔵 [Stripe] Upsell vinculado ao sale pai: ${upsellSession.originalSaleId}`);
           }
         }
       } else {
         // Venda principal: agenda envio do Facebook Purchase para daqui a 10 minutos
         sale.facebookPurchaseSendAfter = new Date(Date.now() + 10 * 60 * 1000);
-        console.log(`🔵 [Stripe] Facebook Purchase agendado para: ${sale.facebookPurchaseSendAfter.toISOString()}`);
       }
 
       await sale.save();
-      console.log(`✅ [Stripe] Venda ${sale._id} atualizada para succeeded com sucesso`);
     } else {
-      console.log(`⚠️ [Stripe] Venda não encontrada - criando nova venda`);
 
       // 6. Cria nova venda se não existir (fallback para compatibilidade)
       // Resolve parentSaleId para upsells e facebookPurchaseSendAfter para vendas normais
@@ -568,12 +571,10 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
           const upsellSession = await UpsellSession.findOne({ token: originalSessionToken });
           if (upsellSession?.originalSaleId) {
             parentSaleId = upsellSession.originalSaleId;
-            console.log(`🔵 [Stripe] Upsell vinculado ao sale pai: ${parentSaleId}`);
           }
         }
       } else {
         facebookPurchaseSendAfter = new Date(Date.now() + 10 * 60 * 1000);
-        console.log(`🔵 [Stripe] Facebook Purchase agendado para: ${facebookPurchaseSendAfter.toISOString()}`);
       }
 
       sale = await Sale.create({
@@ -597,16 +598,21 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
         items,
         paymentMethodType,
         walletType,
+
+        // UTM Tracking
+        utm_source: metadata.utm_source || "",
+        utm_medium: metadata.utm_medium || "",
+        utm_campaign: metadata.utm_campaign || "",
+        utm_term: metadata.utm_term || "",
+        utm_content: metadata.utm_content || "",
       });
 
-      console.log(`✅ [Stripe] Nova venda criada: ${sale._id}`);
     }
 
     // =================================================================
     // 6. Integrações Externas
     // =================================================================
 
-    console.log(`🔵 [Stripe] Iniciando disparos de integrações para venda ${sale._id}`);
 
     // Marca tentativa de integração
     sale.integrationsLastAttempt = new Date();
@@ -617,10 +623,8 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
 
     // B: Webhook de Área de Membros (Husky/MemberKit)
     try {
-      console.log(`🔵 [Stripe] Iniciando envio para Husky/Área de Membros...`);
       await sendAccessWebhook(offer as any, sale, items, customerPhone || "");
       sale.integrationsHuskySent = true;
-      console.log(`✅ [Stripe] Webhook Husky enviado com sucesso`);
     } catch (huskyError: any) {
       console.error(`⚠️ [Stripe] Erro ao enviar webhook Husky (Venda salva normalmente):`, huskyError.message);
       console.error(`⚠️ [Stripe] Stack trace Husky:`, huskyError.stack);
@@ -629,10 +633,8 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
 
     // C: Webhook de Rastreamento (UTMfy)
     try {
-      console.log(`🔵 [Stripe] Iniciando envio para UTMfy...`);
       await processUtmfyIntegration(offer as any, sale, items, paymentIntent, metadata);
       sale.integrationsUtmfySent = true;
-      console.log(`✅ [Stripe] Webhook UTMfy enviado com sucesso`);
     } catch (utmfyError: any) {
       console.error(`⚠️ [Stripe] Erro ao enviar webhook UTMfy (Venda salva normalmente):`, utmfyError.message);
       console.error(`⚠️ [Stripe] Stack trace UTMfy:`, utmfyError.stack);
@@ -640,12 +642,8 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     }
 
     // Salva as flags de integração
-    console.log(`🔵 [Stripe] Salvando flags de integração...`);
     await sale.save();
-    console.log(`✅ [Stripe] Flags de integração salvas com sucesso`);
-    console.log(`📊 [Stripe] Status das integrações: Husky=${sale.integrationsHuskySent}, Facebook=${sale.integrationsFacebookSent}, UTMfy=${sale.integrationsUtmfySent}`);
 
-    console.log(`✅ [Stripe] Processamento de payment_intent.succeeded concluído com sucesso para ${paymentIntentId}`);
   } catch (error: any) {
     console.error(`❌ [Stripe] ERRO CRÍTICO ao processar payment_intent.succeeded ${paymentIntentId}:`);
     console.error(`❌ [Stripe] Mensagem: ${error.message}`);

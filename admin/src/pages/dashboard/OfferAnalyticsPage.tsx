@@ -9,6 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { ArrowLeft, Eye, ShoppingCart, CreditCard, TrendingUp, ExternalLink } from "lucide-react";
 import { formatCurrency } from "@/helper/formatCurrency";
 import { SalesHistoryTable } from "@/components/dashboard/SalesHistoryTable";
+import { DailyOfferChart } from "@/components/dashboard/DailyOfferChart";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { DateRange } from "react-day-picker";
@@ -40,6 +41,7 @@ export default function OfferAnalyticsPage() {
   const navigate = useNavigate();
 
   const [data, setData] = useState<FunnelData | null>(null);
+  const [overviewData, setOverviewData] = useState<any>(null);
   // const [totalRevenueData, setTotalRevenueData] = useState<TotalRevenueData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -72,12 +74,21 @@ export default function OfferAnalyticsPage() {
           if (dateFilter === "today") {
             // Hoje: do início até o fim do dia atual
             startDate = startOfDay(now).toISOString();
+          } else if (dateFilter === "yesterday") {
+            // Ontem: do início ao fim do dia anterior
+            const yesterday = subDays(now, 1);
+            startDate = startOfDay(yesterday).toISOString();
+            endDate = endOfDay(yesterday).toISOString();
           } else if (dateFilter === "7") {
             // Últimos 7 dias: inclui hoje
             startDate = startOfDay(subDays(now, 6)).toISOString();
-          } else {
+          } else if (dateFilter === "30") {
             // Últimos 30 dias (padrão): inclui hoje
             startDate = startOfDay(subDays(now, 29)).toISOString();
+          } else {
+            // Tempo total
+            startDate = new Date("2020-01-01").toISOString();
+            endDate = endOfDay(now).toISOString();
           }
         }
 
@@ -99,6 +110,18 @@ export default function OfferAnalyticsPage() {
         if (!currentOffer) throw new Error("Oferta não encontrada nos registros de métricas.");
 
         setData(currentOffer);
+
+        // Busca métricas detalhadas (gráficos diários)
+        const overviewRes = await fetch(`${API_URL}/metrics/overview?offerId=${id}&startDate=${startDate}&endDate=${endDate}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (overviewRes.ok) {
+          const overview = await overviewRes.json();
+          setOverviewData(overview);
+        }
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -183,8 +206,10 @@ export default function OfferAnalyticsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="today">Hoje</SelectItem>
+                  <SelectItem value="yesterday">Ontem</SelectItem>
                   <SelectItem value="7">Últimos 7 dias</SelectItem>
                   <SelectItem value="30">Últimos 30 dias</SelectItem>
+                  <SelectItem value="all">Tempo Total</SelectItem>
                   <SelectItem value="custom">Período personalizado</SelectItem>
                 </SelectContent>
               </Select>
@@ -253,11 +278,11 @@ export default function OfferAnalyticsPage() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid gap-4 md:grid-cols-7">
-        <Card className="col-span-4">
+      <div className="grid gap-4 md:grid-cols-12">
+        <Card className="md:col-span-12 lg:col-span-5">
           <CardHeader>
             <CardTitle>Funil de Conversão</CardTitle>
-            <CardDescription>Visualização gráfica da perda de tráfego entre etapas.</CardDescription>
+            <CardDescription>Visualização do funil.</CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
             <div className="h-[300px] w-full">
@@ -282,17 +307,17 @@ export default function OfferAnalyticsPage() {
         </Card>
 
         {/* Mini Detail Card - Right Side */}
-        <Card className="col-span-3">
+        {/* <Card className="md:col-span-12 lg:col-span-3">
           <CardHeader>
             <CardTitle>Detalhes da Receita</CardTitle>
-            <CardDescription>Performance financeira desta oferta.</CardDescription>
+            <CardDescription>Performance financeira.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-8">
               <div className="flex items-center">
                 <div className="ml-4 space-y-1">
                   <p className="text-sm font-medium leading-none">Ticket Médio</p>
-                  <p className="text-sm text-muted-foreground">Valor médio por venda aprovada</p>
+                  <p className="text-sm text-muted-foreground">Valor médio por venda</p>
                 </div>
                 <div className="ml-auto font-bold">{data.purchases > 0 ? formatCurrency(data.revenue / data.purchases) : "R$ 0,00"}</div>
               </div>
@@ -300,13 +325,26 @@ export default function OfferAnalyticsPage() {
               <div className="flex items-center">
                 <div className="ml-4 space-y-1">
                   <p className="text-sm font-medium leading-none">Drop-off Checkout</p>
-                  <p className="text-sm text-muted-foreground">Pessoas que iniciaram mas não compraram</p>
+                  <p className="text-sm text-muted-foreground">Iniciaram mas não compraram</p>
                 </div>
                 <div className="ml-auto font-bold text-red-500">{data.initiatedCheckout - data.purchases}</div>
               </div>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
+
+        {/* Gráfico Diário de Performance */}
+        <div className="md:col-span-12 lg:col-span-7">
+          {overviewData && (
+            <DailyOfferChart
+              data={{
+                visitors: overviewData.charts.visitors,
+                checkouts: overviewData.charts.checkouts,
+                sales: overviewData.charts.sales,
+              }}
+            />
+          )}
+        </div>
       </div>
 
       <SalesHistoryTable offerId={id!} />

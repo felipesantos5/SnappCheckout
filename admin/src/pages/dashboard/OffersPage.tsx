@@ -23,6 +23,7 @@ interface Offer {
   slug: string;
   mainProduct: product;
   salesCount: number;
+  totalRevenue: number;
   currency: string;
   archived?: boolean;
   isActive: boolean;
@@ -161,7 +162,7 @@ export function OffersPage() {
   };
 
   return (
-    <div className="max-w-6xl m-auto">
+    <div className="max-w-[1300px] m-auto">
       {/* Cabeçalho da Página (FORA do card, como no protótipo) */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -197,9 +198,9 @@ export function OffersPage() {
             <TableRow className="hover:bg-transparent bg-muted/50">
               <TableHead className="w-2/5 px-6 py-3 text-xs font-semibold uppercase tracking-wider">Descrição</TableHead>
               <TableHead className="w-28 px-6 py-3 text-xs font-semibold uppercase tracking-wider">Valor</TableHead>
-              <TableHead className="w-36 px-6 py-3 text-xs font-semibold uppercase tracking-wider">URL</TableHead>
-              <TableHead className="w-[70px] px-6 py-3 text-xs font-semibold uppercase tracking-wider text-center">Vendas</TableHead>
-              {/* <TableHead className="w-[100px] px-6 py-3 text-xs font-semibold uppercase tracking-wider text-right">Status</TableHead> */}
+              <TableHead className="w-36 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-center">Vendas</TableHead>
+              <TableHead className="w-36 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-right">Faturamento</TableHead>
+              <TableHead className="w-36 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-center">URL</TableHead>
               <TableHead className=" px-6 py-3 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -244,21 +245,26 @@ export function OffersPage() {
                   </TableCell>
 
                   {/* VALOR */}
-                  <TableCell className="px-6 py-4 text-sm font-medium text-foreground">
+                  <TableCell className="px-6 py-4 text-sm font-medium text-foreground whitespace-nowrap">
                     {formatCurrency(offer.mainProduct.priceInCents, offer.currency)}
-                  </TableCell>
-
-                  {/* URL */}
-                  <TableCell className="px-6 py-4">
-                    <Button variant="link" size="sm" onClick={() => handleCopy(offer.slug)} className="text-xs p-0 h-auto text-primary">
-                      Copiar Link
-                      <Copy className="h-3 w-3 ml-1.5" />
-                    </Button>
                   </TableCell>
 
                   {/* VENDAS */}
                   <TableCell className="px-6 py-4 text-center">
                     <span className="text-sm font-medium text-foreground">{offer.salesCount || 0}</span>
+                  </TableCell>
+
+                  {/* FATURAMENTO */}
+                  <TableCell className="px-6 py-4 text-center whitespace-nowrap">
+                    <span className="text-sm font-bold text-foreground">{formatCurrency(offer.totalRevenue || 0, offer.currency)}</span>
+                  </TableCell>
+
+                  {/* URL */}
+                  <TableCell className="px-6 py-4 text-center">
+                    <Button variant="link" size="sm" onClick={() => handleCopy(offer.slug)} className="text-xs p-0 h-auto text-primary">
+                      Copiar Link
+                      <Copy className="h-3 w-3 ml-1.5" />
+                    </Button>
                   </TableCell>
 
                   {/* STATUS (Mockado como "Ativo") */}

@@ -24,6 +24,5 @@ export const handlePagarMeEvent = async (eventType: string, eventData: any) => {
     return;
   }
 
-  console.log(`[Pagar.me Webhook] Processando evento: ${eventType}`);
   await handler(eventData);
 };

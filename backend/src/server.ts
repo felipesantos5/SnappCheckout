@@ -52,14 +52,12 @@ const SHUTDOWN_TIMEOUT = 30000; // 30 segundos
  */
 const gracefulShutdown = async (signal: string) => {
   if (isShuttingDown) {
-    console.log("⚠️ Shutdown já em andamento, ignorando sinal duplicado...");
     return;
   }
 
   isShuttingDown = true;
   process.env.SHUTTING_DOWN = "true"; // Sinaliza para db.ts não tentar reconectar
 
-  console.log(`\n🛑 ${signal} recebido. Iniciando graceful shutdown...`);
 
   // Timeout de segurança - força encerramento se demorar muito
   const forceShutdownTimer = setTimeout(() => {
@@ -73,21 +71,18 @@ const gracefulShutdown = async (signal: string) => {
 
     // 1. Para de aceitar novas conexões HTTP
     if (server) {
-      console.log("📡 Fechando servidor HTTP (aguardando conexões ativas)...");
       await new Promise<void>((resolve, reject) => {
         server!.close((err) => {
           if (err) {
             console.error("❌ Erro ao fechar servidor HTTP:", err);
             reject(err);
           } else {
-            console.log("✅ Servidor HTTP fechado.");
             resolve();
           }
         });
 
         // Timeout para fechar conexões HTTP ativas
         setTimeout(() => {
-          console.log("⚠️ Forçando fechamento de conexões HTTP pendentes...");
           resolve();
         }, 10000);
       });
@@ -95,15 +90,12 @@ const gracefulShutdown = async (signal: string) => {
 
     // 2. Fecha conexão com MongoDB
     if (mongoose.connection.readyState === 1) {
-      console.log("🗄️ Fechando conexão MongoDB...");
       await mongoose.connection.close(false);
-      console.log("✅ Conexão MongoDB fechada.");
     }
 
     // 3. Limpa o timer de força
     clearTimeout(forceShutdownTimer);
 
-    console.log("✅ Graceful shutdown concluído com sucesso!");
     process.exit(0);
   } catch (err) {
     console.error("❌ Erro durante graceful shutdown:", err);
@@ -141,9 +133,6 @@ async function startServer() {
     server.headersTimeout = 66000;   // Headers timeout ligeiramente maior
 
     server.listen(PORT, () => {
-      console.log(`🚀 Servidor rodando na porta ${PORT}`);
-      console.log(`   Timeout: ${server!.timeout}ms`);
-      console.log(`   Keep-Alive: ${server!.keepAliveTimeout}ms`);
     });
 
     // Monitora conexões ativas (útil para debug)

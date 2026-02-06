@@ -186,7 +186,6 @@ export const handleToggleOfferActive = async (req: Request, res: Response) => {
     const offer = await offerService.toggleOfferActive(id, ownerId);
 
     if (!offer) {
-      console.log(`❌ Oferta não encontrada - ID: ${id}`);
       return res.status(404).json({ error: { message: "Oferta não encontrada ou não pertence a você." } });
     }
 
