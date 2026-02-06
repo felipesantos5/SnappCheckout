@@ -167,7 +167,6 @@ export const createPixPayment = async (req: Request, res: Response) => {
       utm_content: metadata?.utm_content || "",
     });
 
-    console.log(`[Pagar.me Controller] Venda criada: saleId=${sale._id}, orderId=${pixOrder.orderId}`);
 
     // Retorna os dados do PIX para o frontend
     res.status(200).json({

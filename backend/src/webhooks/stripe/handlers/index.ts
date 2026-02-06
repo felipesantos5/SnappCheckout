@@ -10,17 +10,14 @@ import { handleAccountUpdated } from "./account.handler";
 export const handleStripeEvent = async (event: Stripe.Event): Promise<void> => {
   switch (event.type) {
     case "payment_intent.created":
-      console.log(`🔔 Tentativa de pagamento INICIADA`);
       await handlePaymentIntentCreated(event.data.object as Stripe.PaymentIntent);
       break;
 
     case "payment_intent.succeeded":
-      console.log(`✅ Pagamento APROVADO`);
       await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
       break;
 
     case "payment_intent.payment_failed":
-      console.log(`❌ Pagamento FALHOU - Processando...`);
       await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
       break;
 
@@ -30,11 +27,9 @@ export const handleStripeEvent = async (event: Stripe.Event): Promise<void> => {
       break;
 
     case "charge.refunded":
-      console.log(`💸 Reembolso realizado: ${event.data.object.id}`);
       await handleChargeRefunded(event.data.object as Stripe.Charge);
       break;
 
     default:
-      console.log(`ℹ️  Evento não tratado: ${event.type}`);
   }
 };

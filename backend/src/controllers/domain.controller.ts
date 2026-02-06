@@ -24,11 +24,9 @@ export const handleAskDomain = async (req: Request, res: Response) => {
     const offer = await Offer.findOne({ customDomain: normalizedDomain });
 
     if (offer) {
-      console.log(`✅ Domain authorized: ${normalizedDomain}`);
       return res.status(200).send("OK");
     }
 
-    console.log(`❌ Domain not authorized: ${normalizedDomain}`);
     return res.status(404).send("Not found");
   } catch (error) {
     console.error("Error checking domain:", error);

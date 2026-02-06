@@ -28,13 +28,11 @@ async function dispatchIntegrations(
   paymentIntent: Stripe.PaymentIntent,
   metadata: any
 ): Promise<void> {
-  console.log(`🔵 [Stripe] Iniciando disparos de integrações para venda ${sale._id}`);
 
   sale.integrationsLastAttempt = new Date();
 
   // A: Facebook CAPI
   try {
-    console.log(`🔵 [Stripe] Enviando para Facebook CAPI...`);
 
     const pixels: Array<{ pixelId: string; accessToken: string }> = [];
 
@@ -96,7 +94,6 @@ async function dispatchIntegrations(
       const successful = results.filter((r) => r.status === "fulfilled").length;
       if (successful > 0) {
         sale.integrationsFacebookSent = true;
-        console.log(`✅ [Stripe] Facebook enviado com sucesso para ${successful}/${pixels.length} pixels`);
       } else {
         sale.integrationsFacebookSent = false;
       }
@@ -108,10 +105,8 @@ async function dispatchIntegrations(
 
   // B: Husky/Área de Membros
   try {
-    console.log(`🔵 [Stripe] Enviando para Husky...`);
     await sendAccessWebhook(offer, sale, items, metadata.customerPhone || "");
     sale.integrationsHuskySent = true;
-    console.log(`✅ [Stripe] Husky enviado com sucesso`);
   } catch (error: any) {
     console.error(`⚠️ [Stripe] Erro Husky (venda salva):`, error.message);
     sale.integrationsHuskySent = false;
@@ -119,10 +114,8 @@ async function dispatchIntegrations(
 
   // C: UTMfy
   try {
-    console.log(`🔵 [Stripe] Enviando para UTMfy...`);
     await processUtmfyIntegration(offer, sale, items, paymentIntent, metadata);
     sale.integrationsUtmfySent = true;
-    console.log(`✅ [Stripe] UTMfy enviado com sucesso`);
   } catch (error: any) {
     console.error(`⚠️ [Stripe] Erro UTMfy (venda salva):`, error.message);
     sale.integrationsUtmfySent = false;
@@ -130,7 +123,6 @@ async function dispatchIntegrations(
 
   // Salva flags
   await sale.save();
-  console.log(`📊 [Stripe] Integrações: Facebook=${sale.integrationsFacebookSent}, Husky=${sale.integrationsHuskySent}, UTMfy=${sale.integrationsUtmfySent}`);
 }
 
 /**
@@ -185,7 +177,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
       event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret!);
     }
 
-    console.log(`📥 [Stripe Webhook] Evento recebido: ${event.type} (ID: ${event.id})`);
   } catch (err: any) {
     console.error(`❌ [Stripe Webhook] Erro na verificação da assinatura: ${err.message}`);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -199,13 +190,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         const metadata = paymentIntent.metadata || {};
 
-        console.log(`✅ [Stripe] Pagamento aprovado: ${paymentIntent.id}`);
-        console.log(`📋 [Stripe] Metadata recebido:`, {
-          offerSlug: metadata.offerSlug,
-          customerEmail: metadata.customerEmail,
-          customerName: metadata.customerName,
-          isUpsell: metadata.isUpsell,
-        });
 
         // Suporte a metadata NOVO (offerSlug) e ANTIGO (platformOfferId)
         const offerSlug = metadata.offerSlug || metadata.originalOfferSlug;
@@ -222,23 +206,18 @@ export const handleWebhook = async (req: Request, res: Response) => {
         }
 
         // Idempotência: Verifica se a venda já existe
-        console.log(`🔍 [Stripe] Verificando se venda já existe: ${paymentIntent.id}`);
         const existingSale = await Sale.findOne({ stripePaymentIntentId: paymentIntent.id });
 
         if (existingSale) {
-          console.log(`⚠️ [Stripe] Venda ${paymentIntent.id} já existe (ID: ${existingSale._id}, Status: ${existingSale.status})`);
 
           // Se estava pending, atualiza para succeeded
           if (existingSale.status === "pending") {
-            console.log(`🔄 [Stripe] Atualizando venda de pending para succeeded`);
             existingSale.status = "succeeded";
             existingSale.platformFeeInCents = paymentIntent.application_fee_amount || 0;
             await existingSale.save();
-            console.log(`✅ [Stripe] Venda ${existingSale._id} atualizada para succeeded`);
 
             // Dispara integrações se ainda não foram enviadas
             if (!existingSale.integrationsFacebookSent || !existingSale.integrationsHuskySent || !existingSale.integrationsUtmfySent) {
-              console.log(`🔄 [Stripe] Disparando integrações faltantes...`);
               const offer = await Offer.findById(existingSale.offerId).populate("ownerId");
               if (offer) {
                 await dispatchIntegrations(offer, existingSale, existingSale.items || [], paymentIntent, metadata);
@@ -251,7 +230,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
         }
 
         // Busca a oferta pelo SLUG
-        console.log(`🔍 [Stripe] Buscando oferta: ${offerSlug}`);
         const offer = await Offer.findOne({ slug: offerSlug }).populate("ownerId");
 
         if (!offer) {
@@ -260,10 +238,8 @@ export const handleWebhook = async (req: Request, res: Response) => {
           return res.status(200).json({ received: true, warning: "Oferta não encontrada" });
         }
 
-        console.log(`✅ [Stripe] Oferta encontrada: ${offer.name} (ID: ${offer._id})`);
 
         // Monta lista de itens (produto principal + order bumps)
-        console.log(`📦 [Stripe] Montando lista de itens (isUpsell: ${isUpsell})`);
         const items = [];
 
         if (isUpsell) {
@@ -274,7 +250,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
             isOrderBump: false,
             customId: offer.upsell?.customId,
           });
-          console.log(`📦 [Stripe] Item upsell adicionado: ${items[0].name}`);
         } else {
           // Produto principal
           items.push({
@@ -284,11 +259,9 @@ export const handleWebhook = async (req: Request, res: Response) => {
             isOrderBump: false,
             customId: (offer.mainProduct as any).customId,
           });
-          console.log(`📦 [Stripe] Produto principal adicionado: ${offer.mainProduct.name}`);
 
           // Order Bumps selecionados
           const selectedOrderBumps = metadata.selectedOrderBumps ? JSON.parse(metadata.selectedOrderBumps) : [];
-          console.log(`📦 [Stripe] Order bumps selecionados: ${selectedOrderBumps.length}`);
 
           for (const bumpId of selectedOrderBumps) {
             const bump = offer.orderBumps.find((b: any) => b?._id?.toString() === bumpId);
@@ -300,15 +273,12 @@ export const handleWebhook = async (req: Request, res: Response) => {
                 isOrderBump: true,
                 customId: (bump as any).customId,
               });
-              console.log(`📦 [Stripe] Order bump adicionado: ${bump.name}`);
             }
           }
         }
 
-        console.log(`📦 [Stripe] Total de itens: ${items.length}`);
 
         // Cria a venda no banco de dados
-        console.log(`💾 [Stripe] Criando venda no banco de dados...`);
         const newSale = new Sale({
           ownerId: offer.ownerId,
           offerId: offer._id,
@@ -344,13 +314,10 @@ export const handleWebhook = async (req: Request, res: Response) => {
         });
 
         await newSale.save();
-        console.log(`✅ [Stripe] Venda criada com sucesso: ${newSale._id}`);
 
         // Dispara integrações (Facebook, Husky, UTMfy)
-        console.log(`🚀 [Stripe] Iniciando disparos de integrações...`);
         await dispatchIntegrations(offer, newSale, items, paymentIntent, metadata);
 
-        console.log(`✅ [Stripe] Processamento do webhook concluído com sucesso`);
         break;
       }
 
@@ -359,14 +326,12 @@ export const handleWebhook = async (req: Request, res: Response) => {
         const charge = event.data.object as Stripe.Charge;
         const paymentIntentId = charge.payment_intent as string;
 
-        console.log(`💸 [Stripe] Processando reembolso: ${charge.id}`);
 
         // Encontre a venda original e atualize seu status
         const sale = await Sale.findOne({ stripePaymentIntentId: paymentIntentId });
         if (sale) {
           sale.status = "refunded";
           await sale.save();
-          console.log(`✅ [Stripe] Venda ${sale._id} marcada como reembolsada`);
         } else {
           console.warn(`⚠️ [Stripe] Venda não encontrada para reembolso: ${paymentIntentId}`);
         }
@@ -374,7 +339,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
       }
 
       default:
-        console.log(`ℹ️ [Stripe] Evento não tratado: ${event.type}`);
     }
 
     // Responde 200 OK para o Stripe

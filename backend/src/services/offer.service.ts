@@ -402,9 +402,6 @@ export const migrateIsActive = async (ownerId: string) => {
       }
     );
 
-    console.log(`✅ Migração isActive concluída para usuário ${ownerId}:`);
-    console.log(`   - Ofertas encontradas: ${result.matchedCount}`);
-    console.log(`   - Ofertas atualizadas: ${result.modifiedCount}`);
 
     return result;
   } catch (error) {

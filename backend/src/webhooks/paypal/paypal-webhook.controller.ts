@@ -54,7 +54,6 @@ export const handlePayPalWebhook = async (req: Request, res: Response) => {
           break;
 
         case "VAULT.PAYMENT-TOKEN.CREATED":
-          console.log(`🔐 [PayPal] Vault payment token criado`);
           await handleVaultPaymentTokenCreated(event);
           break;
 

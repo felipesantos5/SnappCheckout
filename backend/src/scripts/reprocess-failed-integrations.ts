@@ -33,17 +33,6 @@ const limit = limitArg ? parseInt(limitArg.split("=")[1], 10) : 1000;
 const dateFrom = dateFromArg ? new Date(dateFromArg.split("=")[1]) : null;
 const dateTo = dateToArg ? new Date(dateToArg.split("=")[1]) : null;
 
-console.log(`
-╔════════════════════════════════════════════════════════════════╗
-║  Script de Reprocessamento de Integrações Falhadas           ║
-╚════════════════════════════════════════════════════════════════╝
-
-Modo: ${isDryRun ? "DRY RUN (não vai reprocessar)" : "PRODUÇÃO (vai reprocessar)"}
-Limite: ${limit} vendas
-Data de: ${dateFrom ? dateFrom.toISOString() : "não filtrado"}
-Data até: ${dateTo ? dateTo.toISOString() : "não filtrado"}
-
-`);
 
 /**
  * Reenvia evento Purchase para o Facebook CAPI
@@ -68,7 +57,6 @@ const resendFacebookEvent = async (offer: any, sale: any, items: any[]): Promise
     }
 
     if (pixels.length === 0) {
-      console.log(`   ℹ️  Sem pixels configurados`);
       return true; // Considera sucesso se não houver pixels
     }
 
@@ -115,7 +103,6 @@ const resendFacebookEvent = async (offer: any, sale: any, items: any[]): Promise
     const successful = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.filter((r) => r.status === "rejected").length;
 
-    console.log(`   📊 Facebook: ${successful} sucesso, ${failed} falhas de ${pixels.length} pixels`);
     return successful > 0;
   } catch (error: any) {
     console.error(`   ❌ Erro ao enviar Facebook:`, error.message);
@@ -129,7 +116,6 @@ const resendFacebookEvent = async (offer: any, sale: any, items: any[]): Promise
 const resendHuskyWebhook = async (offer: any, sale: any, items: any[]): Promise<boolean> => {
   try {
     await sendAccessWebhook(offer, sale, items, sale.customerPhone || "");
-    console.log(`   ✅ Husky webhook reenviado`);
     return true;
   } catch (error: any) {
     console.error(`   ❌ Erro ao enviar Husky:`, error.message);
@@ -164,7 +150,6 @@ const resendUtmfyWebhook = async (offer: any, sale: any, items: any[]): Promise<
         utm_content: (sale as any).utm_content,
       }
     );
-    console.log(`   ✅ UTMfy webhook reenviado`);
     return true;
   } catch (error: any) {
     console.error(`   ❌ Erro ao enviar UTMfy:`, error.message);
@@ -176,17 +161,8 @@ const resendUtmfyWebhook = async (offer: any, sale: any, items: any[]): Promise<
  * Reprocessa uma única venda
  */
 const reprocessSale = async (sale: any): Promise<void> => {
-  console.log(`\n📦 Venda ${sale._id} (${sale.customerEmail})`);
-  console.log(`   Data: ${sale.createdAt.toISOString()}`);
-  console.log(`   Valor: ${sale.totalAmountInCents / 100} ${sale.currency}`);
-  console.log(`   Status: ${sale.status}`);
-  console.log(`   Integrações:`);
-  console.log(`     - Facebook: ${sale.integrationsFacebookSent ? "✅" : "❌"}`);
-  console.log(`     - Husky: ${sale.integrationsHuskySent ? "✅" : "❌"}`);
-  console.log(`     - UTMfy: ${sale.integrationsUtmfySent ? "✅" : "❌"}`);
 
   if (isDryRun) {
-    console.log(`   ⏭️  DRY RUN - pulando reprocessamento`);
     return;
   }
 
@@ -233,11 +209,6 @@ const reprocessSale = async (sale: any): Promise<void> => {
   // Salvar alterações
   await sale.save();
 
-  console.log(`   ✅ Reprocessamento concluído`);
-  console.log(`   📊 Status final:`);
-  console.log(`     - Facebook: ${sale.integrationsFacebookSent ? "✅" : "❌"}`);
-  console.log(`     - Husky: ${sale.integrationsHuskySent ? "✅" : "❌"}`);
-  console.log(`     - UTMfy: ${sale.integrationsUtmfySent ? "✅" : "❌"}`);
 };
 
 /**
@@ -251,9 +222,7 @@ const main = async (): Promise<void> => {
       throw new Error("MONGO_URI não configurado no .env");
     }
 
-    console.log("🔌 Conectando ao MongoDB...");
     await mongoose.connect(mongoUri);
-    console.log("✅ Conectado ao MongoDB\n");
 
     // Montar filtro de query
     const query: any = {
@@ -273,13 +242,10 @@ const main = async (): Promise<void> => {
     }
 
     // Buscar vendas que precisam ser reprocessadas
-    console.log("🔍 Buscando vendas que precisam ser reprocessadas...\n");
     const sales = await Sale.find(query).sort({ createdAt: -1 }).limit(limit);
 
-    console.log(`📊 Encontradas ${sales.length} vendas para reprocessar\n`);
 
     if (sales.length === 0) {
-      console.log("✅ Nenhuma venda precisa ser reprocessada!");
       return;
     }
 
@@ -291,11 +257,6 @@ const main = async (): Promise<void> => {
       utmfyMissing: sales.filter((s) => !s.integrationsUtmfySent).length,
     };
 
-    console.log(`📈 Estatísticas:`);
-    console.log(`   - Total de vendas: ${stats.total}`);
-    console.log(`   - Faltando Facebook: ${stats.facebookMissing}`);
-    console.log(`   - Faltando Husky: ${stats.huskyMissing}`);
-    console.log(`   - Faltando UTMfy: ${stats.utmfyMissing}`);
 
     // Reprocessar cada venda
     let processedCount = 0;
@@ -311,25 +272,12 @@ const main = async (): Promise<void> => {
       }
     }
 
-    console.log(`\n
-╔════════════════════════════════════════════════════════════════╗
-║  Reprocessamento Concluído                                     ║
-╚════════════════════════════════════════════════════════════════╝
-
-📊 Resumo:
-   - Vendas processadas: ${processedCount}
-   - Vendas com erro: ${errorCount}
-   - Total: ${sales.length}
-
-${isDryRun ? "⚠️  DRY RUN - Nenhuma alteração foi feita no banco de dados" : "✅ Alterações salvas no banco de dados"}
-`);
   } catch (error: any) {
     console.error("❌ Erro fatal:", error.message);
     process.exit(1);
   } finally {
     // Desconectar do MongoDB
     await mongoose.disconnect();
-    console.log("🔌 Desconectado do MongoDB");
   }
 };
 

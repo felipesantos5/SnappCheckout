@@ -65,21 +65,6 @@ export const sendFacebookEvent = async (pixelId: string, accessToken: string, pa
   };
 
   try {
-    console.log(`🔵 Enviando evento Facebook: ${payload.event_name} para pixel ${pixelId}`);
-    console.log(`   - Event ID: ${payload.event_id || 'N/A'}`);
-    console.log(`   - Valor: ${payload.custom_data?.value || 'N/A'} ${payload.custom_data?.currency || 'N/A'}`);
-    console.log(`   - User Data:`);
-    console.log(`     • email: ${payload.user_data.em ? `${payload.user_data.em[0].substring(0, 10)}... (hashed)` : 'N/A'}`);
-    console.log(`     • phone: ${payload.user_data.ph ? `${payload.user_data.ph[0].substring(0, 10)}... (hashed)` : 'N/A'}`);
-    console.log(`     • fbc: ${payload.user_data.fbc || 'N/A'}`);
-    console.log(`     • fbp: ${payload.user_data.fbp || 'N/A'}`);
-    console.log(`     • fn: ${payload.user_data.fn ? `${payload.user_data.fn[0].substring(0, 10)}... (hashed)` : 'N/A'}`);
-    console.log(`     • ln: ${payload.user_data.ln ? `${payload.user_data.ln[0].substring(0, 10)}... (hashed)` : 'N/A'}`);
-    console.log(`     • city: ${payload.user_data.ct ? `${payload.user_data.ct[0].substring(0, 10)}... (hashed)` : 'N/A'}`);
-    console.log(`     • state: ${payload.user_data.st ? `${payload.user_data.st[0].substring(0, 10)}... (hashed)` : 'N/A'}`);
-    console.log(`     • zipCode: ${payload.user_data.zp ? `${payload.user_data.zp[0].substring(0, 10)}... (hashed)` : 'N/A'}`);
-    console.log(`     • country: ${payload.user_data.country ? `${payload.user_data.country[0].substring(0, 10)}... (hashed)` : 'N/A'}`);
-    console.log(`   - Payload Completo:`, JSON.stringify(payload, null, 2));
 
     const response = await axios.post(url, body, { timeout: 15000 });
 
@@ -88,8 +73,6 @@ export const sendFacebookEvent = async (pixelId: string, accessToken: string, pa
       console.warn(`⚠️ Facebook retornou mensagens para pixel ${pixelId}:`, JSON.stringify(response.data.messages, null, 2));
     }
 
-    console.log(`✅ Evento ${payload.event_name} enviado com sucesso para pixel ${pixelId} - Events Received: ${response.data?.events_received || 0}`);
-    console.log(`   - Resposta Completa:`, JSON.stringify(response.data, null, 2));
     return response.data;
   } catch (error: any) {
     const errorMessage = error.response?.data?.error?.message || error.message;

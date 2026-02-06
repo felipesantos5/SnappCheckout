@@ -26,15 +26,10 @@ export const getUpsellScript = (req: Request, res: Response) => {
     const urlPaymentMethod = urlParams.get('payment_method');
     const paymentMethod = btnElement.getAttribute('data-payment-method') || btnElement.dataset.paymentMethod || urlPaymentMethod || 'stripe';
 
-    console.log('🔵 [Upsell] URL completa:', window.location.href);
-    console.log('🔵 [Upsell] Token encontrado:', token ? token.substring(0, 8) + '...' : 'NENHUM');
-    console.log('🔵 [Upsell] OfferId encontrado:', offerId);
-    console.log('🔵 [Upsell] Método de pagamento:', paymentMethod);
 
     // Se não tem token e tem fallback URL (e é BUY), redireciona direto (one-click não disponível)
     if (!token && isBuy) {
       if (fallbackUrl && fallbackUrl.trim() !== '') {
-        console.log('⚠️ [Upsell] Sem token - redirecionando para checkout alternativo:', fallbackUrl);
         window.location.href = fallbackUrl;
         return;
       }
@@ -60,7 +55,6 @@ export const getUpsellScript = (req: Request, res: Response) => {
       // Define a rota baseado no método de pagamento
       const baseRoute = paymentMethod === 'paypal' ? '/paypal/' : '/payments/';
 
-      console.log('🔵 [Upsell] Chamando endpoint:', apiUrl + baseRoute + endpoint);
 
       const res = await fetch(apiUrl + baseRoute + endpoint, {
         method: 'POST',
@@ -77,7 +71,6 @@ export const getUpsellScript = (req: Request, res: Response) => {
           // Se não tiver redirect e for recusa, o cliente provavelmente quer ir para o obrigado.
           // Como não temos a URL, tentamos um reload ou mantemos como está (silencioso).
           if (!isBuy) {
-            console.log('✅ Recusa processada. Sem redirect URL, mantendo página ou recarregando.');
             // Se o cliente não colocou URL de redirecionamento na oferta, ele fica preso aqui?
             // Melhor recarregar para limpar parâmetros de token se houver.
             window.location.reload();
@@ -86,7 +79,6 @@ export const getUpsellScript = (req: Request, res: Response) => {
       } else {
         // Se a requisição falhou E é compra, redireciona para fallback
         if (isBuy && fallbackUrl && fallbackUrl.trim() !== '') {
-          console.log('✅ Redirecionando para checkout alternativo:', fallbackUrl);
           window.location.href = fallbackUrl;
           return;
         }
@@ -101,7 +93,6 @@ export const getUpsellScript = (req: Request, res: Response) => {
     } catch (e) {
       // Se deu erro E tem fallback URL configurada (e é botão de compra), redireciona
       if (isBuy && fallbackUrl && fallbackUrl.trim() !== '') {
-        console.log('✅ Erro na requisição, redirecionando para checkout alternativo:', fallbackUrl);
         window.location.href = fallbackUrl;
         return;
       }
@@ -121,7 +112,6 @@ export const getUpsellScript = (req: Request, res: Response) => {
 
     // Encontra botões de compra
     const buyBtns = document.querySelectorAll('.chk-buy');
-    console.log(\`✅ Encontrado(s) \${buyBtns.length} botão(ões) de compra (.chk-buy)\`);
     buyBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -131,7 +121,6 @@ export const getUpsellScript = (req: Request, res: Response) => {
 
     // Encontra botões de recusa
     const refuseBtns = document.querySelectorAll('.chk-refuse');
-    console.log(\`✅ Encontrado(s) \${refuseBtns.length} botão(ões) de recusa (.chk-refuse)\`);
     refuseBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -142,7 +131,6 @@ export const getUpsellScript = (req: Request, res: Response) => {
     // Marca como inicializado
     if (buyBtns.length > 0 || refuseBtns.length > 0) {
       window._chkUpsellInit = true;
-      console.log('✅ Upsell Script inicializado com sucesso!');
     }
   }
 
@@ -171,7 +159,6 @@ export const getUpsellScript = (req: Request, res: Response) => {
     });
 
     if (shouldInit && !window._chkUpsellInit) {
-      console.log('🔄 Novos botões detectados, reinicializando...');
       setTimeout(initUpsellButtons, 50);
     }
   });

@@ -57,7 +57,6 @@ export const createOrder = async (amount: number, currency: string, clientId: st
     // Se vault está habilitado, adiciona os atributos necessários
     // IMPORTANTE: Isso só funciona se o vault estiver habilitado na conta PayPal
     if (enableVault) {
-      console.log(`🔵 [PayPal] Criando ordem com vault habilitado`);
       orderPayload.payment_source = {
         paypal: {
           experience_context: {
@@ -173,18 +172,15 @@ export const waitForVaultToken = async (
   baseIntervalMs: number = 2000
 ): Promise<{ id: string; customer: { id: string } } | null> => {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    console.log(`🔵 [PayPal Vault] Polling tentativa ${attempt}/${maxAttempts} para customer ${paypalCustomerId}...`);
 
     const token = await getCustomerPaymentTokens(paypalCustomerId, clientId, clientSecret);
     if (token) {
-      console.log(`✅ [PayPal Vault] Token encontrado via polling: ${token.id}`);
       return token;
     }
 
     if (attempt < maxAttempts) {
       // Exponential backoff: 2s, 3s, 4.5s, 6.75s
       const waitTime = baseIntervalMs * Math.pow(1.5, attempt - 1);
-      console.log(`⏳ [PayPal Vault] Aguardando ${Math.round(waitTime)}ms antes da próxima tentativa...`);
       await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
   }
@@ -236,7 +232,6 @@ export const createAndCaptureOrderWithVault = async (
       },
     };
 
-    console.log(`🔵 [PayPal Vault] Criando ordem com vault_id: ${vaultId}`);
 
     const response = await axios.post(
       `${PAYPAL_API_URL}/v2/checkout/orders`,
@@ -251,11 +246,9 @@ export const createAndCaptureOrderWithVault = async (
     );
 
     const order = response.data;
-    console.log(`✅ [PayPal Vault] Ordem criada: ${order.id}, status: ${order.status}`);
 
     // Se a ordem foi criada e aprovada automaticamente, captura
     if (order.status === "APPROVED") {
-      console.log(`🔵 [PayPal Vault] Capturando ordem ${order.id}...`);
       const captureResponse = await axios.post(
         `${PAYPAL_API_URL}/v2/checkout/orders/${order.id}/capture`,
         {},
@@ -268,7 +261,6 @@ export const createAndCaptureOrderWithVault = async (
         }
       );
 
-      console.log(`✅ [PayPal Vault] Ordem capturada com sucesso`);
       return captureResponse.data;
     }
 
@@ -304,12 +296,10 @@ export const getVaultTokenByCustomerId = async (
   clientId: string,
   clientSecret: string
 ): Promise<{ id: string; customer: { id: string } } | null> => {
-  console.log(`🔵 [PayPal Vault] Buscando token para customer ${paypalCustomerId}...`);
   
   try {
     const token = await getCustomerPaymentTokens(paypalCustomerId, clientId, clientSecret);
     if (token) {
-      console.log(`✅ [PayPal Vault] Token encontrado: ${token.id}`);
       return token;
     }
     

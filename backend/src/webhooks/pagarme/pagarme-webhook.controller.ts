@@ -11,7 +11,6 @@ export const handlePagarMeWebhook = async (req: Request, res: Response) => {
     const webhookData = req.body;
 
     // Log do webhook recebido
-    console.log(`[Pagar.me Webhook] Webhook recebido:`, JSON.stringify(webhookData, null, 2));
 
     // A Pagar.me envia o tipo de evento no campo "type"
     const eventType = webhookData.type;
@@ -29,7 +28,6 @@ export const handlePagarMeWebhook = async (req: Request, res: Response) => {
     // Processa o evento em background
     try {
       await handlePagarMeEvent(eventType, eventData);
-      console.log(`[Pagar.me Webhook] Evento processado com sucesso: ${eventType}`);
     } catch (error: any) {
       console.error(`[Pagar.me Webhook] Erro ao processar evento ${eventType}:`, error);
       // Não re-throw aqui pois já respondemos 200 OK

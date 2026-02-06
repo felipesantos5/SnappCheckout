@@ -75,7 +75,6 @@ export const createOrder = async (req: Request, res: Response) => {
     // Habilita vault apenas se a oferta tiver upsell ativo E o PayPal One-Click estiver habilitado
     const enableVault = offer.upsell?.enabled === true && offer.upsell?.paypalOneClickEnabled === true;
 
-    console.log(`🔵 [PayPal] Criando ordem com vault ${enableVault ? "HABILITADO" : "DESABILITADO"}`);
 
     const order = await paypalService.createOrder(amount, currency, user.paypalClientId, user.paypalClientSecret, enableVault);
     res.json(order);
@@ -249,7 +248,6 @@ export const captureOrder = async (req: Request, res: Response) => {
       try {
         await sendAccessWebhook(offer as any, newSale, items, customerData?.phone || "");
         newSale.integrationsHuskySent = true;
-        console.log(`✅ [PayPal] Webhook Husky enviado com sucesso`);
       } catch (webhookError: any) {
         console.error(`⚠️ [PayPal] Erro ao enviar webhook Husky:`, webhookError.message);
         newSale.integrationsHuskySent = false;
@@ -283,7 +281,6 @@ export const captureOrder = async (req: Request, res: Response) => {
           }
         );
         newSale.integrationsUtmfySent = true;
-        console.log(`✅ [PayPal] Webhook UTMfy enviado com sucesso`);
       } catch (utmfyError: any) {
         console.error(`⚠️ [PayPal] Erro ao enviar webhook UTMfy:`, utmfyError.message);
         newSale.integrationsUtmfySent = false;
@@ -295,13 +292,11 @@ export const captureOrder = async (req: Request, res: Response) => {
       } catch (flagSaveError: any) {
         console.error(`⚠️ [PayPal] Erro ao salvar flags de integração:`, flagSaveError.message);
       }
-      console.log(`📊 [PayPal] Status das integrações: Husky=${newSale.integrationsHuskySent}, Facebook=${newSale.integrationsFacebookSent}, UTMfy=${newSale.integrationsUtmfySent}`);
 
       // D: Verificar se tem upsell habilitado e vault disponível
       let upsellToken: string | null = null;
       let upsellRedirectUrl: string | null = null;
 
-      console.log(`🔵 [PayPal] Upsell config: enabled=${offer.upsell?.enabled}, paypalOneClick=${offer.upsell?.paypalOneClickEnabled}, redirectUrl=${offer.upsell?.redirectUrl || "N/A"}`);
 
       if (offer.upsell?.enabled) {
         // Verifica se o PayPal One-Click está habilitado para esta oferta
@@ -313,11 +308,9 @@ export const captureOrder = async (req: Request, res: Response) => {
           let paypalCustomerId = vaultData?.customer?.id;
           const vaultStatus = vaultData?.status;
 
-          console.log(`🔵 [PayPal] Dados do vault: status=${vaultStatus || "N/A"}, vault_id=${vaultId || "N/A"}, customer_id=${paypalCustomerId || "N/A"}`);
 
           // Se temos vault_id e customer_id, cria sessão de upsell one-click
           if (vaultId && paypalCustomerId) {
-            console.log(`✅ [PayPal] Vault disponível! Criando sessão de upsell one-click...`);
 
             const token = uuidv4();
 
@@ -348,7 +341,6 @@ export const captureOrder = async (req: Request, res: Response) => {
               upsellRedirectUrl = `${offer.upsell.redirectUrl}${separator}token=${token}&payment_method=paypal&offerId=${offer._id}`;
               upsellToken = token;
 
-              console.log(`✅ [PayPal] Token de upsell one-click gerado: ${token.substring(0, 8)}...`);
             } catch (upsellError: any) {
               console.error(`⚠️ [PayPal] Erro ao criar sessão de upsell:`, upsellError.message);
               // Se falhar, redireciona sem token (checkout normal)
@@ -364,20 +356,16 @@ export const captureOrder = async (req: Request, res: Response) => {
             if (offer.upsell.redirectUrl) {
               const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
               upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal&offerId=${offer._id}`;
-              console.log(`🔵 [PayPal] Redirecionando para upsell (sem one-click): ${upsellRedirectUrl}`);
             }
           }
         } else {
           // PayPal One-Click desabilitado - usa fluxo normal
-          console.log(`🔵 [PayPal] PayPal One-Click desabilitado. Usando fluxo de upsell normal.`);
           
           if (offer.upsell.fallbackCheckoutUrl) {
             upsellRedirectUrl = offer.upsell.fallbackCheckoutUrl;
-            console.log(`🔵 [PayPal] Usando fallback checkout URL: ${upsellRedirectUrl}`);
           } else if (offer.upsell.redirectUrl) {
             const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
             upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal&offerId=${offer._id}`;
-            console.log(`🔵 [PayPal] Redirecionando para upsell (checkout normal): ${upsellRedirectUrl}`);
           }
         }
       }
@@ -388,8 +376,6 @@ export const captureOrder = async (req: Request, res: Response) => {
       }
 
       const redirectType = upsellToken ? "UPSELL (one-click)" : (upsellRedirectUrl && upsellRedirectUrl !== offer.thankYouPageUrl ? "UPSELL (sem one-click)" : "Thank You Page");
-      console.log(`✅ [PayPal] Venda finalizada - redirecionando para ${redirectType}`);
-      console.log(`✅ [PayPal] Response: saleId=${newSale._id}, upsellToken=${upsellToken || "null"}, upsellRedirectUrl=${upsellRedirectUrl || "null"}`);
 
       res.json({
         success: true,
@@ -414,7 +400,6 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
   try {
     const { token } = req.body;
 
-    console.log(`🔵 [PayPal Upsell] Recebendo requisição com token: ${token ? token.substring(0, 8) + "..." : "VAZIO"}`);
 
     if (!token) {
       console.error(`❌ [PayPal Upsell] Token não fornecido no body da requisição`);
@@ -423,7 +408,6 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
 
     // Busca sessão de upsell
     const session: any = await UpsellSession.findOne({ token }).populate("offerId");
-    console.log(`🔵 [PayPal Upsell] Sessão encontrada: ${session ? "SIM" : "NÃO"}, paymentMethod: ${session?.paymentMethod || "N/A"}, vaultId: ${session?.paypalVaultId ? session.paypalVaultId.substring(0, 8) + "..." : "N/A"}`);
 
     if (!session) {
       return res.status(403).json({ success: false, message: "Sessão expirada ou token já usado." });
@@ -462,7 +446,6 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
     }
 
     // 6. Validar se o vault token ainda existe (pode ter expirado ou sido deletado)
-    console.log(`🔵 [PayPal Upsell] Validando vault token ${session.paypalVaultId}...`);
     try {
       const tokenValidation = await paypalService.getVaultTokenByCustomerId(
         session.paypalCustomerId,
@@ -478,13 +461,11 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
         });
       }
       
-      console.log(`✅ [PayPal Upsell] Vault token validado com sucesso`);
     } catch (validationError: any) {
       console.error(`⚠️ [PayPal Upsell] Erro ao validar vault token:`, validationError.message);
       // Continua mesmo com erro de validação (pode ser problema temporário da API)
     }
 
-    console.log(`🔵 [PayPal Upsell] Processando upsell com vault_id: ${session.paypalVaultId}`);
 
     // 6. Criar e capturar ordem usando vault_id
     const captureData = await paypalService.createAndCaptureOrderWithVault(
@@ -551,7 +532,6 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
       try {
         await sendAccessWebhook(offer as any, newSale, items, session.customerPhone || "");
         newSale.integrationsHuskySent = true;
-        console.log(`✅ [PayPal Upsell] Webhook Husky enviado com sucesso`);
       } catch (huskyError: any) {
         console.error(`⚠️ [PayPal Upsell] Erro ao enviar webhook Husky:`, huskyError.message);
         newSale.integrationsHuskySent = false;
@@ -579,7 +559,6 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
           }
         );
         newSale.integrationsUtmfySent = true;
-        console.log(`✅ [PayPal Upsell] Webhook UTMfy enviado com sucesso`);
       } catch (utmfyError: any) {
         console.error(`⚠️ [PayPal Upsell] Erro ao enviar webhook UTMfy:`, utmfyError.message);
         newSale.integrationsUtmfySent = false;
@@ -587,7 +566,6 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
 
       // Salva flags de integração
       await newSale.save();
-      console.log(`📊 [PayPal Upsell] Integrações: Husky=${newSale.integrationsHuskySent}, Facebook=${newSale.integrationsFacebookSent}, UTMfy=${newSale.integrationsUtmfySent}`);
 
       // 9. Deletar sessão de upsell (token usado)
       await UpsellSession.deleteOne({ token });
@@ -595,7 +573,6 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
       // 10. Redirecionar para Thank You Page
       const redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
 
-      console.log(`✅ [PayPal Upsell] Compra concluída com sucesso`);
 
       res.status(200).json({
         success: true,
@@ -634,7 +611,6 @@ export const handlePayPalUpsellRefuse = async (req: Request, res: Response) => {
         
         // Deletar sessão
         await UpsellSession.deleteOne({ token });
-        console.log(`✅ [PayPal Upsell] Oferta recusada e sessão deletada`);
       } else {
         console.warn(`⚠️ [PayPal Upsell] Sessão não encontrada ao recusar (token: ${token})`);
       }
@@ -646,7 +622,6 @@ export const handlePayPalUpsellRefuse = async (req: Request, res: Response) => {
         const offer = await Offer.findById(offerId);
         if (offer && offer.thankYouPageUrl) {
           redirectUrl = offer.thankYouPageUrl;
-          console.log(`✅ [PayPal Upsell] Thank You Page encontrada via offerId: ${redirectUrl}`);
         }
       } catch (err) {
         console.error(`❌ [PayPal Upsell] Erro ao buscar offerId ${offerId}:`, err);

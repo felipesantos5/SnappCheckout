@@ -143,14 +143,12 @@ export const handleTrackMetric = async (req: Request, res: Response) => {
           };
 
           // Envia para TODOS os pixels configurados em paralelo com tratamento individual de erros
-          console.log(`🔵 Enviando InitiateCheckout para ${pixels.length} pixel(s) [eventID: ${eventId}]`);
 
           // Promise.allSettled garante que todos os pixels sejam processados, mesmo se algum falhar
           const results = await Promise.allSettled(
             pixels.map((pixel, index) =>
               sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventPayload)
                 .then(() => {
-                  console.log(`✅ InitiateCheckout enviado com sucesso para pixel ${index + 1}/${pixels.length}: ${pixel.pixelId}`);
                 })
                 .catch((err) => {
                   console.error(`❌ Erro ao enviar InitiateCheckout para pixel ${index + 1}/${pixels.length} (${pixel.pixelId}):`, err);
@@ -162,7 +160,6 @@ export const handleTrackMetric = async (req: Request, res: Response) => {
           // Log do resumo final
           const successful = results.filter(r => r.status === 'fulfilled').length;
           const failed = results.filter(r => r.status === 'rejected').length;
-          console.log(`📊 InitiateCheckout: ${successful} sucesso, ${failed} falhas de ${pixels.length} pixels`);
 
           // Log detalhado dos erros
           results.forEach((result, index) => {
@@ -265,7 +262,6 @@ export const handleFacebookInitiateCheckout = async (req: Request, res: Response
       };
 
       // Envia para TODOS os pixels configurados em paralelo
-      console.log(`🔵 [Facebook CAPI] Enviando InitiateCheckout para ${pixels.length} pixel(s) [eventID: ${eventId}]`);
 
       await Promise.allSettled(
         pixels.map((pixel) =>

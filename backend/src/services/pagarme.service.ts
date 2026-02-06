@@ -159,7 +159,6 @@ export class PagarMeService {
       throw new Error("CPF/CNPJ inválido");
     }
 
-    console.log(`[Pagar.me] Criando pedido PIX: amount=${amount}, customer=${customerEmail}`);
 
     try {
       // Monta o payload conforme a API v5 da Pagar.me
@@ -209,7 +208,6 @@ export class PagarMeService {
         throw new Error("Resposta da Pagar.me não contém dados do PIX");
       }
 
-      console.log(`[Pagar.me] Pedido PIX criado com sucesso: orderId=${data.id}`);
 
       return {
         orderId: data.id,
@@ -249,7 +247,6 @@ export class PagarMeService {
       throw new Error("ID do pedido não fornecido");
     }
 
-    console.log(`[Pagar.me] Consultando pedido: ${orderId}`);
 
     try {
       const response = await axios.get(`${PAGARME_API_URL}/orders/${orderId}`, {
@@ -257,7 +254,6 @@ export class PagarMeService {
         ...getAxiosConfig(PAGARME_TIMEOUT),
       });
 
-      console.log(`[Pagar.me] Pedido consultado: status=${response.data.status}`);
       return response.data;
     } catch (error: any) {
       console.error("[Pagar.me] Erro ao consultar pedido:", error.response?.data || error.message);
@@ -280,7 +276,6 @@ export class PagarMeService {
    */
   async calculateRevenue(userId: string, startDate: Date, endDate: Date): Promise<number> {
     try {
-      console.log(`[Pagar.me] Calculando receita: userId=${userId}, period=${startDate} to ${endDate}`);
 
       const sales = await Sale.find({
         ownerId: new Schema.Types.ObjectId(userId),
@@ -294,7 +289,6 @@ export class PagarMeService {
 
       const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalAmountInCents, 0);
 
-      console.log(`[Pagar.me] Receita calculada: ${totalRevenue} centavos (${sales.length} vendas)`);
       return totalRevenue;
     } catch (error: any) {
       console.error("[Pagar.me] Erro ao calcular receita:", error.message);
@@ -313,7 +307,6 @@ export class PagarMeService {
         ...getAxiosConfig(PAGARME_TIMEOUT),
       });
 
-      console.log("[Pagar.me] Credenciais validadas com sucesso");
       return true;
     } catch (error: any) {
       console.error("[Pagar.me] Credenciais inválidas:", error.response?.data || error.message);

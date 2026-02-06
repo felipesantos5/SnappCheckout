@@ -13,7 +13,6 @@ export const handleOrderPaid = async (eventData: any) => {
     const orderId = eventData.id;
     const orderStatus = eventData.status;
 
-    console.log(`[Pagar.me Webhook] Processando order.paid: orderId=${orderId}, status=${orderStatus}`);
 
     // Busca a venda pelo orderId
     const sale = await Sale.findOne({ pagarme_order_id: orderId });
@@ -24,7 +23,6 @@ export const handleOrderPaid = async (eventData: any) => {
 
     // Verifica se a venda já foi processada
     if (sale.status === "succeeded") {
-      console.log(`[Pagar.me Webhook] Venda já processada: saleId=${sale._id}`);
       return;
     }
 
@@ -35,7 +33,6 @@ export const handleOrderPaid = async (eventData: any) => {
     sale.facebookPurchaseSendAfter = new Date(Date.now() + 10 * 60 * 1000);
     await sale.save();
 
-    console.log(`[Pagar.me Webhook] Venda atualizada para succeeded: saleId=${sale._id}`);
 
     // Busca a oferta para obter configurações de integração
     const offer = await Offer.findById(sale.offerId).populate("ownerId");
@@ -60,7 +57,6 @@ export const handleOrderPaid = async (eventData: any) => {
     // Dispara TODAS as integrações (Facebook, Husky, UTMfy)
     await dispatchAllIntegrations(sale, offer, items);
 
-    console.log(`[Pagar.me Webhook] Processamento concluído para orderId=${orderId}`);
   } catch (error: any) {
     console.error(`[Pagar.me Webhook] Erro ao processar order.paid:`, error);
     throw error; // Re-throw para que o webhook seja retentado
@@ -75,7 +71,6 @@ const dispatchAllIntegrations = async (sale: any, offer: any, items: any[]) => {
   try {
     await sendAccessWebhook(offer as any, sale, items, sale.customerPhone || "");
     sale.integrationsHuskySent = true;
-    console.log(`✅ [Pagar.me] Webhook Husky enviado com sucesso`);
   } catch (error: any) {
     console.error(`❌ [Pagar.me] Erro ao enviar webhook Husky:`, error.message);
     sale.integrationsHuskySent = false;
@@ -108,7 +103,6 @@ const dispatchAllIntegrations = async (sale: any, offer: any, items: any[]) => {
       }
     );
     sale.integrationsUtmfySent = true;
-    console.log(`✅ [Pagar.me] Webhook UTMfy enviado com sucesso`);
   } catch (error: any) {
     console.error(`❌ [Pagar.me] Erro ao enviar webhook UTMfy:`, error.message);
     sale.integrationsUtmfySent = false;
@@ -116,6 +110,5 @@ const dispatchAllIntegrations = async (sale: any, offer: any, items: any[]) => {
 
   // Salva as flags de integração
   await sale.save();
-  console.log(`📊 [Pagar.me] Status das integrações: Husky=${sale.integrationsHuskySent}, Facebook=${sale.integrationsFacebookSent}, UTMfy=${sale.integrationsUtmfySent}`);
 };
 

@@ -48,7 +48,6 @@ export const handlePaymentCaptureCompleted = async (event: PayPalWebhookEvent): 
     if (existingSale) {
       // Se a venda existe mas integrações falharam, tenta reenviar TODAS as integrações
       if (existingSale.status === "succeeded") {
-        console.log(`🔄 [PayPal Webhook] Venda ${existingSale._id} já existe - verificando integrações...`);
         await retryAllIntegrations(existingSale);
       }
       return;
@@ -159,7 +158,6 @@ export const handleVaultPaymentTokenCreated = async (event: any): Promise<void> 
       return;
     }
 
-    console.log(`🔐 [PayPal Vault Webhook] Token criado: vault_id=${vaultId}, customer_id=${paypalCustomerId}`);
 
     // Busca uma venda recente do PayPal para este customer (últimos 10 minutos)
     // para associar ao upsell se necessário
@@ -173,13 +171,11 @@ export const handleVaultPaymentTokenCreated = async (event: any): Promise<void> 
       .populate("offerId");
 
     if (!recentSale) {
-      console.log(`ℹ️ [PayPal Vault Webhook] Nenhuma venda recente encontrada para associar vault token`);
       return;
     }
 
     const offer = recentSale.offerId as any;
     if (!offer?.upsell?.enabled) {
-      console.log(`ℹ️ [PayPal Vault Webhook] Oferta não tem upsell habilitado`);
       return;
     }
 
@@ -199,9 +195,7 @@ export const handleVaultPaymentTokenCreated = async (event: any): Promise<void> 
         existingSession.paymentMethodId = vaultId;
         existingSession.customerId = paypalCustomerId;
         await existingSession.save();
-        console.log(`✅ [PayPal Vault Webhook] UpsellSession ${existingSession.token} atualizada com vault_id: ${vaultId}`);
       } else {
-        console.log(`ℹ️ [PayPal Vault Webhook] UpsellSession já tem vault_id, nada a fazer`);
       }
       return;
     }
@@ -229,7 +223,6 @@ export const handleVaultPaymentTokenCreated = async (event: any): Promise<void> 
       paypalCustomerId: paypalCustomerId,
     });
 
-    console.log(`✅ [PayPal Vault Webhook] Nova UpsellSession criada com token: ${token} (fallback assíncrono)`);
     // Nota: o cliente já foi redirecionado sem upsell neste ponto,
     // mas a sessão fica disponível caso o parceiro tenha lógica de retry
   } catch (error: any) {
@@ -265,10 +258,8 @@ const retryAllIntegrations = async (sale: any): Promise<void> => {
     // A: Reenvia para Husky (área de membros) se não foi enviado ainda
     if (!sale.integrationsHuskySent) {
       try {
-        console.log(`🔄 [PayPal Webhook] Reenviando webhook Husky para venda ${sale._id}`);
         await sendAccessWebhook(offer as any, sale, items, sale.customerPhone || "");
         sale.integrationsHuskySent = true;
-        console.log(`✅ [PayPal Webhook] Webhook Husky reenviado com sucesso`);
       } catch (error: any) {
         console.error(`❌ [PayPal Webhook] Erro ao reenviar webhook Husky:`, error.message);
       }
@@ -280,7 +271,6 @@ const retryAllIntegrations = async (sale: any): Promise<void> => {
     // C: Reenvia para UTMfy se não foi enviado ainda
     if (!sale.integrationsUtmfySent) {
       try {
-        console.log(`🔄 [PayPal Webhook] Reenviando webhook UTMfy para venda ${sale._id}`);
 
         // Importar função de reprocessamento do UTMfy
         const { processUtmfyIntegrationForPayPal } = await import("../../../services/utmfy.service");
@@ -306,7 +296,6 @@ const retryAllIntegrations = async (sale: any): Promise<void> => {
           }
         );
         sale.integrationsUtmfySent = true;
-        console.log(`✅ [PayPal Webhook] Webhook UTMfy reenviado com sucesso`);
       } catch (error: any) {
         console.error(`❌ [PayPal Webhook] Erro ao reenviar webhook UTMfy:`, error.message);
       }
@@ -314,7 +303,6 @@ const retryAllIntegrations = async (sale: any): Promise<void> => {
 
     // Salva as flags de integração
     await sale.save();
-    console.log(`📊 [PayPal Webhook] Integrações reprocessadas: Husky=${sale.integrationsHuskySent}, Facebook=${sale.integrationsFacebookSent}, UTMfy=${sale.integrationsUtmfySent}`);
   } catch (error: any) {
     console.error(`❌ [PayPal Webhook] Erro ao reprocessar integrações:`, error.message);
   }
