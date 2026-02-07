@@ -54,6 +54,8 @@ export const sendAccessWebhook = async (
       subscriptionId: subscriptionId,
     };
 
+    console.log(`🚀 [Husky/Membership Webhook] Sending payload to ${offer.membershipWebhook.url}:`, JSON.stringify(payload, null, 2));
+
     const response = await fetchWithTimeout(offer.membershipWebhook.url, {
       method: "POST",
       headers: {

@@ -5,6 +5,7 @@ import { ISale } from "../models/sale.model";
 import Stripe from "stripe";
 import { convertToBRL, centsToUnits } from "./currency-conversion.service";
 import { fetchWithTimeout } from "../lib/http-client";
+import { getPaymentFeeConfig, calculateNetAmount } from "../config/payment-fees.config";
 
 export interface UTMfyPayload {
   email: string;
@@ -49,8 +50,6 @@ export const sendConversionToUTMfy = async (payload: UTMfyPayload): Promise<void
       offer_id: payload.offerId,
       timestamp: new Date().toISOString(),
     };
-
-    console.log("🚀 [UTMfy] Sending conversion payload:", JSON.stringify(body, null, 2));
 
     // Faz a requisição para a UTMfy (com timeout de 30s)
     const response = await fetchWithTimeout(utmfyApiUrl, {
@@ -104,8 +103,6 @@ export const sendRefundToUTMfy = async (transactionId: string): Promise<void> =>
       timestamp: new Date().toISOString(),
     };
 
-    console.log("🚀 [UTMfy Refund] Sending payload:", JSON.stringify(body, null, 2));
-
     const response = await fetchWithTimeout(`${utmfyApiUrl}/refund`, {
       method: "POST",
       headers: {
@@ -135,7 +132,7 @@ export const sendRefundToUTMfy = async (transactionId: string): Promise<void> =>
  */
 export const sendPurchaseToUTMfyWebhook = async (webhookUrl: string, payload: any): Promise<void> => {
   try {
-    console.log(`🚀 [UTMfy Webhook] Sending payload to ${webhookUrl}:`, JSON.stringify(payload, null, 2));
+    console.log(`🚀 [UTMfy Webhook] Sending to ${webhookUrl}`);
 
     const response = await fetchWithTimeout(webhookUrl, {
       method: "POST",
@@ -215,8 +212,16 @@ export const processUtmfyIntegration = async (
     // CONVERSÃO PARA BRL (UTMfy sempre espera valores em BRL)
     const originalTotalInBRL = await convertToBRL(originalTotalInCents, currencyCode);
     const totalAmountInBRL = await convertToBRL(sale.totalAmountInCents, currencyCode);
-    const platformFeeInBRL = await convertToBRL(sale.platformFeeInCents, currencyCode);
-    const producerAmountInBRL = totalAmountInBRL - platformFeeInBRL;
+    
+    // CÁLCULO DO VALOR LÍQUIDO (após deduzir taxas da plataforma de pagamento)
+    // Detecta a configuração de taxa baseada no método de pagamento e moeda
+    const feeConfig = getPaymentFeeConfig("stripe", currencyCode, "stripe");
+    const netAmountInBRL = calculateNetAmount(totalAmountInBRL, feeConfig);
+    const platformFeeInBRL = totalAmountInBRL - netAmountInBRL;
+    
+    // Taxa da plataforma Snapp (application_fee) já está em sale.platformFeeInCents
+    const snappFeeInBRL = await convertToBRL(sale.platformFeeInCents, currencyCode);
+    const producerAmountInBRL = netAmountInBRL - snappFeeInBRL;
 
     const utmfyPayload = {
       Id: crypto.randomUUID(),
@@ -244,12 +249,13 @@ export const processUtmfyIntegration = async (
           Recurrency: 1,
           PaymentDate: new Date(paymentIntent.created * 1000).toISOString(),
           // VALORES SEMPRE EM BRL (conforme requisito da UTMfy)
+          // IMPORTANTE: Enviamos o valor LÍQUIDO (após taxas) para conferência correta de faturamento
           OriginalPrice: {
             Value: centsToUnits(originalTotalInBRL),
             Currency: "BRL",
           },
           Price: {
-            Value: centsToUnits(totalAmountInBRL),
+            Value: centsToUnits(netAmountInBRL), // VALOR LÍQUIDO (total - taxas da plataforma)
             Currency: "BRL",
           },
           Payment: {
@@ -360,8 +366,16 @@ export const processUtmfyIntegrationForPayPal = async (
     // CONVERSÃO PARA BRL (UTMfy sempre espera valores em BRL)
     const originalTotalInBRL = await convertToBRL(originalTotalInCents, currencyCode);
     const totalAmountInBRL = await convertToBRL(sale.totalAmountInCents, currencyCode);
-    const platformFeeInBRL = await convertToBRL(sale.platformFeeInCents, currencyCode);
-    const producerAmountInBRL = totalAmountInBRL - platformFeeInBRL;
+    
+    // CÁLCULO DO VALOR LÍQUIDO (após deduzir taxas da plataforma de pagamento)
+    // Detecta a configuração de taxa baseada no método de pagamento e moeda
+    const feeConfig = getPaymentFeeConfig("paypal", currencyCode, "paypal");
+    const netAmountInBRL = calculateNetAmount(totalAmountInBRL, feeConfig);
+    const platformFeeInBRL = totalAmountInBRL - netAmountInBRL;
+    
+    // Taxa da plataforma Snapp (application_fee) já está em sale.platformFeeInCents
+    const snappFeeInBRL = await convertToBRL(sale.platformFeeInCents, currencyCode);
+    const producerAmountInBRL = netAmountInBRL - snappFeeInBRL;
 
     // PaymentDate - usa a data de criação da venda (igual ao Stripe que usa paymentIntent.created)
     const paymentDate = (sale as any).createdAt
@@ -401,12 +415,13 @@ export const processUtmfyIntegrationForPayPal = async (
           Recurrency: 1,
           PaymentDate: paymentDate, // Consistente: usa data de criação da venda
           // VALORES SEMPRE EM BRL (conforme requisito da UTMfy)
+          // IMPORTANTE: Enviamos o valor LÍQUIDO (após taxas) para conferência correta de faturamento
           OriginalPrice: {
             Value: centsToUnits(originalTotalInBRL),
             Currency: "BRL",
           },
           Price: {
-            Value: centsToUnits(totalAmountInBRL),
+            Value: centsToUnits(netAmountInBRL), // VALOR LÍQUIDO (total - taxas da plataforma)
             Currency: "BRL",
           },
           Payment: {
