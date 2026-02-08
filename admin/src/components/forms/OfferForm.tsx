@@ -205,6 +205,7 @@ const layoutTypeSchema = z.enum(['classic', 'modern', 'minimal']).default('class
 
 const offerFormSchema = z.object({
   name: z.string().min(3, { message: "Nome do link é obrigatório." }),
+  group: z.string().optional(),
   layoutType: layoutTypeSchema,
   bannerImageUrl: optionalUrl,
   secondaryBannerImageUrl: optionalUrl,
@@ -278,6 +279,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
     resolver: zodResolver(offerFormSchema),
     defaultValues: initialData || {
       name: "",
+      group: "",
       layoutType: "classic",
       bannerImageUrl: "",
       secondaryBannerImageUrl: "",
@@ -449,6 +451,21 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   <FormControl>
                     <Input placeholder="Ex: Lançamento Produto X" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="group"
+              render={({ field }: any) => (
+                <FormItem>
+                  <FormLabel>Grupo/Categoria (Opcional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: Cursos, Mentorias, Desafios" {...field} />
+                  </FormControl>
+                  <FormDescription>Organize suas ofertas e visualize-as em grupos no dashboard.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

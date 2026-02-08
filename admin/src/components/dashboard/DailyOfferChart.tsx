@@ -221,7 +221,7 @@ export function DailyOfferChart({ data }: DailyOfferChartProps) {
                       </div>
                     </TableHead>
                     <TableHead className="text-right text-[10px] sm:text-xs uppercase font-bold text-muted-foreground">
-                      <div className="flex flex-col items-end">
+                      <div className="flex flex-col items-center">
                         <Percent className="h-3 w-3 mb-1 text-green-500" />
                         Conversão
                       </div>

@@ -76,6 +76,7 @@ interface ApiOfferData {
     intervalSeconds: number;
     soundEnabled: boolean;
   };
+  group?: string;
 }
 
 // 3. Esta função transforma os dados da API (cents) para o formato do formulário (reais)
@@ -84,6 +85,7 @@ interface ApiOfferData {
 const transformDataForForm = (data: ApiOfferData): OfferFormData => {
   return {
     name: data.name,
+    group: data.group || "",
     bannerImageUrl: data.bannerImageUrl,
     secondaryBannerImageUrl: data.secondaryBannerImageUrl,
     thankYouPageUrl: data.thankYouPageUrl,

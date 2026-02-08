@@ -9,12 +9,13 @@ import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import { API_URL } from "@/config/BackendUrl";
 // import { Badge } from "@/components/ui/badge";
-import { Archive, ArchiveRestore, BarChart3, Copy, ImageIcon, Loader2, MoreVertical, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, BarChart3, ChevronDown, Copy, ImageIcon, Loader2, MoreVertical, Trash2 } from "lucide-react";
 import type { product } from "@/types/product";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 
 // Tipo para os dados da oferta
 interface Offer {
@@ -27,6 +28,7 @@ interface Offer {
   currency: string;
   archived?: boolean;
   isActive: boolean;
+  group?: string;
 }
 
 // Helper de formatação de moeda
@@ -161,167 +163,228 @@ export function OffersPage() {
     }
   };
 
+  // Agrupar ofertas por grupo
+  const groupedOffers = offers.reduce((acc, offer) => {
+    const groupName = offer.group || "Outras Ofertas";
+    if (!acc[groupName]) {
+      acc[groupName] = [];
+    }
+    acc[groupName].push(offer);
+    return acc;
+  }, {} as Record<string, Offer[]>);
+
+  // Estado para controlar quais grupos estão abertos (todos abertos por padrão)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    // Inicializa todos os grupos como abertos quando as ofertas são carregadas
+    if (offers.length > 0) {
+      const initialOpen: Record<string, boolean> = {};
+      Object.keys(groupedOffers).forEach((group) => {
+        initialOpen[group] = true;
+      });
+      setOpenGroups(initialOpen);
+    }
+  }, [offers.length]);
+
+  const toggleGroup = (groupName: string) => {
+    setOpenGroups((prev) => ({
+      ...prev,
+      [groupName]: !prev[groupName],
+    }));
+  };
+
   return (
-    <div className="max-w-[1300px] m-auto">
-      {/* Cabeçalho da Página (FORA do card, como no protótipo) */}
-      <div className="flex justify-between items-center mb-6">
+    <div className="max-w-[1600px] m-auto space-y-6">
+      {/* Cabeçalho da Página */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold">{showArchived ? "Links arquivados" : "Links de pagamento"}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            {showArchived ? "Links arquivados" : "Links de pagamento"}
+          </h1>
           <p className="text-sm text-muted-foreground">{isLoading ? "..." : `${offers.length} ${offers.length === 1 ? "registro" : "registros"}`}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowArchived(!showArchived)}>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            onClick={() => setShowArchived(!showArchived)}
+            className="flex-1 sm:flex-none h-10"
+          >
             {showArchived ? (
               <>
                 <ArchiveRestore className="h-4 w-4 mr-2" />
-                Ver Ativos
+                <span className="hidden xs:inline">Ver Ativos</span>
+                <span className="xs:hidden">Ativos</span>
               </>
             ) : (
               <>
                 <Archive className="h-4 w-4 mr-2" />
-                Ver Arquivados
+                <span className="hidden xs:inline">Ver Arquivados</span>
+                <span className="xs:hidden">Arquivados</span>
               </>
             )}
           </Button>
-          <Button asChild>
-            <Link to="/offers/new">+ Adicionar link</Link>
+          <Button asChild className="flex-1 sm:flex-none h-10 bg-[#fdbf08] hover:bg-[#fdd049] text-black border-none">
+            <Link to="/offers/new" className="flex items-center justify-center">
+              + <span className="hidden xs:inline ml-1">Adicionar link</span>
+              <span className="xs:hidden ml-1">Novo</span>
+            </Link>
           </Button>
         </div>
       </div>
 
-      {/* 4. Card que envolve a Tabela. 
-          overflow-hidden é para os cantos arredondados funcionarem no Header da tabela */}
-      <Card className="overflow-hidden p-0">
-        <Table>
-          {/* 5. Cabeçalho da Tabela estilizado para parecer com o protótipo */}
-          <TableHeader>
-            <TableRow className="hover:bg-transparent bg-muted/50">
-              <TableHead className="w-2/5 px-6 py-3 text-xs font-semibold uppercase tracking-wider">Descrição</TableHead>
-              <TableHead className="w-28 px-6 py-3 text-xs font-semibold uppercase tracking-wider">Valor</TableHead>
-              <TableHead className="w-36 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-center">Vendas</TableHead>
-              <TableHead className="w-36 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-right">Faturamento</TableHead>
-              <TableHead className="w-36 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-center">URL</TableHead>
-              <TableHead className=" px-6 py-3 text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
+      {isLoading ? (
+        <Card className="p-12 flex justify-center items-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </Card>
+      ) : offers.length === 0 ? (
+        <Card className="p-12 text-center text-muted-foreground">
+          Nenhum link de pagamento encontrado.
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {Object.entries(groupedOffers).map(([groupName, groupOffers]) => (
+            <div key={groupName} className="space-y-2">
+              <div
+                className="flex items-center gap-2 cursor-pointer group"
+                onClick={() => toggleGroup(groupName)}
+              >
+                <div className={`transition-transform duration-200 ${openGroups[groupName] ? "rotate-180" : ""}`}>
+                  <ChevronDown className="h-5 w-5 text-muted-foreground group-hover:text-foreground" />
+                </div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground group-hover:text-foreground">
+                  {groupName}
+                </h3>
+                <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+                  {groupOffers.length}
+                </span>
+                <div className="h-[1px] bg-muted flex-1 ml-2"></div>
+              </div>
 
-          {/* 6. Corpo da Tabela */}
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-48 text-center">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                </TableCell>
-              </TableRow>
-            ) : offers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-48 text-center text-muted-foreground">
-                  Nenhum link de pagamento encontrado.
-                </TableCell>
-              </TableRow>
-            ) : (
-              offers.map((offer) => (
-                <TableRow key={offer._id} className="hover:bg-muted/50">
-                  {/* DESCRIÇÃO */}
-                  <TableCell className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        checked={offer.isActive}
-                        onCheckedChange={() => handleToggleActive(offer._id, offer.isActive)}
-                        aria-label="Ativar/Desativar oferta"
-                      />
-                      {/* <img src={offer.mainProduct.imageUrl || "/default-product-image.png"} alt="imagem do produto" className="w-9" /> */}
-                      <Avatar className="h-9 w-9 ">
-                        <AvatarImage src={offer.mainProduct.imageUrl} alt={"imagem do produto"} />
-                        <AvatarFallback className="rounded-md">
-                          <ImageIcon />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium text-sm text-foreground">{offer.name}</div>
-                        <div className="text-xs text-muted-foreground">{offer.slug}</div>
-                      </div>
-                    </div>
-                  </TableCell>
+              {openGroups[groupName] && (
+                <Card className="overflow-hidden p-0 border-none shadow-sm ring-1 ring-border">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent bg-muted/30">
+                          <TableHead className="w-2/5 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60">Descrição</TableHead>
+                          <TableHead className="w-28 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60">Valor</TableHead>
+                          <TableHead className="w-36 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-center">Vendas</TableHead>
+                          <TableHead className="w-36 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-right">Faturamento</TableHead>
+                          <TableHead className="w-36 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-center">URL</TableHead>
+                          <TableHead className=" px-6 py-3 text-right text-[10px] font-bold uppercase tracking-widest opacity-60">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {groupOffers.map((offer) => (
+                          <TableRow key={offer._id} className="hover:bg-muted/50 transition-colors">
+                            <TableCell className="px-6 py-3">
+                              <div className="flex items-center gap-4">
+                                <Switch
+                                  checked={offer.isActive}
+                                  onCheckedChange={() => handleToggleActive(offer._id, offer.isActive)}
+                                  aria-label="Ativar/Desativar oferta"
+                                  className="data-[state=checked]:bg-yellow-500"
+                                />
+                                <Avatar className="h-10 w-10 border border-muted shadow-sm">
+                                  <AvatarImage src={offer.mainProduct.imageUrl} alt={offer.name} />
+                                  <AvatarFallback className="rounded-md bg-muted">
+                                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="font-semibold text-sm text-foreground">{offer.name}</div>
+                                  <div className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded w-fit mt-1">{offer.slug}</div>
+                                </div>
+                              </div>
+                            </TableCell>
 
-                  {/* VALOR */}
-                  <TableCell className="px-6 py-4 text-sm font-medium text-foreground whitespace-nowrap">
-                    {formatCurrency(offer.mainProduct.priceInCents, offer.currency)}
-                  </TableCell>
+                            <TableCell className="px-6 py-3 text-sm font-semibold text-foreground whitespace-nowrap">
+                              {formatCurrency(offer.mainProduct.priceInCents, offer.currency)}
+                            </TableCell>
 
-                  {/* VENDAS */}
-                  <TableCell className="px-6 py-4 text-center">
-                    <span className="text-sm font-medium text-foreground">{offer.salesCount || 0}</span>
-                  </TableCell>
+                            <TableCell className="px-6 py-3 text-center">
+                              <span className="text-sm font-medium text-foreground">{offer.salesCount || 0}</span>
+                            </TableCell>
 
-                  {/* FATURAMENTO */}
-                  <TableCell className="px-6 py-4 text-center whitespace-nowrap">
-                    <span className="text-sm font-bold text-foreground">{formatCurrency(offer.totalRevenue || 0, offer.currency)}</span>
-                  </TableCell>
+                            <TableCell className="px-6 py-3 text-right whitespace-nowrap">
+                              <span className="text-sm font-bold text-foreground">{formatCurrency(offer.totalRevenue || 0, offer.currency)}</span>
+                            </TableCell>
 
-                  {/* URL */}
-                  <TableCell className="px-6 py-4 text-center">
-                    <Button variant="link" size="sm" onClick={() => handleCopy(offer.slug)} className="text-xs p-0 h-auto text-primary">
-                      Copiar Link
-                      <Copy className="h-3 w-3 ml-1.5" />
-                    </Button>
-                  </TableCell>
+                            <TableCell className="px-6 py-3 text-center">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCopy(offer.slug)}
+                                className="text-[10px] font-bold h-7 gap-1.5 hover:bg-yellow-50 hover:text-yellow-700 transition-colors"
+                              >
+                                COPIAR LINK
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </TableCell>
 
-                  {/* STATUS (Mockado como "Ativo") */}
-                  {/* <TableCell className="px-6 py-4 text-right">
-                    <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 font-medium">
-                      Ativo
-                    </Badge>
-                  </TableCell> */}
+                            <TableCell className="px-6 py-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button variant="outline" size="sm" className="h-8 text-xs font-semibold" asChild>
+                                  <Link to={`/offers/${offer._id}`}>Editar</Link>
+                                </Button>
 
-                  {/* AÇÕES (Editar e Deletar) */}
-                  <TableCell className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link to={`/offers/${offer._id}`}>Editar</Link>
-                      </Button>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => navigate(`/offers/${offer._id}/analytics`)}
+                                  title="Ver Métricas"
+                                >
+                                  <BarChart3 className="h-4 w-4" />
+                                </Button>
 
-                      <Button variant="outline" size="icon" onClick={() => navigate(`/offers/${offer._id}/analytics`)} title="Ver Métricas">
-                        <BarChart3 className="h-4 w-4" />
-                      </Button>
-
-                      {/* Dropdown Menu com 3 pontinhos */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleDuplicate(offer._id)}>
-                            <Copy className="h-4 w-4 mr-2" />
-                            Duplicar
-                          </DropdownMenuItem>
-                          {showArchived ? (
-                            <DropdownMenuItem onClick={() => handleUnarchive(offer._id)}>
-                              <ArchiveRestore className="h-4 w-4 mr-2" />
-                              Desarquivar
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={() => handleArchive(offer._id)}>
-                              <Archive className="h-4 w-4 mr-2" />
-                              Arquivar
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => setOfferToDelete(offer)} className="text-destructive focus:text-destructive">
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Deletar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="icon" className="h-8 w-8">
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuItem onClick={() => handleDuplicate(offer._id)} className="gap-2">
+                                      <Copy className="h-4 w-4" />
+                                      Duplicar
+                                    </DropdownMenuItem>
+                                    {showArchived ? (
+                                      <DropdownMenuItem onClick={() => handleUnarchive(offer._id)} className="gap-2">
+                                        <ArchiveRestore className="h-4 w-4" />
+                                        Desarquivar
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem onClick={() => handleArchive(offer._id)} className="gap-2">
+                                        <Archive className="h-4 w-4" />
+                                        Arquivar
+                                      </DropdownMenuItem>
+                                    )}
+                                    <Separator className="my-1" />
+                                    <DropdownMenuItem
+                                      onClick={() => setOfferToDelete(offer)}
+                                      className="text-destructive focus:text-destructive gap-2"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      Deletar
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Card>
+              )}
+            </div>
+          ))}
+        </div>
+      )
+      }
 
       {/* Modal de Confirmação de Exclusão */}
       <Dialog open={!!offerToDelete} onOpenChange={(open) => !open && setOfferToDelete(null)}>

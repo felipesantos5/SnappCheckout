@@ -41,6 +41,7 @@ export type CreateOfferPayload = {
   layoutType: string;
   mainProduct: any; // Recebe o objeto
   orderBumps: any[]; // Recebe o array de objetos
+  group?: string; // Novo: campo para organizar ofertas em grupos
   currency: string;
   primaryColor?: string;
   buttonColor?: string;

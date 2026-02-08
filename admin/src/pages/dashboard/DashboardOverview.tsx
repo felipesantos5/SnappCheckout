@@ -260,10 +260,10 @@ export function DashboardOverview() {
               <SelectContent>
                 <SelectItem value="1">Hoje</SelectItem>
                 <SelectItem value="yesterday">Ontem</SelectItem>
-                <SelectItem value="30">Últimos 30 dias</SelectItem>
-                <SelectItem value="all">Tempo Total</SelectItem>
                 <SelectItem value="7">Últimos 7 dias</SelectItem>
+                <SelectItem value="30">Últimos 30 dias</SelectItem>
                 <SelectItem value="90">Últimos 3 meses</SelectItem>
+                <SelectItem value="all">Tempo Total</SelectItem>
                 <SelectItem value="custom">Personalizado</SelectItem>
               </SelectContent>
             </Select>
