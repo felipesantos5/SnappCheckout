@@ -1,5 +1,5 @@
 // src/pages/dashboard/OffersPage.tsx
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 // 1. Importar os componentes da tabela shadcn
@@ -16,6 +16,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { X } from "lucide-react";
 
 // Tipo para os dados da oferta
 interface Offer {
@@ -54,6 +58,11 @@ export function OffersPage() {
   const [offerToDelete, setOfferToDelete] = useState<Offer | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<string>("all");
+  const [selectedOffers, setSelectedOffers] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isMoveGroupOpen, setIsMoveGroupOpen] = useState(false);
+  const [targetGroupName, setTargetGroupName] = useState("");
   const navigate = useNavigate();
 
   // Função para buscar os dados
@@ -163,8 +172,15 @@ export function OffersPage() {
     }
   };
 
+  // Filtragem e Busca
+  const filteredOffers = offers.filter(offer => {
+    const matchesSearch = offer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      offer.slug.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
+
   // Agrupar ofertas por grupo
-  const groupedOffers = offers.reduce((acc, offer) => {
+  const groupedOffers = filteredOffers.reduce((acc, offer) => {
     const groupName = offer.group || "Outras Ofertas";
     if (!acc[groupName]) {
       acc[groupName] = [];
@@ -172,6 +188,13 @@ export function OffersPage() {
     acc[groupName].push(offer);
     return acc;
   }, {} as Record<string, Offer[]>);
+
+  // Filtrar as ofertas pelo grupo selecionado (se houver)
+  const allGroups = Object.keys(groupedOffers).sort();
+
+  const filteredGroups = selectedGroup === "all"
+    ? groupedOffers
+    : { [selectedGroup]: groupedOffers[selectedGroup] || [] };
 
   // Estado para controlar quais grupos estão abertos (todos abertos por padrão)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -194,17 +217,114 @@ export function OffersPage() {
     }));
   };
 
+  const toggleSelectAllGroup = (groupOffers: Offer[]) => {
+    const groupIds = groupOffers.map(o => o._id);
+    const allSelected = groupIds.every(id => selectedOffers.includes(id));
+
+    if (allSelected) {
+      setSelectedOffers(prev => prev.filter(id => !groupIds.includes(id)));
+    } else {
+      setSelectedOffers(prev => [...new Set([...prev, ...groupIds])]);
+    }
+  };
+
+  const handleBulkMoveToGroup = async () => {
+    if (selectedOffers.length === 0 || !targetGroupName.trim()) return;
+
+    try {
+      toast.loading(`Movendo ${selectedOffers.length} ofertas para "${targetGroupName}"...`);
+      // Fazemos sequencialmente ou poderíamos ter um endpoint de bulk no backend
+      // Para não mexer no backend agora, faremos um por um (não ideal mas funciona)
+      await Promise.all(selectedOffers.map(id =>
+        axios.patch(`${API_URL}/offers/${id}`, { group: targetGroupName.trim() })
+      ));
+
+      toast.dismiss();
+      toast.success("Categorias atualizadas!");
+      setIsMoveGroupOpen(false);
+      setTargetGroupName("");
+      setSelectedOffers([]);
+      fetchOffers(showArchived);
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Erro ao mover ofertas.");
+    }
+  };
+
+  const handleBulkArchive = async () => {
+    if (selectedOffers.length === 0) return;
+    try {
+      toast.loading("Arquivando ofertas selecionadas...");
+      await Promise.all(selectedOffers.map(id => axios.patch(`${API_URL}/offers/${id}/archive`)));
+      toast.dismiss();
+      toast.success("Ofertas arquivadas!");
+      setSelectedOffers([]);
+      fetchOffers(showArchived);
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Erro ao arquivar.");
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedOffers.length === 0) return;
+    if (!confirm(`Deseja deletar ${selectedOffers.length} ofertas?`)) return;
+
+    try {
+      toast.loading("Deletando ofertas selecionadas...");
+      await Promise.all(selectedOffers.map(id => axios.delete(`${API_URL}/offers/${id}`)));
+      toast.dismiss();
+      toast.success("Ofertas deletadas!");
+      setSelectedOffers([]);
+      fetchOffers(showArchived);
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Erro ao deletar.");
+    }
+  };
+
   return (
     <div className="max-w-[1600px] m-auto space-y-6">
       {/* Cabeçalho da Página */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             {showArchived ? "Links arquivados" : "Links de pagamento"}
           </h1>
-          <p className="text-sm text-muted-foreground">{isLoading ? "..." : `${offers.length} ${offers.length === 1 ? "registro" : "registros"}`}</p>
+          <p className="text-sm text-muted-foreground">{isLoading ? "..." : `${filteredOffers.length} ${filteredOffers.length === 1 ? "registro" : "registros"}`}</p>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Busca */}
+          <div className="relative w-full sm:w-[250px]">
+            <Input
+              placeholder="Buscar por nome ou slug..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-10 pl-3 pr-10"
+            />
+            {searchTerm && (
+              <X
+                className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground"
+                onClick={() => setSearchTerm("")}
+              />
+            )}
+          </div>
+          {/* Filtro de Categorias */}
+          {allGroups.length > 0 && (
+            <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+              <SelectTrigger className="w-full sm:w-[180px] h-10">
+                <SelectValue placeholder="Categorias" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas categorias</SelectItem>
+                <Separator className="my-1" />
+                {allGroups.map(group => (
+                  <SelectItem key={group} value={group}>{group}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Button
             variant="outline"
             onClick={() => setShowArchived(!showArchived)}
@@ -233,6 +353,48 @@ export function OffersPage() {
         </div>
       </div>
 
+      {/* Barra de Ações em Massa */}
+      {selectedOffers.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-bold text-yellow-800">
+              {selectedOffers.length} {selectedOffers.length === 1 ? "selecionado" : "selecionados"}
+            </span>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedOffers([])} className="h-7 text-xs text-yellow-700 hover:text-yellow-900 border-none">
+              Limpar seleção
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1 sm:flex-none h-8 text-xs font-bold border-yellow-300 hover:bg-yellow-100"
+              onClick={() => setIsMoveGroupOpen(true)}
+            >
+              MOVER PARA GRUPO
+            </Button>
+            {!showArchived && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 sm:flex-none h-8 text-xs font-bold border-yellow-300 hover:bg-yellow-100"
+                onClick={handleBulkArchive}
+              >
+                ARQUIVAR
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="flex-1 sm:flex-none h-8 text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={handleBulkDelete}
+            >
+              DELETAR
+            </Button>
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <Card className="p-12 flex justify-center items-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -242,149 +404,165 @@ export function OffersPage() {
           Nenhum link de pagamento encontrado.
         </Card>
       ) : (
-        <div className="space-y-4">
-          {Object.entries(groupedOffers).map(([groupName, groupOffers]) => (
-            <div key={groupName} className="space-y-2">
-              <div
-                className="flex items-center gap-2 cursor-pointer group"
-                onClick={() => toggleGroup(groupName)}
-              >
-                <div className={`transition-transform duration-200 ${openGroups[groupName] ? "rotate-180" : ""}`}>
-                  <ChevronDown className="h-5 w-5 text-muted-foreground group-hover:text-foreground" />
-                </div>
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground group-hover:text-foreground">
-                  {groupName}
-                </h3>
-                <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
-                  {groupOffers.length}
-                </span>
-                <div className="h-[1px] bg-muted flex-1 ml-2"></div>
-              </div>
+        <Card className="overflow-hidden p-0 border-none shadow-sm ring-1 ring-border">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent bg-muted/30">
+                  <TableHead className="w-12 px-4 py-3"></TableHead>
+                  <TableHead className="w-2/5 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60">Descrição</TableHead>
+                  <TableHead className="w-28 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60">Valor</TableHead>
+                  <TableHead className="w-36 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-center">Vendas</TableHead>
+                  <TableHead className="w-36 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-right">Faturamento</TableHead>
+                  <TableHead className="w-36 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-center">URL</TableHead>
+                  <TableHead className="px-6 py-3 text-right text-[10px] font-bold uppercase tracking-widest opacity-60">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Object.entries(filteredGroups).map(([groupName, groupOffers]) => (
+                  <React.Fragment key={groupName}>
+                    {/* Linha de Agrupamento (Accordion) */}
+                    <TableRow
+                      className="bg-muted/10 hover:bg-muted/20 cursor-pointer border-y border-muted/50"
+                    >
+                      <TableCell className="px-4 py-2 border-none">
+                        <Checkbox
+                          checked={groupOffers.every(o => selectedOffers.includes(o._id))}
+                          onCheckedChange={() => toggleSelectAllGroup(groupOffers)}
+                          className="border-muted-foreground/30 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
+                        />
+                      </TableCell>
+                      <TableCell colSpan={6} className="py-2 px-6 border-none" onClick={() => toggleGroup(groupName)}>
+                        <div className="flex items-center gap-2">
+                          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openGroups[groupName] ? "" : "-rotate-90"}`} />
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                            {groupName}
+                          </span>
+                          <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground font-medium">
+                            {groupOffers.length}
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
 
-              {openGroups[groupName] && (
-                <Card className="overflow-hidden p-0 border-none shadow-sm ring-1 ring-border">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="hover:bg-transparent bg-muted/30">
-                          <TableHead className="w-2/5 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60">Descrição</TableHead>
-                          <TableHead className="w-28 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60">Valor</TableHead>
-                          <TableHead className="w-36 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-center">Vendas</TableHead>
-                          <TableHead className="w-36 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-right">Faturamento</TableHead>
-                          <TableHead className="w-36 px-6 py-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-center">URL</TableHead>
-                          <TableHead className=" px-6 py-3 text-right text-[10px] font-bold uppercase tracking-widest opacity-60">Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {groupOffers.map((offer) => (
-                          <TableRow key={offer._id} className="hover:bg-muted/50 transition-colors">
-                            <TableCell className="px-6 py-3">
-                              <div className="flex items-center gap-4">
-                                <Switch
-                                  checked={offer.isActive}
-                                  onCheckedChange={() => handleToggleActive(offer._id, offer.isActive)}
-                                  aria-label="Ativar/Desativar oferta"
-                                  className="data-[state=checked]:bg-yellow-500"
-                                />
-                                <Avatar className="h-10 w-10 border border-muted shadow-sm">
-                                  <AvatarImage src={offer.mainProduct.imageUrl} alt={offer.name} />
-                                  <AvatarFallback className="rounded-md bg-muted">
-                                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <div className="font-semibold text-sm text-foreground">{offer.name}</div>
-                                  <div className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded w-fit mt-1">{offer.slug}</div>
-                                </div>
-                              </div>
-                            </TableCell>
+                    {/* Ofertas do Grupo */}
+                    {openGroups[groupName] && groupOffers.map((offer) => (
+                      <TableRow key={offer._id} className={`hover:bg-muted/50 transition-colors ${selectedOffers.includes(offer._id) ? "bg-yellow-50/50" : ""}`}>
+                        <TableCell className="px-4 py-3">
+                          <Checkbox
+                            checked={selectedOffers.includes(offer._id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) setSelectedOffers(prev => [...prev, offer._id]);
+                              else setSelectedOffers(prev => prev.filter(id => id !== offer._id));
+                            }}
+                            className="border-muted-foreground/30 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
+                          />
+                        </TableCell>
+                        <TableCell className="px-6 py-3 cursor-pointer" onClick={() => navigate(`/offers/${offer._id}`)}>
+                          <div className="flex items-center gap-4">
+                            <Switch
+                              checked={offer.isActive}
+                              onCheckedChange={() => handleToggleActive(offer._id, offer.isActive)}
+                              aria-label="Ativar/Desativar oferta"
+                              className="data-[state=checked]:bg-yellow-500"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <Avatar className="h-10 w-10 border border-muted shadow-sm">
+                              <AvatarImage src={offer.mainProduct.imageUrl} alt={offer.name} />
+                              <AvatarFallback className="rounded-md bg-muted">
+                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-semibold text-sm text-foreground">{offer.name}</div>
+                              <div className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded w-fit mt-1">{offer.slug}</div>
+                            </div>
+                          </div>
+                        </TableCell>
 
-                            <TableCell className="px-6 py-3 text-sm font-semibold text-foreground whitespace-nowrap">
-                              {formatCurrency(offer.mainProduct.priceInCents, offer.currency)}
-                            </TableCell>
+                        <TableCell className="px-6 py-3 text-sm font-semibold text-foreground whitespace-nowrap">
+                          {formatCurrency(offer.mainProduct.priceInCents, offer.currency)}
+                        </TableCell>
 
-                            <TableCell className="px-6 py-3 text-center">
-                              <span className="text-sm font-medium text-foreground">{offer.salesCount || 0}</span>
-                            </TableCell>
+                        <TableCell className="px-6 py-3 text-center">
+                          <span className="text-sm font-medium text-foreground">{offer.salesCount || 0}</span>
+                        </TableCell>
 
-                            <TableCell className="px-6 py-3 text-right whitespace-nowrap">
-                              <span className="text-sm font-bold text-foreground">{formatCurrency(offer.totalRevenue || 0, offer.currency)}</span>
-                            </TableCell>
+                        <TableCell className="px-6 py-3 text-right whitespace-nowrap">
+                          <span className="text-sm font-bold text-foreground">{formatCurrency(offer.totalRevenue || 0, offer.currency)}</span>
+                        </TableCell>
 
-                            <TableCell className="px-6 py-3 text-center">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleCopy(offer.slug)}
-                                className="text-[10px] font-bold h-7 gap-1.5 hover:bg-yellow-50 hover:text-yellow-700 transition-colors"
-                              >
-                                COPIAR LINK
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                            </TableCell>
+                        <TableCell className="px-6 py-3 text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopy(offer.slug)}
+                            className="text-[10px] font-bold h-7 gap-1.5 hover:bg-yellow-50 hover:text-yellow-700 transition-colors"
+                          >
+                            COPIAR LINK
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </TableCell>
 
-                            <TableCell className="px-6 py-3 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <Button variant="outline" size="sm" className="h-8 text-xs font-semibold" asChild>
-                                  <Link to={`/offers/${offer._id}`}>Editar</Link>
+                        <TableCell className="px-6 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button variant="outline" size="sm" className="h-8 text-xs font-semibold" asChild>
+                              <Link to={`/offers/${offer._id}`}>Editar</Link>
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => navigate(`/offers/${offer._id}/analytics`)}
+                              title="Ver Métricas"
+                            >
+                              <BarChart3 className="h-4 w-4" />
+                            </Button>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-8 w-8">
+                                  <MoreVertical className="h-4 w-4" />
                                 </Button>
-
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => navigate(`/offers/${offer._id}/analytics`)}
-                                  title="Ver Métricas"
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem onClick={() => handleDuplicate(offer._id)} className="gap-2">
+                                  <Copy className="h-4 w-4" />
+                                  Duplicar
+                                </DropdownMenuItem>
+                                {showArchived ? (
+                                  <DropdownMenuItem onClick={() => handleUnarchive(offer._id)} className="gap-2">
+                                    <ArchiveRestore className="h-4 w-4" />
+                                    Desarquivar
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem onClick={() => handleArchive(offer._id)} className="gap-2">
+                                    <Archive className="h-4 w-4" />
+                                    Arquivar
+                                  </DropdownMenuItem>
+                                )}
+                                <Separator className="my-1" />
+                                <DropdownMenuItem
+                                  onClick={() => setOfferToDelete(offer)}
+                                  className="text-destructive focus:text-destructive gap-2"
                                 >
-                                  <BarChart3 className="h-4 w-4" />
-                                </Button>
-
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="icon" className="h-8 w-8">
-                                      <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-48">
-                                    <DropdownMenuItem onClick={() => handleDuplicate(offer._id)} className="gap-2">
-                                      <Copy className="h-4 w-4" />
-                                      Duplicar
-                                    </DropdownMenuItem>
-                                    {showArchived ? (
-                                      <DropdownMenuItem onClick={() => handleUnarchive(offer._id)} className="gap-2">
-                                        <ArchiveRestore className="h-4 w-4" />
-                                        Desarquivar
-                                      </DropdownMenuItem>
-                                    ) : (
-                                      <DropdownMenuItem onClick={() => handleArchive(offer._id)} className="gap-2">
-                                        <Archive className="h-4 w-4" />
-                                        Arquivar
-                                      </DropdownMenuItem>
-                                    )}
-                                    <Separator className="my-1" />
-                                    <DropdownMenuItem
-                                      onClick={() => setOfferToDelete(offer)}
-                                      className="text-destructive focus:text-destructive gap-2"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                      Deletar
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </Card>
-              )}
-            </div>
-          ))}
-        </div>
-      )
-      }
+                                  <Trash2 className="h-4 w-4" />
+                                  Deletar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      )}
 
       {/* Modal de Confirmação de Exclusão */}
       <Dialog open={!!offerToDelete} onOpenChange={(open) => !open && setOfferToDelete(null)}>
@@ -406,6 +584,60 @@ export function OffersPage() {
               ) : (
                 "Deletar"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Mover para Grupo (Nova Categoria) */}
+      <Dialog open={isMoveGroupOpen} onOpenChange={setIsMoveGroupOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Organizar Categorias</DialogTitle>
+            <DialogDescription>
+              Selecione ou crie um novo grupo para as {selectedOffers.length} ofertas selecionadas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nome da Categoria/Grupo</label>
+              <Input
+                placeholder="Ex: Cursos, Mentorias, Ofertas VIP..."
+                value={targetGroupName}
+                onChange={(e) => setTargetGroupName(e.target.value)}
+                autoFocus
+              />
+              <p className="text-[10px] text-muted-foreground italic">
+                Se o grupo não existir, ele será criado automaticamente.
+              </p>
+            </div>
+            {allGroups.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Grupos Existentes</label>
+                <div className="flex flex-wrap gap-2">
+                  {allGroups.map(g => (
+                    <Button
+                      key={g}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[10px]"
+                      onClick={() => setTargetGroupName(g)}
+                    >
+                      {g}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMoveGroupOpen(false)}>Cancelar</Button>
+            <Button
+              className="bg-[#fdbf08] hover:bg-[#fdd049] text-black"
+              onClick={handleBulkMoveToGroup}
+              disabled={!targetGroupName.trim()}
+            >
+              Confirmar
             </Button>
           </DialogFooter>
         </DialogContent>
