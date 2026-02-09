@@ -87,6 +87,7 @@ export interface IOffer extends Document {
   archived: boolean; // Se a oferta está arquivada
   isActive: boolean; // Se a oferta está ativa (pode ser acessada no checkout)
   group?: string; // Novo: campo para organizar ofertas em grupos
+  categoryId?: Schema.Types.ObjectId; // Novo: referência ao model de Categoria/Pasta
 
   createdAt?: Date;
   updatedAt?: Date;
@@ -261,6 +262,11 @@ const offerSchema = new Schema<IOffer>(
     group: {
       type: String,
       default: "",
+    },
+    categoryId: {
+      type: Schema.Types.ObjectId,
+      ref: "Category",
+      index: true,
     },
   },
   { timestamps: true }

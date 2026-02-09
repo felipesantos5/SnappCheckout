@@ -206,6 +206,7 @@ const layoutTypeSchema = z.enum(['classic', 'modern', 'minimal']).default('class
 const offerFormSchema = z.object({
   name: z.string().min(3, { message: "Nome do link é obrigatório." }),
   group: z.string().optional(),
+  categoryId: z.string().optional(),
   layoutType: layoutTypeSchema,
   bannerImageUrl: optionalUrl,
   secondaryBannerImageUrl: optionalUrl,
@@ -273,13 +274,19 @@ interface OfferFormProps {
 
 export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
   const isEditMode = !!offerId;
+
+  React.useEffect(() => {
+    axios.get(`${API_URL}/categories`).then(res => setCategories(res.data)).catch(() => { });
+  }, []);
 
   const form = useForm<OfferFormData>({
     resolver: zodResolver(offerFormSchema),
     defaultValues: initialData || {
       name: "",
       group: "",
+      categoryId: "",
       layoutType: "classic",
       bannerImageUrl: "",
       secondaryBannerImageUrl: "",
@@ -384,7 +391,12 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
       };
     };
 
-    const dataToSubmit = transformPrices(values as OfferFormOutput);
+    const valuesCopy = { ...values };
+    if (valuesCopy.categoryId === "none") {
+      valuesCopy.categoryId = undefined;
+    }
+
+    const dataToSubmit = transformPrices(valuesCopy as OfferFormOutput);
 
     try {
       if (isEditMode) {
@@ -458,14 +470,24 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
 
             <FormField
               control={form.control}
-              name="group"
+              name="categoryId"
               render={({ field }: any) => (
                 <FormItem>
-                  <FormLabel>Grupo/Categoria (Opcional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Cursos, Mentorias, Desafios" {...field} />
-                  </FormControl>
-                  <FormDescription>Organize suas ofertas e visualize-as em grupos no dashboard.</FormDescription>
+                  <FormLabel>Pasta/Categoria (Opcional)</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma pasta" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhuma (Outras Ofertas)</SelectItem>
+                      {categories.map((cat: any) => (
+                        <SelectItem key={cat._id} value={cat._id}>{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>Organize suas ofertas em pastas para melhor visualização.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

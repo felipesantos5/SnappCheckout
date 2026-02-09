@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import { API_URL } from "@/config/BackendUrl";
 // import { Badge } from "@/components/ui/badge";
-import { Archive, ArchiveRestore, BarChart3, ChevronDown, Copy, ImageIcon, Loader2, MoreVertical, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, BarChart3, ChevronDown, Copy, FolderPlus, ImageIcon, Loader2, MoreVertical, Pencil, Trash, Trash2 } from "lucide-react";
 import type { product } from "@/types/product";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -33,6 +33,13 @@ interface Offer {
   archived?: boolean;
   isActive: boolean;
   group?: string;
+  categoryId?: string;
+}
+
+interface Category {
+  _id: string;
+  name: string;
+  order: number;
 }
 
 // Helper de formatação de moeda
@@ -63,20 +70,65 @@ export function OffersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isMoveGroupOpen, setIsMoveGroupOpen] = useState(false);
   const [targetGroupName, setTargetGroupName] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);
   const navigate = useNavigate();
 
   // Função para buscar os dados
   const fetchOffers = async (archived: boolean = false) => {
     setIsLoading(true);
     try {
-      const response = await axios.get(`${API_URL}/offers?archived=${archived}`);
-      setOffers(response.data);
+      const [offersRes, categoriesRes] = await Promise.all([
+        axios.get(`${API_URL}/offers?archived=${archived}`),
+        axios.get(`${API_URL}/categories`)
+      ]);
+      setOffers(offersRes.data);
+      setCategories(categoriesRes.data);
     } catch (error) {
-      toast.error("Falha ao carregar ofertas.", {
+      toast.error("Falha ao carregar dados.", {
         description: (error as Error).message,
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    try {
+      await axios.post(`${API_URL}/categories`, { name: newCategoryName.trim() });
+      toast.success("Pasta criada com sucesso!");
+      setNewCategoryName("");
+      setIsNewCategoryOpen(false);
+      fetchOffers(showArchived);
+    } catch (error) {
+      toast.error("Erro ao criar pasta.");
+    }
+  };
+
+  const handleUpdateCategory = async () => {
+    if (!categoryToEdit || !newCategoryName.trim()) return;
+    try {
+      await axios.put(`${API_URL}/categories/${categoryToEdit._id}`, { name: newCategoryName.trim() });
+      toast.success("Pasta renomeada!");
+      setCategoryToEdit(null);
+      setNewCategoryName("");
+      fetchOffers(showArchived);
+    } catch (error) {
+      toast.error("Erro ao renomear pasta.");
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!confirm("Deseja realmente excluir esta pasta? As ofertas nela voltarão para 'Outras Ofertas'.")) return;
+    try {
+      await axios.delete(`${API_URL}/categories/${id}`);
+      toast.success("Pasta excluída!");
+      fetchOffers(showArchived);
+    } catch (error) {
+      toast.error("Erro ao excluir pasta.");
     }
   };
 
@@ -179,9 +231,17 @@ export function OffersPage() {
     return matchesSearch;
   });
 
-  // Agrupar ofertas por grupo
+  // Agrupar ofertas por grupo ou categoria
   const groupedOffers = filteredOffers.reduce((acc, offer) => {
-    const groupName = offer.group || "Outras Ofertas";
+    let groupName = "Outras Ofertas";
+
+    if (offer.categoryId) {
+      const cat = categories.find(c => c._id === offer.categoryId);
+      if (cat) groupName = cat.name;
+    } else if (offer.group) {
+      groupName = offer.group;
+    }
+
     if (!acc[groupName]) {
       acc[groupName] = [];
     }
@@ -189,8 +249,19 @@ export function OffersPage() {
     return acc;
   }, {} as Record<string, Offer[]>);
 
+  // Garantir que categorias criadas apareçam mesmo se vazias
+  categories.forEach(cat => {
+    if (!groupedOffers[cat.name]) {
+      groupedOffers[cat.name] = [];
+    }
+  });
+
   // Filtrar as ofertas pelo grupo selecionado (se houver)
-  const allGroups = Object.keys(groupedOffers).sort();
+  const allGroups = Object.keys(groupedOffers).sort((a, b) => {
+    if (a === "Outras Ofertas") return 1;
+    if (b === "Outras Ofertas") return -1;
+    return a.localeCompare(b);
+  });
 
   const filteredGroups = selectedGroup === "all"
     ? groupedOffers
@@ -233,10 +304,20 @@ export function OffersPage() {
 
     try {
       toast.loading(`Movendo ${selectedOffers.length} ofertas para "${targetGroupName}"...`);
+
+      let catId: string | undefined;
+      const existingCat = categories.find(c => c.name.toLowerCase() === targetGroupName.toLowerCase());
+
+      if (existingCat) {
+        catId = existingCat._id;
+      } else {
+        const newCatRes = await axios.post(`${API_URL}/categories`, { name: targetGroupName.trim() });
+        catId = newCatRes.data._id;
+      }
+
       // Fazemos sequencialmente ou poderíamos ter um endpoint de bulk no backend
-      // Para não mexer no backend agora, faremos um por um (não ideal mas funciona)
       await Promise.all(selectedOffers.map(id =>
-        axios.patch(`${API_URL}/offers/${id}`, { group: targetGroupName.trim() })
+        axios.put(`${API_URL}/offers/${id}`, { categoryId: catId, group: targetGroupName.trim() })
       ));
 
       toast.dismiss();
@@ -344,6 +425,15 @@ export function OffersPage() {
               </>
             )}
           </Button>
+          <Button
+            onClick={() => setIsNewCategoryOpen(true)}
+            variant="outline"
+            className="flex-1 sm:flex-none h-10 border-dashed border-muted-foreground/50 hover:border-foreground"
+          >
+            <FolderPlus className="h-4 w-4 mr-2" />
+            <span className="hidden xs:inline">Nova pasta</span>
+            <span className="xs:hidden">Pasta</span>
+          </Button>
           <Button asChild className="flex-1 sm:flex-none h-10 bg-[#fdbf08] hover:bg-[#fdd049] text-black border-none">
             <Link to="/offers/new" className="flex items-center justify-center">
               + <span className="hidden xs:inline ml-1">Adicionar link</span>
@@ -423,7 +513,7 @@ export function OffersPage() {
                   <React.Fragment key={groupName}>
                     {/* Linha de Agrupamento (Accordion) */}
                     <TableRow
-                      className="bg-muted/10 hover:bg-muted/20 cursor-pointer border-y border-muted/50"
+                      className="bg-muted/10 hover:bg-muted/20 cursor-pointer border-y border-muted/50 group/cat"
                     >
                       <TableCell className="px-4 py-2 border-none">
                         <Checkbox
@@ -441,6 +531,38 @@ export function OffersPage() {
                           <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground font-medium">
                             {groupOffers.length}
                           </span>
+
+                          {groupName !== "Outras Ofertas" && (
+                            <div className="flex items-center gap-1 ml-auto opacity-0 group-hover/cat:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-foreground border-none"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const cat = categories.find(c => c.name === groupName);
+                                  if (cat) {
+                                    setCategoryToEdit(cat);
+                                    setNewCategoryName(cat.name);
+                                  }
+                                }}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive border-none"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const cat = categories.find(c => c.name === groupName);
+                                  if (cat) handleDeleteCategory(cat._id);
+                                }}
+                              >
+                                <Trash className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -639,6 +761,49 @@ export function OffersPage() {
             >
               Confirmar
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Modal Nova Pasta */}
+      <Dialog open={isNewCategoryOpen} onOpenChange={setIsNewCategoryOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova pasta</DialogTitle>
+            <DialogDescription>Crie uma nova pasta para organizar suas ofertas.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder="Nome da pasta..."
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsNewCategoryOpen(false)}>Cancelar</Button>
+            <Button className="bg-[#fdbf08] hover:bg-[#fdd049] text-black" onClick={handleCreateCategory} disabled={!newCategoryName.trim()}>Criar pasta</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Editar Pasta */}
+      <Dialog open={!!categoryToEdit} onOpenChange={(open) => !open && setCategoryToEdit(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar pasta</DialogTitle>
+            <DialogDescription>Altere o nome da pasta.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder="Nome da pasta..."
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCategoryToEdit(null)}>Cancelar</Button>
+            <Button className="bg-[#fdbf08] hover:bg-[#fdd049] text-black" onClick={handleUpdateCategory} disabled={!newCategoryName.trim()}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
