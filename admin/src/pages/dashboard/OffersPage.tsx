@@ -9,11 +9,11 @@ import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import { API_URL } from "@/config/BackendUrl";
 // import { Badge } from "@/components/ui/badge";
-import { Archive, ArchiveRestore, BarChart3, ChevronDown, Copy, FolderPlus, ImageIcon, Loader2, MoreVertical, Pencil, Trash, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, BarChart3, ChevronDown, Copy, FolderInput, FolderPlus, ImageIcon, Loader2, MoreVertical, Pencil, Trash, Trash2 } from "lucide-react";
 import type { product } from "@/types/product";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuPortal, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -92,6 +92,25 @@ export function OffersPage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleMoveOfferToCategory = async (offerId: string, categoryId: string | null) => {
+    try {
+      const catName = categoryId ? categories.find(c => c._id === categoryId)?.name : "Outras Ofertas";
+      toast.loading(`Movendo oferta para "${catName}"...`);
+
+      await axios.put(`${API_URL}/offers/${offerId}`, {
+        categoryId: categoryId || undefined,
+        group: categoryId ? categories.find(c => c._id === categoryId)?.name : "Outras Ofertas"
+      });
+
+      toast.dismiss();
+      toast.success("Oferta movida!");
+      fetchOffers(showArchived);
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Erro ao mover oferta.");
     }
   };
 
@@ -664,7 +683,33 @@ export function OffersPage() {
                                     Arquivar
                                   </DropdownMenuItem>
                                 )}
-                                <Separator className="my-1" />
+
+                                <DropdownMenuSeparator />
+                                <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger className="gap-2">
+                                    <FolderInput className="h-4 w-4" />
+                                    Mover para...
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuPortal>
+                                    <DropdownMenuSubContent className="w-48">
+                                      <DropdownMenuItem onClick={() => handleMoveOfferToCategory(offer._id, null)}>
+                                        Outras Ofertas
+                                      </DropdownMenuItem>
+                                      {categories.length > 0 && <DropdownMenuSeparator />}
+                                      {categories.map(cat => (
+                                        <DropdownMenuItem
+                                          key={cat._id}
+                                          onClick={() => handleMoveOfferToCategory(offer._id, cat._id)}
+                                          disabled={offer.categoryId === cat._id}
+                                        >
+                                          {cat.name}
+                                        </DropdownMenuItem>
+                                      ))}
+                                    </DropdownMenuSubContent>
+                                  </DropdownMenuPortal>
+                                </DropdownMenuSub>
+
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   onClick={() => setOfferToDelete(offer)}
                                   className="text-destructive focus:text-destructive gap-2"

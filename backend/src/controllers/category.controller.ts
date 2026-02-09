@@ -4,7 +4,7 @@ import * as categoryService from "../services/category.service";
 
 export const listCategories = async (req: Request, res: Response) => {
   try {
-    const ownerId = (req as any).user.id;
+    const ownerId = req.userId!;
     const categories = await categoryService.listCategories(ownerId);
     res.json(categories);
   } catch (error) {
@@ -14,7 +14,7 @@ export const listCategories = async (req: Request, res: Response) => {
 
 export const createCategory = async (req: Request, res: Response) => {
   try {
-    const ownerId = (req as any).user.id;
+    const ownerId = req.userId!;
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: "Nome é obrigatório" });
     
@@ -27,7 +27,7 @@ export const createCategory = async (req: Request, res: Response) => {
 
 export const updateCategory = async (req: Request, res: Response) => {
   try {
-    const ownerId = (req as any).user.id;
+    const ownerId = req.userId!;
     const { id } = req.params;
     const { name } = req.body;
     
@@ -42,7 +42,7 @@ export const updateCategory = async (req: Request, res: Response) => {
 
 export const deleteCategory = async (req: Request, res: Response) => {
   try {
-    const ownerId = (req as any).user.id;
+    const ownerId = req.userId!;
     const { id } = req.params;
     
     const success = await categoryService.deleteCategory(id, ownerId);
@@ -56,7 +56,7 @@ export const deleteCategory = async (req: Request, res: Response) => {
 
 export const reorderCategories = async (req: Request, res: Response) => {
   try {
-    const ownerId = (req as any).user.id;
+    const ownerId = req.userId!;
     const { categoryIds } = req.body;
     
     await categoryService.reorderCategories(ownerId, categoryIds);
