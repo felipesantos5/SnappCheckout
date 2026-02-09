@@ -13,7 +13,7 @@ import { Archive, ArchiveRestore, BarChart3, ChevronDown, Copy, FolderInput, Fol
 import type { product } from "@/types/product";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuPortal, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -97,12 +97,12 @@ export function OffersPage() {
 
   const handleMoveOfferToCategory = async (offerId: string, categoryId: string | null) => {
     try {
-      const catName = categoryId ? categories.find(c => c._id === categoryId)?.name : "Outras Ofertas";
+      const catName = categoryId ? categories.find(c => c._id === categoryId)?.name : "Sem Pasta";
       toast.loading(`Movendo oferta para "${catName}"...`);
 
       await axios.put(`${API_URL}/offers/${offerId}`, {
         categoryId: categoryId || undefined,
-        group: categoryId ? categories.find(c => c._id === categoryId)?.name : "Outras Ofertas"
+        group: categoryId ? categories.find(c => c._id === categoryId)?.name : ""
       });
 
       toast.dismiss();
@@ -250,41 +250,27 @@ export function OffersPage() {
     return matchesSearch;
   });
 
-  // Agrupar ofertas por grupo ou categoria
-  const groupedOffers = filteredOffers.reduce((acc, offer) => {
-    let groupName = "Outras Ofertas";
+  // Separar ofertas raiz (sem categoria) e ofertas em categorias
+  const rootOffers = filteredOffers.filter(offer => !offer.categoryId);
 
+  const categorizedOffers = filteredOffers.reduce((acc, offer) => {
     if (offer.categoryId) {
       const cat = categories.find(c => c._id === offer.categoryId);
-      if (cat) groupName = cat.name;
-    } else if (offer.group) {
-      groupName = offer.group;
+      const groupName = cat ? cat.name : "Pasta Desconhecida";
+      if (!acc[groupName]) acc[groupName] = [];
+      acc[groupName].push(offer);
     }
-
-    if (!acc[groupName]) {
-      acc[groupName] = [];
-    }
-    acc[groupName].push(offer);
     return acc;
   }, {} as Record<string, Offer[]>);
 
   // Garantir que categorias criadas apareçam mesmo se vazias
   categories.forEach(cat => {
-    if (!groupedOffers[cat.name]) {
-      groupedOffers[cat.name] = [];
+    if (!categorizedOffers[cat.name]) {
+      categorizedOffers[cat.name] = [];
     }
   });
 
-  // Filtrar as ofertas pelo grupo selecionado (se houver)
-  const allGroups = Object.keys(groupedOffers).sort((a, b) => {
-    if (a === "Outras Ofertas") return 1;
-    if (b === "Outras Ofertas") return -1;
-    return a.localeCompare(b);
-  });
-
-  const filteredGroups = selectedGroup === "all"
-    ? groupedOffers
-    : { [selectedGroup]: groupedOffers[selectedGroup] || [] };
+  const allGroups = categories.map(c => c.name).sort();
 
   // Estado para controlar quais grupos estão abertos (todos abertos por padrão)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -293,12 +279,149 @@ export function OffersPage() {
     // Inicializa todos os grupos como abertos quando as ofertas são carregadas
     if (offers.length > 0) {
       const initialOpen: Record<string, boolean> = {};
-      Object.keys(groupedOffers).forEach((group) => {
+      Object.keys(categorizedOffers).forEach((group) => {
         initialOpen[group] = true;
       });
       setOpenGroups(initialOpen);
     }
   }, [offers.length]);
+
+  const renderOfferRow = (offer: Offer) => (
+    <TableRow key={offer._id} className={`hover:bg-muted/50 transition-colors ${selectedOffers.includes(offer._id) ? "bg-yellow-50/50" : ""}`}>
+      <TableCell className="px-4 py-3">
+        <Checkbox
+          checked={selectedOffers.includes(offer._id)}
+          onCheckedChange={(checked) => {
+            if (checked) setSelectedOffers(prev => [...prev, offer._id]);
+            else setSelectedOffers(prev => prev.filter(id => id !== offer._id));
+          }}
+          className="border-muted-foreground/30 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
+        />
+      </TableCell>
+      <TableCell className="px-6 py-3 cursor-pointer" onClick={() => navigate(`/offers/${offer._id}`)}>
+        <div className="flex items-center gap-4">
+          <Switch
+            checked={offer.isActive}
+            onCheckedChange={() => handleToggleActive(offer._id, offer.isActive)}
+            aria-label="Ativar/Desativar oferta"
+            className="data-[state=checked]:bg-yellow-500"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <Avatar className="h-10 w-10 border border-muted shadow-sm">
+            <AvatarImage src={offer.mainProduct.imageUrl} alt={offer.name} />
+            <AvatarFallback className="rounded-md bg-muted">
+              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="font-semibold text-sm text-foreground">{offer.name}</div>
+            <div className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded w-fit mt-1">{offer.slug}</div>
+          </div>
+        </div>
+      </TableCell>
+
+      <TableCell className="px-6 py-3 text-sm font-semibold text-foreground whitespace-nowrap">
+        {formatCurrency(offer.mainProduct.priceInCents, offer.currency)}
+      </TableCell>
+
+      <TableCell className="px-6 py-3 text-center">
+        <span className="text-sm font-medium text-foreground">{offer.salesCount || 0}</span>
+      </TableCell>
+
+      <TableCell className="px-6 py-3 text-right whitespace-nowrap">
+        <span className="text-sm font-bold text-foreground">{formatCurrency(offer.totalRevenue || 0, offer.currency)}</span>
+      </TableCell>
+
+      <TableCell className="px-6 py-3 text-center">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleCopy(offer.slug)}
+          className="text-[10px] font-bold h-7 gap-1.5 hover:bg-yellow-50 hover:text-yellow-700 transition-colors"
+        >
+          COPIAR LINK
+          <Copy className="h-3 w-3" />
+        </Button>
+      </TableCell>
+
+      <TableCell className="px-6 py-3 text-right">
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="outline" size="sm" className="h-8 text-xs font-semibold" asChild>
+            <Link to={`/offers/${offer._id}`}>Editar</Link>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => navigate(`/offers/${offer._id}/analytics`)}
+            title="Ver Métricas"
+          >
+            < BarChart3 className="h-4 w-4" />
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => handleDuplicate(offer._id)} className="gap-2">
+                <Copy className="h-4 w-4" />
+                Duplicar
+              </DropdownMenuItem>
+              {showArchived ? (
+                <DropdownMenuItem onClick={() => handleUnarchive(offer._id)} className="gap-2">
+                  <ArchiveRestore className="h-4 w-4" />
+                  Desarquivar
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => handleArchive(offer._id)} className="gap-2">
+                  <Archive className="h-4 w-4" />
+                  Arquivar
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="gap-2">
+                  <FolderInput className="h-4 w-4" />
+                  Mover para...
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent className="w-48">
+                    <DropdownMenuItem onClick={() => handleMoveOfferToCategory(offer._id, null)}>
+                      Sem Pasta (Livre)
+                    </DropdownMenuItem>
+                    {categories.length > 0 && <DropdownMenuSeparator />}
+                    {categories.map(cat => (
+                      <DropdownMenuItem
+                        key={cat._id}
+                        onClick={() => handleMoveOfferToCategory(offer._id, cat._id)}
+                        disabled={offer.categoryId === cat._id}
+                      >
+                        {cat.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setOfferToDelete(offer)}
+                className="text-destructive focus:text-destructive gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Deletar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
 
   const toggleGroup = (groupName: string) => {
     setOpenGroups((prev) => ({
@@ -528,30 +651,37 @@ export function OffersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {Object.entries(filteredGroups).map(([groupName, groupOffers]) => (
-                  <React.Fragment key={groupName}>
-                    {/* Linha de Agrupamento (Accordion) */}
-                    <TableRow
-                      className="bg-muted/10 hover:bg-muted/20 cursor-pointer border-y border-muted/50 group/cat"
-                    >
-                      <TableCell className="px-4 py-2 border-none">
-                        <Checkbox
-                          checked={groupOffers.every(o => selectedOffers.includes(o._id))}
-                          onCheckedChange={() => toggleSelectAllGroup(groupOffers)}
-                          className="border-muted-foreground/30 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
-                        />
-                      </TableCell>
-                      <TableCell colSpan={6} className="py-2 px-6 border-none" onClick={() => toggleGroup(groupName)}>
-                        <div className="flex items-center gap-2">
-                          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openGroups[groupName] ? "" : "-rotate-90"}`} />
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                            {groupName}
-                          </span>
-                          <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground font-medium">
-                            {groupOffers.length}
-                          </span>
+                {/* Ofertas Raiz (Sem Categoria) */}
+                {selectedGroup === "all" && rootOffers.map(offer => renderOfferRow(offer))}
 
-                          {groupName !== "Outras Ofertas" && (
+                {/* Ofertas em Categorias */}
+                {(selectedGroup === "all" ? Object.entries(categorizedOffers) :
+                  (categorizedOffers[selectedGroup] ? [[selectedGroup, categorizedOffers[selectedGroup]]] : [])
+                ).map((entry) => {
+                  const [groupName, groupOffers] = entry as [string, Offer[]];
+                  return (
+                    <React.Fragment key={groupName}>
+                      {/* Linha de Agrupamento (Accordion) */}
+                      <TableRow
+                        className="bg-muted/10 hover:bg-muted/20 cursor-pointer border-y border-muted/50 group/cat"
+                      >
+                        <TableCell className="px-4 py-2 border-none">
+                          <Checkbox
+                            checked={groupOffers.length > 0 && groupOffers.every((o: Offer) => selectedOffers.includes(o._id))}
+                            onCheckedChange={() => toggleSelectAllGroup(groupOffers)}
+                            className="border-muted-foreground/30 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
+                          />
+                        </TableCell>
+                        <TableCell colSpan={6} className="py-2 px-6 border-none" onClick={() => toggleGroup(groupName)}>
+                          <div className="flex items-center gap-2">
+                            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openGroups[groupName] ? "" : "-rotate-90"}`} />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                              {groupName}
+                            </span>
+                            <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground font-medium">
+                              {groupOffers.length}
+                            </span>
+
                             <div className="flex items-center gap-1 ml-auto opacity-0 group-hover/cat:opacity-100 transition-opacity">
                               <Button
                                 variant="ghost"
@@ -581,150 +711,15 @@ export function OffersPage() {
                                 <Trash className="h-3 w-3" />
                               </Button>
                             </div>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-
-                    {/* Ofertas do Grupo */}
-                    {openGroups[groupName] && groupOffers.map((offer) => (
-                      <TableRow key={offer._id} className={`hover:bg-muted/50 transition-colors ${selectedOffers.includes(offer._id) ? "bg-yellow-50/50" : ""}`}>
-                        <TableCell className="px-4 py-3">
-                          <Checkbox
-                            checked={selectedOffers.includes(offer._id)}
-                            onCheckedChange={(checked) => {
-                              if (checked) setSelectedOffers(prev => [...prev, offer._id]);
-                              else setSelectedOffers(prev => prev.filter(id => id !== offer._id));
-                            }}
-                            className="border-muted-foreground/30 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
-                          />
-                        </TableCell>
-                        <TableCell className="px-6 py-3 cursor-pointer" onClick={() => navigate(`/offers/${offer._id}`)}>
-                          <div className="flex items-center gap-4">
-                            <Switch
-                              checked={offer.isActive}
-                              onCheckedChange={() => handleToggleActive(offer._id, offer.isActive)}
-                              aria-label="Ativar/Desativar oferta"
-                              className="data-[state=checked]:bg-yellow-500"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <Avatar className="h-10 w-10 border border-muted shadow-sm">
-                              <AvatarImage src={offer.mainProduct.imageUrl} alt={offer.name} />
-                              <AvatarFallback className="rounded-md bg-muted">
-                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-semibold text-sm text-foreground">{offer.name}</div>
-                              <div className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded w-fit mt-1">{offer.slug}</div>
-                            </div>
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="px-6 py-3 text-sm font-semibold text-foreground whitespace-nowrap">
-                          {formatCurrency(offer.mainProduct.priceInCents, offer.currency)}
-                        </TableCell>
-
-                        <TableCell className="px-6 py-3 text-center">
-                          <span className="text-sm font-medium text-foreground">{offer.salesCount || 0}</span>
-                        </TableCell>
-
-                        <TableCell className="px-6 py-3 text-right whitespace-nowrap">
-                          <span className="text-sm font-bold text-foreground">{formatCurrency(offer.totalRevenue || 0, offer.currency)}</span>
-                        </TableCell>
-
-                        <TableCell className="px-6 py-3 text-center">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleCopy(offer.slug)}
-                            className="text-[10px] font-bold h-7 gap-1.5 hover:bg-yellow-50 hover:text-yellow-700 transition-colors"
-                          >
-                            COPIAR LINK
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                        </TableCell>
-
-                        <TableCell className="px-6 py-3 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button variant="outline" size="sm" className="h-8 text-xs font-semibold" asChild>
-                              <Link to={`/offers/${offer._id}`}>Editar</Link>
-                            </Button>
-
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => navigate(`/offers/${offer._id}/analytics`)}
-                              title="Ver Métricas"
-                            >
-                              <BarChart3 className="h-4 w-4" />
-                            </Button>
-
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-8 w-8">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuItem onClick={() => handleDuplicate(offer._id)} className="gap-2">
-                                  <Copy className="h-4 w-4" />
-                                  Duplicar
-                                </DropdownMenuItem>
-                                {showArchived ? (
-                                  <DropdownMenuItem onClick={() => handleUnarchive(offer._id)} className="gap-2">
-                                    <ArchiveRestore className="h-4 w-4" />
-                                    Desarquivar
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem onClick={() => handleArchive(offer._id)} className="gap-2">
-                                    <Archive className="h-4 w-4" />
-                                    Arquivar
-                                  </DropdownMenuItem>
-                                )}
-
-                                <DropdownMenuSeparator />
-                                <DropdownMenuSub>
-                                  <DropdownMenuSubTrigger className="gap-2">
-                                    <FolderInput className="h-4 w-4" />
-                                    Mover para...
-                                  </DropdownMenuSubTrigger>
-                                  <DropdownMenuPortal>
-                                    <DropdownMenuSubContent className="w-48">
-                                      <DropdownMenuItem onClick={() => handleMoveOfferToCategory(offer._id, null)}>
-                                        Outras Ofertas
-                                      </DropdownMenuItem>
-                                      {categories.length > 0 && <DropdownMenuSeparator />}
-                                      {categories.map(cat => (
-                                        <DropdownMenuItem
-                                          key={cat._id}
-                                          onClick={() => handleMoveOfferToCategory(offer._id, cat._id)}
-                                          disabled={offer.categoryId === cat._id}
-                                        >
-                                          {cat.name}
-                                        </DropdownMenuItem>
-                                      ))}
-                                    </DropdownMenuSubContent>
-                                  </DropdownMenuPortal>
-                                </DropdownMenuSub>
-
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => setOfferToDelete(offer)}
-                                  className="text-destructive focus:text-destructive gap-2"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  Deletar
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </React.Fragment>
-                ))}
+
+                      {/* Ofertas do Grupo */}
+                      {openGroups[groupName] && groupOffers.map((offer: Offer) => renderOfferRow(offer))}
+                    </React.Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -733,23 +728,30 @@ export function OffersPage() {
 
       {/* Modal de Confirmação de Exclusão */}
       <Dialog open={!!offerToDelete} onOpenChange={(open) => !open && setOfferToDelete(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmar exclusão</DialogTitle>
-            <DialogDescription>Tem certeza que deseja deletar a oferta "{offerToDelete?.name}"? Esta ação não pode ser desfeita.</DialogDescription>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader className="flex flex-col items-center text-center pt-4">
+            <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
+              <Trash2 className="h-6 w-6 text-red-600" />
+            </div>
+            <DialogTitle className="text-xl">Excluir Oferta</DialogTitle>
+            <DialogDescription className="text-sm">
+              Tem certeza que deseja deletar a oferta <span className="font-bold text-foreground">"{offerToDelete?.name}"</span>?
+              <br />
+              Esta ação removerá todos os dados permanentemente.
+            </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOfferToDelete(null)} disabled={isDeleting}>
+          <DialogFooter className="flex gap-2 sm:gap-0 mt-4">
+            <Button variant="outline" onClick={() => setOfferToDelete(null)} disabled={isDeleting} className="flex-1">
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting} className="flex-1">
               {isDeleting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Deletando...
                 </>
               ) : (
-                "Deletar"
+                "Sim, Deletar"
               )}
             </Button>
           </DialogFooter>
