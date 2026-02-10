@@ -87,7 +87,7 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
   return {
     name: data.name,
     group: data.group || "",
-    categoryId: data.categoryId || "",
+    categoryId: data.categoryId || "none",
     bannerImageUrl: data.bannerImageUrl,
     secondaryBannerImageUrl: data.secondaryBannerImageUrl,
     thankYouPageUrl: data.thankYouPageUrl,

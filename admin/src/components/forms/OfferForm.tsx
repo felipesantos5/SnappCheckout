@@ -206,7 +206,7 @@ const layoutTypeSchema = z.enum(['classic', 'modern', 'minimal']).default('class
 const offerFormSchema = z.object({
   name: z.string().min(3, { message: "Nome do link é obrigatório." }),
   group: z.string().optional(),
-  categoryId: z.string().optional(),
+  categoryId: z.string().optional().nullable(),
   layoutType: layoutTypeSchema,
   bannerImageUrl: optionalUrl,
   secondaryBannerImageUrl: optionalUrl,
@@ -286,7 +286,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
     defaultValues: initialData || {
       name: "",
       group: "",
-      categoryId: "",
+      categoryId: "none",
       layoutType: "classic",
       bannerImageUrl: "",
       secondaryBannerImageUrl: "",
@@ -392,8 +392,8 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
     };
 
     const valuesCopy = { ...values };
-    if (valuesCopy.categoryId === "none") {
-      valuesCopy.categoryId = undefined;
+    if (valuesCopy.categoryId === "none" || valuesCopy.categoryId === "") {
+      valuesCopy.categoryId = null as any;
     }
 
     const dataToSubmit = transformPrices(valuesCopy as OfferFormOutput);

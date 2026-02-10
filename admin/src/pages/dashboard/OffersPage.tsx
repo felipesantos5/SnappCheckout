@@ -101,7 +101,7 @@ export function OffersPage() {
       toast.loading(`Movendo oferta para "${catName}"...`);
 
       await axios.put(`${API_URL}/offers/${offerId}`, {
-        categoryId: categoryId || undefined,
+        categoryId: categoryId || null,
         group: categoryId ? categories.find(c => c._id === categoryId)?.name : ""
       });
 
@@ -272,19 +272,10 @@ export function OffersPage() {
 
   const allGroups = categories.map(c => c.name).sort();
 
-  // Estado para controlar quais grupos estão abertos (todos abertos por padrão)
+  // Estado para controlar quais grupos estão abertos (fechados por padrão)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    // Inicializa todos os grupos como abertos quando as ofertas são carregadas
-    if (offers.length > 0) {
-      const initialOpen: Record<string, boolean> = {};
-      Object.keys(categorizedOffers).forEach((group) => {
-        initialOpen[group] = true;
-      });
-      setOpenGroups(initialOpen);
-    }
-  }, [offers.length]);
+  // As pastas virão fechadas por padrão (Estado inicial vazio {})
 
   const renderOfferRow = (offer: Offer) => (
     <TableRow key={offer._id} className={`hover:bg-muted/50 transition-colors ${selectedOffers.includes(offer._id) ? "bg-yellow-50/50" : ""}`}>
