@@ -251,24 +251,31 @@ export function OffersPage() {
   });
 
   // Separar ofertas raiz (sem categoria) e ofertas em categorias
-  const rootOffers = filteredOffers.filter(offer => !offer.categoryId);
+  // Se estiver na aba de arquivados, mostramos tudo sem pastas
+  const rootOffers = showArchived
+    ? filteredOffers
+    : filteredOffers.filter(offer => !offer.categoryId);
 
-  const categorizedOffers = filteredOffers.reduce((acc, offer) => {
-    if (offer.categoryId) {
-      const cat = categories.find(c => c._id === offer.categoryId);
-      const groupName = cat ? cat.name : "Pasta Desconhecida";
-      if (!acc[groupName]) acc[groupName] = [];
-      acc[groupName].push(offer);
-    }
-    return acc;
-  }, {} as Record<string, Offer[]>);
+  const categorizedOffers = showArchived
+    ? {}
+    : filteredOffers.reduce((acc, offer) => {
+      if (offer.categoryId) {
+        const cat = categories.find(c => c._id === offer.categoryId);
+        const groupName = cat ? cat.name : "Pasta Desconhecida";
+        if (!acc[groupName]) acc[groupName] = [];
+        acc[groupName].push(offer);
+      }
+      return acc;
+    }, {} as Record<string, Offer[]>);
 
-  // Garantir que categorias criadas apareçam mesmo se vazias
-  categories.forEach(cat => {
-    if (!categorizedOffers[cat.name]) {
-      categorizedOffers[cat.name] = [];
-    }
-  });
+  // Garantir que categorias criadas apareçam mesmo se vazias (apenas se não estiver em arquivados)
+  if (!showArchived) {
+    categories.forEach(cat => {
+      if (!categorizedOffers[cat.name]) {
+        categorizedOffers[cat.name] = [];
+      }
+    });
+  }
 
   const allGroups = categories.map(c => c.name).sort();
 
@@ -523,8 +530,8 @@ export function OffersPage() {
               />
             )}
           </div>
-          {/* Filtro de Categorias */}
-          {allGroups.length > 0 && (
+          {/* Filtro de Categorias (oculto em arquivadas) */}
+          {!showArchived && allGroups.length > 0 && (
             <Select value={selectedGroup} onValueChange={setSelectedGroup}>
               <SelectTrigger className="w-full sm:w-[180px] h-10">
                 <SelectValue placeholder="Categorias" />
