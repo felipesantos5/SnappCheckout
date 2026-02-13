@@ -5,6 +5,14 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { API_URL } from "../../config/BackendUrl";
 import { AlertTriangle, RefreshCw, X, ExternalLink, HelpCircle } from "lucide-react";
 
+interface UtmData {
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_term: string | null;
+  utm_content: string | null;
+}
+
 interface PayPalPaymentProps {
   amount: number; // Em centavos
   currency: string;
@@ -14,6 +22,7 @@ interface PayPalPaymentProps {
   abTestId?: string | null;
   purchaseEventId: string; // Event ID para deduplicação Facebook Pixel/CAPI
   selectedOrderBumps: string[]; // IDs dos order bumps selecionados
+  utmData?: UtmData; // UTM tracking data
   onSuccess: (saleId: string, purchaseEventId: string, redirectUrl?: string | null) => void;
   onError: (error: string) => void;
   onSwitchPaymentMethod?: () => void; // Callback opcional para trocar método de pagamento
@@ -136,6 +145,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
   abTestId,
   purchaseEventId,
   selectedOrderBumps,
+  utmData,
   onSuccess,
   onError,
   onSwitchPaymentMethod,
@@ -334,6 +344,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
                   abTestId: abTestId ?? null,
                   purchaseEventId: purchaseEventId,
                   selectedOrderBumps: selectedOrderBumps,
+                  utmData: utmData || {},
                 }),
               });
 
@@ -373,7 +384,7 @@ export const PayPalPayment: React.FC<PayPalPaymentProps> = ({
       console.error("❌ [PayPal] Failed to render PayPal buttons:", error);
       handlePayPalError(error);
     }
-  }, [scriptLoaded, amount, currency, offerId, onSuccess, handlePayPalError, abTestId, purchaseEventId, selectedOrderBumps]);
+  }, [scriptLoaded, amount, currency, offerId, onSuccess, handlePayPalError, abTestId, purchaseEventId, selectedOrderBumps, utmData]);
 
   return (
     <>

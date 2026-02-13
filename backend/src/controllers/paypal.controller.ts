@@ -86,7 +86,7 @@ export const createOrder = async (req: Request, res: Response) => {
 
 export const captureOrder = async (req: Request, res: Response) => {
   try {
-    const { orderId, offerId, customerData, abTestId, selectedOrderBumps, purchaseEventId } = req.body;
+    const { orderId, offerId, customerData, abTestId, selectedOrderBumps, purchaseEventId, utmData } = req.body;
 
     if (!offerId) {
       return res.status(400).json({ error: "offerId é obrigatório." });
@@ -193,11 +193,11 @@ export const captureOrder = async (req: Request, res: Response) => {
         items,
 
         // UTM Tracking
-        utm_source: customerData?.utm_source || "",
-        utm_medium: customerData?.utm_medium || "",
-        utm_campaign: customerData?.utm_campaign || "",
-        utm_term: customerData?.utm_term || "",
-        utm_content: customerData?.utm_content || "",
+        utm_source: utmData?.utm_source || "",
+        utm_medium: utmData?.utm_medium || "",
+        utm_campaign: utmData?.utm_campaign || "",
+        utm_term: utmData?.utm_term || "",
+        utm_content: utmData?.utm_content || "",
       });
 
       // CRÍTICO: O pagamento já foi capturado pelo PayPal. Se o save falhar,

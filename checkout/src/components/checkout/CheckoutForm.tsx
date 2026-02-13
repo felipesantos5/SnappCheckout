@@ -706,6 +706,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                           abTestId={abTestId}
                           purchaseEventId={`${checkoutSessionId}_paypal_purchase`}
                           selectedOrderBumps={selectedBumps}
+                          utmData={utmData}
                           onSuccess={(paypalSaleId: string, purchaseEventId: string, redirectUrl?: string) => {
                             // Purchase event enviado apenas via CAPI consolidado pelo backend
                             setSaleId(paypalSaleId);
@@ -767,6 +768,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                             abTestId={abTestId}
                             purchaseEventId={`${checkoutSessionId}_paypal_purchase`}
                             selectedOrderBumps={selectedBumps}
+                            utmData={utmData}
                             onSuccess={(paypalSaleId: string, purchaseEventId: string, redirectUrl?: string) => {
                               // Purchase event enviado apenas via CAPI consolidado pelo backend
                               setSaleId(paypalSaleId);
