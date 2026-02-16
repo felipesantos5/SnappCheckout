@@ -62,11 +62,20 @@ app.use("/api/webhooks/pagarme", pagarmeWebhookRouter);
 
 // Rota de "health check" - verifica API + MongoDB + Memória
 // CRÍTICO: Retorna 503 se qualquer problema for detectado (para auto-heal funcionar)
+// Timeout total de 8s para garantir que nunca pendura (curl timeout é 5s no healthcheck.sh)
 app.get("/health", async (req: Request, res: Response) => {
   const startTime = Date.now();
 
-  // 1. Verifica MongoDB
-  const dbHealthy = await isMongoHealthy();
+  // 1. Verifica MongoDB COM TIMEOUT (previne hang infinito)
+  let dbHealthy = false;
+  try {
+    dbHealthy = await Promise.race([
+      isMongoHealthy(),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000)),
+    ]);
+  } catch {
+    dbHealthy = false;
+  }
 
   // 2. Verifica uso de memória (previne OOM)
   const memUsage = process.memoryUsage();

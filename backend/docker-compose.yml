@@ -12,26 +12,31 @@ services:
     environment:
       - TZ=America/Sao_Paulo
       - MONGO_URI=mongodb://root:${DB_PASSWORD}@mongodb:27017/checkout?authSource=admin
-    restart: unless-stopped
+    # ALWAYS garante restart mesmo após docker stop manual ou reboot do servidor
+    restart: always
     depends_on:
       mongodb:
         condition: service_healthy
     networks:
       - app_network
     # ============================================
-    # HEALTHCHECK OTIMIZADO PARA CHECKOUT
+    # SISTEMA DE AUTO-HEAL (3 CAMADAS)
     # ============================================
     #
-    # FLUXO DE DETECÇÃO:
-    # 1. API começa a dar erro 500 ou não responde
-    # 2. Healthcheck falha (a cada 15s)
-    # 3. Após 3 falhas consecutivas (45s) → marcado unhealthy
-    # 4. Autoheal detecta (em até 10s) e reinicia
-    # 5. Total worst-case: ~55 segundos até começar restart
+    # CAMADA 1 - Watchdog interno (Node.js):
+    #   Verifica MongoDB + memória a cada 30s
+    #   Após 5 falhas consecutivas (2.5 min) → process.exit(1)
+    #   Docker restart policy reinicia automaticamente
     #
-    # start_period: Tempo de carência após container iniciar
-    # Durante esse período, falhas NÃO contam para o unhealthy
-    # Sua API demora 1-2 min para subir, então usamos 150s de margem
+    # CAMADA 2 - Docker healthcheck + autoheal:
+    #   Healthcheck verifica /health a cada 15s
+    #   3 falhas consecutivas (45s) → marcado unhealthy
+    #   Autoheal detecta (em até 10s) e reinicia
+    #
+    # CAMADA 3 - healthcheck.sh kill (última defesa):
+    #   Se 20 falhas consecutivas (~5 min) e nenhuma camada agiu,
+    #   healthcheck.sh força kill do processo Node.js
+    #   Docker restart policy reinicia o container
     #
     healthcheck:
       test: ["CMD", "/healthcheck.sh"]
@@ -52,7 +57,7 @@ services:
 
   mongodb:
     image: mongo:6.0
-    restart: unless-stopped
+    restart: always
     ports:
       - "127.0.0.1:27017:27017"
     environment:
@@ -71,23 +76,26 @@ services:
       start_period: 30s
 
   # ============================================
-  # AUTOHEAL - Vigilante de containers
+  # AUTOHEAL - Camada 2 de proteção
   # ============================================
-  # Reinicia automaticamente containers unhealthy
+  # Reinicia containers marcados unhealthy pelo Docker healthcheck
+  # Funciona como backup - a camada 1 (watchdog interno) cobre a maioria dos casos
   autoheal:
     image: willfarrell/autoheal:latest
     restart: always
     environment:
-      # Monitora containers com label autoheal=true
       - AUTOHEAL_CONTAINER_LABEL=autoheal
-      # Intervalo de verificação (segundos)
       - AUTOHEAL_INTERVAL=10
-      # Timeout padrão para restart
       - AUTOHEAL_DEFAULT_STOP_TIMEOUT=30
-      # Webhook para notificações (opcional - configure se quiser alertas)
-      # - AUTOHEAL_WEBHOOK_URL=https://seu-webhook.com/notify
+      - AUTOHEAL_START_PERIOD=180  # Ignora containers nos primeiros 3 min (startup)
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
+    # Healthcheck para o próprio autoheal (se ele travar, Docker reinicia)
+    healthcheck:
+      test: ["CMD", "pidof", "autoheal"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
     networks:
       - app_network
 

@@ -5,6 +5,7 @@ import app from "./app";
 import connectDB from "./lib/db";
 import { initializeCurrencyService } from "./services/currency-conversion.service";
 import { startFacebookPurchaseJob, stopFacebookPurchaseJob } from "./jobs/facebook-purchase.job";
+import { startWatchdog, stopWatchdog } from "./lib/watchdog";
 
 // Flag para evitar múltiplos shutdowns
 let isShuttingDown = false;
@@ -66,7 +67,8 @@ const gracefulShutdown = async (signal: string) => {
   }, SHUTDOWN_TIMEOUT);
 
   try {
-    // 0. Para jobs em background
+    // 0. Para watchdog e jobs em background
+    stopWatchdog();
     stopFacebookPurchaseJob();
 
     // 1. Para de aceitar novas conexões HTTP
@@ -133,6 +135,8 @@ async function startServer() {
     server.headersTimeout = 66000;   // Headers timeout ligeiramente maior
 
     server.listen(PORT, () => {
+      // Inicia watchdog interno após servidor estar pronto
+      startWatchdog();
     });
 
     // Monitora conexões ativas (útil para debug)
