@@ -26,8 +26,7 @@ Este projeto demonstra a implementação de fluxos financeiros complexos, sincro
 
 Onde a gestão acontece. KPIs de receita, conversão de ofertas e gestão de vendas em tempo real.
 
-<!-- Substitua pela URL direta da imagem hospedada (ex: Cloudinary, Imgur, ou GitHub Assets) -->
-<!-- ![Dashboard SnappCheckout](URL_DA_IMAGEM) -->
+![Dashboard SnappCheckout](./dashboard.png)
 
 ---
 

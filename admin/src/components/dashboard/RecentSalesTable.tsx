@@ -51,9 +51,17 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
         if (period === "custom" && customDateRange?.from) {
           startDate = startOfDay(customDateRange.from);
           endDate = endOfDay(customDateRange.to || customDateRange.from);
+        } else if (period === "yesterday") {
+          const yesterday = subDays(now, 1);
+          startDate = startOfDay(yesterday);
+          endDate = endOfDay(yesterday);
+        } else if (period === "all") {
+          startDate = new Date("2020-01-01");
+          endDate = endOfDay(now);
         } else {
           const days = period === "1" ? 0 : period === "7" ? 6 : period === "30" ? 29 : 89;
           startDate = startOfDay(subDays(now, days));
+          endDate = endOfDay(now);
         }
 
         const params = new URLSearchParams({
@@ -104,7 +112,7 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
 
   return (
     <Card className="w-full shadow-md border-gray-200 dark:border-gray-700 gap-0">
-      <CardHeader className="pb-0 px-3 sm:px-6 pt-3 sm:pt-6 pt-0!">
+      <CardHeader className="pb-0 px-3 sm:px-6 sm:pt-6 pt-0!">
         <div className="min-w-0">
           <CardTitle className="text-base sm:text-xl font-bold text-foreground">Vendas Recentes</CardTitle>
           <CardDescription className="text-xs sm:text-sm">
@@ -117,13 +125,17 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
                 {filteredSales.length === 1 ? "venda aprovada" : "vendas aprovadas"}{" "}
                 {period === "1"
                   ? "de hoje"
-                  : period === "7"
-                    ? "dos últimos 7 dias"
-                    : period === "30"
-                      ? "dos últimos 30 dias"
-                      : period === "90"
-                        ? "dos últimos 90 dias"
-                        : "no período selecionado"}
+                  : period === "yesterday"
+                    ? "de ontem"
+                    : period === "7"
+                      ? "dos últimos 7 dias"
+                      : period === "30"
+                        ? "dos últimos 30 dias"
+                        : period === "90"
+                          ? "dos últimos 90 dias"
+                          : period === "all"
+                            ? "de todo o período"
+                            : "no período selecionado"}
               </>
             )}
           </CardDescription>
