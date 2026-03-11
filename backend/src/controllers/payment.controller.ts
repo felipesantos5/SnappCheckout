@@ -31,6 +31,7 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
         setup_future_usage: "off_session",
         payment_method_types: ["card"],
         application_fee_amount: applicationFee,
+        description: offer.name, // Passa o nome da oferta padrão
         metadata: {
           offerSlug,
           selectedOrderBumps: JSON.stringify(selectedOrderBumps || []),
