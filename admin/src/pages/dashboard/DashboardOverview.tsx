@@ -226,28 +226,23 @@ export function DashboardOverview() {
     const hasOrderBump = metrics.kpis.orderBumpRevenue > 0;
     const hasUpsell = metrics.kpis.upsellRevenue > 0;
 
-    // Se nenhum deles tem valor, não exibe nada
-    if (!hasIsolated && !hasOrderBump && !hasUpsell) {
-      return null;
-    }
+    if (!hasOrderBump && !hasUpsell) return null;
 
-    // Se apenas isolado tem valor, não exibe (conforme instruções)
-    if (hasIsolated && !hasOrderBump && !hasUpsell) {
-      return null;
-    }
+    const rows: { label: string; value: string }[] = [];
+    if (hasIsolated) rows.push({ label: "Venda", value: formatCurrency(metrics.kpis.isolatedProductRevenue) });
+    if (hasOrderBump) rows.push({ label: "Bump", value: formatCurrency(metrics.kpis.orderBumpRevenue) });
+    if (hasUpsell) rows.push({ label: "Upsell", value: formatCurrency(metrics.kpis.upsellRevenue) });
 
-    const parts = [];
-    if (hasIsolated) {
-      parts.push(`Venda ${formatCurrency(metrics.kpis.isolatedProductRevenue)}`);
-    }
-    if (hasOrderBump) {
-      parts.push(`+ Order Bump ${formatCurrency(metrics.kpis.orderBumpRevenue)}`);
-    }
-    if (hasUpsell) {
-      parts.push(`+ Upsell ${formatCurrency(metrics.kpis.upsellRevenue)}`);
-    }
-
-    return parts.join(" ");
+    return (
+      <div className="flex gap-3 mt-0.5">
+        {rows.map((row) => (
+          <div key={row.label} className="flex flex-col leading-tight">
+            <span className="text-white/70 text-[9px]">{row.label}</span>
+            <span className="text-white font-semibold text-[10px]">{row.value}</span>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   if (loading) {

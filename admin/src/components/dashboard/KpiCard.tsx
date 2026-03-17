@@ -59,7 +59,7 @@ export function KpiCard({
         {subtext && <p className={`text-[10px] sm:text-xs mt-0.5 ${destaque ? "text-white/90" : "text-muted-foreground"}`}>{subtext}</p>}
       </CardContent>
       {/* Área do Gráfico colada na base */}
-      <div className="absolute bottom-1 sm:bottom-2 w-full h-10 sm:h-14">
+      <div className="absolute bottom-1 sm:bottom-2 w-full h-10 sm:h-12">
         {chartData && chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>
