@@ -20,6 +20,10 @@ const COLORS = [
   "var(--chart-5)",
 ];
 
+const formatNumber = (num: number) => {
+  return new Intl.NumberFormat("pt-BR").format(Math.round(num));
+};
+
 export function TopOffersChart({ data }: TopOffersChartProps) {
   if (!data || data.length === 0) {
     return (
@@ -74,7 +78,7 @@ export function TopOffersChart({ data }: TopOffersChartProps) {
               </div>
               <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs text-nowrap flex-shrink-0">
                 <span className="text-muted-foreground hidden sm:inline">{offer.count} vendas</span>
-                <span className="font-bold">R$ {offer.value.toFixed(0)}</span>
+                <span className="font-bold">R$ {formatNumber(offer.value)}</span>
               </div>
             </div>
           ))}

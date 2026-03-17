@@ -576,6 +576,10 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     // Calcular KPIs Totais
     let totalRevenueInBRL = 0;
     let extraRevenueInBRL = 0;
+    let isolatedProductRevenueInBRL = 0;
+    let orderBumpRevenueInBRL = 0;
+    let upsellRevenueInBRL = 0;
+    let upsellCount = 0;
     const revenueByGateway: Record<string, number> = {
       stripe: 0,
       paypal: 0,
@@ -594,19 +598,37 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
 
       if (sale.isUpsell) {
         extraRevenueInBRL += saleAmountInBRL;
+        upsellRevenueInBRL += saleAmountInBRL;
+        upsellCount++;
       } else {
+        let hasOrderBump = false;
+        let orderBumpAmountInBRL = 0;
+        let mainProductAmountInBRL = saleAmountInBRL;
+
         if (sale.items && sale.items.length > 0) {
           for (const item of sale.items) {
             if (item.isOrderBump) {
               const itemAmountInBRL = await convertToBRL(item.priceInCents, sale.currency || "BRL");
+              orderBumpAmountInBRL += itemAmountInBRL;
+              mainProductAmountInBRL -= itemAmountInBRL;
               extraRevenueInBRL += itemAmountInBRL;
+              hasOrderBump = true;
             }
           }
+        }
+
+        if (hasOrderBump) {
+          upsellCount++;
+          orderBumpRevenueInBRL += orderBumpAmountInBRL;
+          isolatedProductRevenueInBRL += mainProductAmountInBRL;
+        } else {
+          isolatedProductRevenueInBRL += saleAmountInBRL;
         }
       }
     }
 
     const averageTicket = totalSales > 0 ? totalRevenueInBRL / totalSales : 0;
+    const averageUpsellTicket = upsellCount > 0 ? extraRevenueInBRL / upsellCount : 0;
     const views = allMetrics.filter((m) => m.type === "view");
     const checkoutsInitiatedCount = allMetrics.filter((m) => m.type === "initiate_checkout").length;
     const totalVisitors = views.length;
@@ -796,6 +818,10 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     // Calcular KPIs do período anterior (Sequencial)
     let previousTotalRevenueInBRL = 0;
     let previousExtraRevenueInBRL = 0;
+    let previousIsolatedProductRevenueInBRL = 0;
+    let previousOrderBumpRevenueInBRL = 0;
+    let previousUpsellRevenueInBRL = 0;
+    let previousUpsellCount = 0;
 
     for (const sale of previousSales) {
       const saleAmountInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
@@ -803,17 +829,36 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
 
       if (sale.isUpsell) {
         previousExtraRevenueInBRL += saleAmountInBRL;
+        previousUpsellRevenueInBRL += saleAmountInBRL;
+        previousUpsellCount++;
       } else {
+        let hasOrderBump = false;
+        let orderBumpAmountInBRL = 0;
+        let mainProductAmountInBRL = saleAmountInBRL;
+
         if (sale.items && sale.items.length > 0) {
           for (const item of sale.items) {
             if (item.isOrderBump) {
               const itemAmountInBRL = await convertToBRL(item.priceInCents, sale.currency || "BRL");
+              orderBumpAmountInBRL += itemAmountInBRL;
+              mainProductAmountInBRL -= itemAmountInBRL;
               previousExtraRevenueInBRL += itemAmountInBRL;
+              hasOrderBump = true;
             }
           }
         }
+
+        if (hasOrderBump) {
+          previousUpsellCount++;
+          previousOrderBumpRevenueInBRL += orderBumpAmountInBRL;
+          previousIsolatedProductRevenueInBRL += mainProductAmountInBRL;
+        } else {
+          previousIsolatedProductRevenueInBRL += saleAmountInBRL;
+        }
       }
     }
+
+    const previousAverageUpsellTicket = previousUpsellCount > 0 ? previousExtraRevenueInBRL / previousUpsellCount : 0;
 
     const previousTotalSales = previousSales.length;
     const previousAverageTicket = previousTotalSales > 0 ? previousTotalRevenueInBRL / previousTotalSales : 0;
@@ -841,6 +886,10 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
         totalVisitors,
         averageTicket,
         extraRevenue: extraRevenueInBRL,
+        averageUpsellTicket,
+        isolatedProductRevenue: isolatedProductRevenueInBRL,
+        orderBumpRevenue: orderBumpRevenueInBRL,
+        upsellRevenue: upsellRevenueInBRL,
         conversionRate,
         totalOrders: totalSales,
         checkoutsInitiated: checkoutsInitiatedCount,
@@ -857,6 +906,7 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
         // Comparações com período anterior
         totalRevenueChange: calculateChangePercentage(totalRevenueInBRL, previousTotalRevenueInBRL),
         extraRevenueChange: calculateChangePercentage(extraRevenueInBRL, previousExtraRevenueInBRL),
+        averageUpsellTicketChange: calculateChangePercentage(averageUpsellTicket, previousAverageUpsellTicket),
         totalOrdersChange: calculateChangePercentage(totalSales, previousTotalSales),
         averageTicketChange: calculateChangePercentage(averageTicket, previousAverageTicket),
         totalVisitorsChange: calculateChangePercentage(totalVisitors, previousTotalVisitors),

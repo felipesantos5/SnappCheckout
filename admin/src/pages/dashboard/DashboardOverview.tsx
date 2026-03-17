@@ -26,6 +26,10 @@ interface DashboardData {
     totalVisitors: number;
     averageTicket: number;
     extraRevenue: number;
+    averageUpsellTicket: number;
+    isolatedProductRevenue: number;
+    orderBumpRevenue: number;
+    upsellRevenue: number;
     conversionRate: number;
     totalOrders: number;
     checkoutsInitiated: number;
@@ -40,6 +44,7 @@ interface DashboardData {
     };
     totalRevenueChange?: number;
     extraRevenueChange?: number;
+    averageUpsellTicketChange?: number;
     totalOrdersChange?: number;
     averageTicketChange?: number;
     totalVisitorsChange?: number;
@@ -214,6 +219,37 @@ export function DashboardOverview() {
     }
   };
 
+  const getRevenueBreakdown = () => {
+    if (!metrics) return null;
+
+    const hasIsolated = metrics.kpis.isolatedProductRevenue > 0;
+    const hasOrderBump = metrics.kpis.orderBumpRevenue > 0;
+    const hasUpsell = metrics.kpis.upsellRevenue > 0;
+
+    // Se nenhum deles tem valor, não exibe nada
+    if (!hasIsolated && !hasOrderBump && !hasUpsell) {
+      return null;
+    }
+
+    // Se apenas isolado tem valor, não exibe (conforme instruções)
+    if (hasIsolated && !hasOrderBump && !hasUpsell) {
+      return null;
+    }
+
+    const parts = [];
+    if (hasIsolated) {
+      parts.push(`Venda ${formatCurrency(metrics.kpis.isolatedProductRevenue)}`);
+    }
+    if (hasOrderBump) {
+      parts.push(`+ Order Bump ${formatCurrency(metrics.kpis.orderBumpRevenue)}`);
+    }
+    if (hasUpsell) {
+      parts.push(`+ Upsell ${formatCurrency(metrics.kpis.upsellRevenue)}`);
+    }
+
+    return parts.join(" ");
+  };
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 p-4 sm:p-6">
@@ -299,7 +335,7 @@ export function DashboardOverview() {
           title="Total em Vendas"
           value={formatCurrency(metrics?.kpis.totalRevenue || 0)}
           icon={DollarSign}
-          subtext={getPeriodLabel()}
+          subtext={getRevenueBreakdown() || getPeriodLabel()}
           chartData={metrics?.charts.revenue}
           color="#eab308"
           destaque={true}
@@ -322,7 +358,7 @@ export function DashboardOverview() {
           title="Ticket Médio"
           value={formatCurrency(metrics?.kpis.averageTicket || 0)}
           icon={DollarSign}
-          subtext={`Upsell ${formatCurrency(metrics?.kpis.extraRevenue || 0)}`}
+          subtext={`Upsell ${formatCurrency(metrics?.kpis.averageUpsellTicket || 0)}`}
           chartData={metrics?.charts.ticket}
           color="#eab308"
           changePercentage={metrics?.kpis.averageTicketChange}
