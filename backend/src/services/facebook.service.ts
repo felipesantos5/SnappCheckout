@@ -69,9 +69,9 @@ export const sendFacebookEvent = async (pixelId: string, accessToken: string, pa
     const response = await axios.post(url, body, { timeout: 15000 });
 
     // Verifica se há warnings ou erros na resposta do Facebook
-    if (response.data?.messages) {
-      console.warn(`⚠️ Facebook retornou mensagens para pixel ${pixelId}:`, JSON.stringify(response.data.messages, null, 2));
-    }
+    // if (response.data?.messages) {
+    //   console.warn(`⚠️ Facebook retornou mensagens para pixel ${pixelId}:`, JSON.stringify(response.data.messages, null, 2));
+    // }
 
     return response.data;
   } catch (error: any) {

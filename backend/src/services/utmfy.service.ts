@@ -132,8 +132,6 @@ export const sendRefundToUTMfy = async (transactionId: string): Promise<void> =>
  */
 export const sendPurchaseToUTMfyWebhook = async (webhookUrl: string, payload: any): Promise<void> => {
   try {
-    console.log(`🚀 [UTMfy Webhook] Sending to ${webhookUrl}`);
-
     const response = await fetchWithTimeout(webhookUrl, {
       method: "POST",
       headers: {
