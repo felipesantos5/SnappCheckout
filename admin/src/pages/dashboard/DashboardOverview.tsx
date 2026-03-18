@@ -237,7 +237,7 @@ export function DashboardOverview() {
       <div className="flex gap-3 mt-0.5">
         {rows.map((row) => (
           <div key={row.label} className="flex flex-col leading-tight">
-            <span className="text-white/70 text-[9px]">{row.label}</span>
+            <span className="text-white/90 text-[10px]">{row.label}</span>
             <span className="text-white font-semibold text-[10px]">{row.value}</span>
           </div>
         ))}
