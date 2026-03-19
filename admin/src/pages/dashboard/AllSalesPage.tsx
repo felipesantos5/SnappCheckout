@@ -122,19 +122,58 @@ const convertToBRL = (amountInCents: number, currency: string | undefined): numb
 // Helper para determinar o tipo de venda
 const getSaleTypeIcon = (sale: Sale) => {
   if (sale.isUpsell) {
-    return (
-      <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50">
+    const upsellItems = sale.items?.filter((i) => !i.isOrderBump) || [];
+    const badge = (
+      <Badge variant="outline" className={`border-purple-200 text-purple-700 bg-purple-50 ${upsellItems.length > 0 ? "cursor-help" : ""}`}>
         <Zap className="w-3 h-3 mr-1" /> Upsell
       </Badge>
     );
+
+    if (upsellItems.length === 0) return badge;
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{badge}</TooltipTrigger>
+          <TooltipContent className="p-3 w-56 bg-card border shadow-lg text-card-foreground">
+            <div className="space-y-2">
+              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground pb-1 border-b">Upsell</div>
+              {upsellItems.map((item, i) => (
+                <div key={i} className="flex justify-between gap-2">
+                  <span className="text-xs truncate">{item.name}</span>
+                  <span className="text-xs font-medium shrink-0">{formatCurrency(item.priceInCents, sale.currency)}</span>
+                </div>
+              ))}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   }
 
-  const hasBump = sale.items?.some((i) => i.isOrderBump);
-  if (hasBump) {
+  const bumpItems = sale.items?.filter((i) => i.isOrderBump) || [];
+  if (bumpItems.length > 0) {
     return (
-      <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
-        <ArrowUpCircle className="w-3 h-3 mr-1" /> + Bump
-      </Badge>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 cursor-help">
+              <ArrowUpCircle className="w-3 h-3 mr-1" /> + Bump
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent className="p-3 w-56 bg-card border shadow-lg text-card-foreground">
+            <div className="space-y-2">
+              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground pb-1 border-b">Order Bumps</div>
+              {bumpItems.map((item, i) => (
+                <div key={i} className="flex justify-between gap-2">
+                  <span className="text-xs truncate">{item.name}</span>
+                  <span className="text-xs font-medium shrink-0">{formatCurrency(item.priceInCents, sale.currency)}</span>
+                </div>
+              ))}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 
