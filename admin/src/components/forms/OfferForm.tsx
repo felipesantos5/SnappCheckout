@@ -167,6 +167,14 @@ const productSchema = z.object({
   customId: z.string().optional(),
 });
 
+const upsellStepSchema = z.object({
+  name: z.string().optional(),
+  price: z.coerce.number().min(0, { message: "Preço deve ser maior ou igual a 0." }).optional(),
+  redirectUrl: optionalUrl,
+  customId: z.string().optional(),
+  fallbackCheckoutUrl: optionalUrl,
+});
+
 const upsellSchema = z.object({
   enabled: z.boolean().default(false),
   name: z.string().optional(),
@@ -174,6 +182,7 @@ const upsellSchema = z.object({
   redirectUrl: optionalUrl,
   customId: z.string().optional(),
   paypalOneClickEnabled: z.boolean().default(false),
+  steps: z.array(upsellStepSchema).optional(),
 });
 
 const membershipWebhookSchema = z.object({
@@ -312,6 +321,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         price: 0,
         redirectUrl: "",
         paypalOneClickEnabled: false,
+        steps: [],
       },
       mainProduct: {
         name: "",
@@ -363,6 +373,15 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
     name: "facebookPixels" as "orderBumps",
   });
 
+  const {
+    fields: upsellStepFields,
+    append: appendUpsellStep,
+    remove: removeUpsellStep,
+  } = useFieldArray({
+    control: form.control,
+    name: "upsell.steps" as any,
+  });
+
   async function onSubmit(values: OfferFormData) {
     setIsLoading(true);
 
@@ -383,6 +402,10 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         upsell: {
           ...data.upsell,
           price: data.upsell?.price ? Math.round(data.upsell.price * 100) : 0,
+          steps: data.upsell?.steps?.map((step) => ({
+            ...step,
+            price: step.price ? Math.round(step.price * 100) : 0,
+          })) || [],
         },
         utmfyWebhookUrls: data.utmfyWebhookUrls?.filter((url) => url && url.trim() !== ""),
         facebookPixels: data.facebookPixels?.filter(
@@ -974,10 +997,10 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
 
         {/* --- 5. UPSELL (PÓS-COMPRA) --- */}
         <FormSection
-          title="Upsell (One-Click)"
+          title="Funil de Upsell (One-Click)"
           icon={<ArrowUpCircle className="w-5 h-5" />}
-          description="Oferta especial exibida após a compra aprovada."
-          badge={form.watch("upsell.enabled") ? "Ativado" : undefined}
+          description="Ofertas exibidas em sequência após a compra aprovada."
+          badge={form.watch("upsell.enabled") ? `Ativado (${1 + (upsellStepFields?.length || 0)} ${1 + (upsellStepFields?.length || 0) === 1 ? 'etapa' : 'etapas'})` : undefined}
         >
           <div className="space-y-6">
             <FormField
@@ -989,45 +1012,117 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                     <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
                   <div className="space-y-0.5">
-                    <FormLabel className="text-base">Habilitar Upsell</FormLabel>
-                    <FormDescription>O cliente será redirecionado para esta oferta APÓS pagar.</FormDescription>
+                    <FormLabel className="text-base">Habilitar Funil de Upsell</FormLabel>
+                    <FormDescription>Crie um funil com uma ou mais ofertas exibidas em sequência após a compra.</FormDescription>
                   </div>
                 </FormItem>
               )}
             />
 
             {form.watch("upsell.enabled") && (
-              <div className="space-y-4 p-4 bg-muted/20 rounded-lg border animate-in fade-in slide-in-from-top-2">
-                <FormField
-                  control={form.control}
-                  name="upsell.name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome da Oferta</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Pacote VIP" {...field} value={field.value || ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <MoneyInput form={form} name="upsell.price" label="Preço" placeholder="0,00" currency={form.watch("currency")} />
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+
+                {/* --- UPSELL #1 (campos originais, backward compat) --- */}
+                <div className="space-y-4 p-4 bg-muted/20 rounded-lg border">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded">UPSELL #1</span>
+                      <span className="text-sm text-muted-foreground">Primeira oferta do funil</span>
+                    </div>
+                  </div>
+
                   <FormField
                     control={form.control}
-                    name="upsell.redirectUrl"
+                    name="upsell.name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>URL da Página de Upsell</FormLabel>
+                        <FormLabel>Nome da Oferta</FormLabel>
                         <FormControl>
-                          <Input placeholder="https://..." {...field} value={field.value || ""} />
+                          <Input placeholder="Ex: Pacote VIP" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <MoneyInput form={form} name="upsell.price" label="Preço" placeholder="0,00" currency={form.watch("currency")} />
+                    <FormField
+                      control={form.control}
+                      name="upsell.redirectUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>URL da Página de Upsell</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://..." {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <CustomIdInput name="upsell.customId" />
                 </div>
-                <CustomIdInput name="upsell.customId" />
+
+                {/* --- UPSELLS ADICIONAIS (steps array) --- */}
+                {upsellStepFields.map((field, index) => (
+                  <div key={field.id} className="space-y-4 p-4 bg-muted/20 rounded-lg border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded">UPSELL #{index + 2}</span>
+                        <span className="text-sm text-muted-foreground">Exibido após o upsell #{index + 1}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeUpsellStep(index)}
+                        className="shrink-0 text-destructive hover:text-destructive h-8 w-8"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name={`upsell.steps.${index}.name` as any}
+                      render={({ field }: any) => (
+                        <FormItem>
+                          <FormLabel>Nome da Oferta</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: Mentoria Exclusiva" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <MoneyInput form={form} name={`upsell.steps.${index}.price`} label="Preço" placeholder="0,00" currency={form.watch("currency")} />
+                      <FormField
+                        control={form.control}
+                        name={`upsell.steps.${index}.redirectUrl` as any}
+                        render={({ field }: any) => (
+                          <FormItem>
+                            <FormLabel>URL da Página de Upsell</FormLabel>
+                            <FormControl>
+                              <Input placeholder="https://..." {...field} value={field.value || ""} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <CustomIdInput name={`upsell.steps.${index}.customId` as any} />
+                  </div>
+                ))}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-dashed"
+                  onClick={() => appendUpsellStep({ name: "", price: 0, redirectUrl: "", customId: "" } as any)}
+                >
+                  + Adicionar Upsell ao Funil
+                </Button>
 
                 {/* --- PAYPAL ONE-CLICK UPSELL --- */}
                 <FormField

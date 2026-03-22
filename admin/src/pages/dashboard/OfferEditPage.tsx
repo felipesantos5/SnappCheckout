@@ -61,6 +61,13 @@ interface ApiOfferData {
     redirectUrl: string;
     customId?: string;
     paypalOneClickEnabled: boolean;
+    steps?: Array<{
+      name: string;
+      price: number;
+      redirectUrl: string;
+      customId?: string;
+      fallbackCheckoutUrl?: string;
+    }>;
   };
   mainProduct: ApiProductData;
   orderBumps: ApiProductData[];
@@ -126,7 +133,7 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
         authToken: "",
       },
 
-    // Mapear Upsell (incluindo customId)
+    // Mapear Upsell (incluindo customId e steps)
     upsell: data.upsell
       ? {
         enabled: data.upsell.enabled,
@@ -135,6 +142,13 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
         redirectUrl: data.upsell.redirectUrl,
         customId: data.upsell.customId,
         paypalOneClickEnabled: data.upsell.paypalOneClickEnabled,
+        steps: data.upsell.steps?.map((step) => ({
+          name: step.name,
+          price: step.price ? step.price / 100 : 0,
+          redirectUrl: step.redirectUrl,
+          customId: step.customId,
+          fallbackCheckoutUrl: step.fallbackCheckoutUrl,
+        })) || [],
       }
       : {
         enabled: false,
@@ -143,6 +157,7 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
         redirectUrl: "",
         customId: "",
         paypalOneClickEnabled: false,
+        steps: [],
       },
 
     // Mapear Produto Principal (incluindo customId)

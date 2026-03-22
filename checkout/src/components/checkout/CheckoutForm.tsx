@@ -357,10 +357,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
               const data = await response.json();
 
-              if (data.token) {
-                const params = new URLSearchParams();
-                params.append("token", data.token);
-                window.location.href = `${offerData.upsell.redirectUrl}?${params.toString()}`;
+              if (data.redirectUrl) {
+                window.location.href = data.redirectUrl;
                 return;
               }
             } catch (error) {

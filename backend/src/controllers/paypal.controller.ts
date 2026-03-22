@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 import { sendAccessWebhook } from "../services/integration.service";
 import { getCountryFromIP } from "../helper/getCountryFromIP";
 import { processUtmfyIntegrationForPayPal } from "../services/utmfy.service";
+import { getUpsellSteps, buildUpsellRedirectUrl } from "../helper/getUpsellSteps";
 
 /**
  * Retorna o PayPal Client ID para uma oferta (público, usado pelo frontend SDK)
@@ -297,8 +298,11 @@ export const captureOrder = async (req: Request, res: Response) => {
       let upsellToken: string | null = null;
       let upsellRedirectUrl: string | null = null;
 
+      const upsellSteps = getUpsellSteps(offer);
 
-      if (offer.upsell?.enabled) {
+      if (offer.upsell?.enabled && upsellSteps.length > 0) {
+        const firstStep = upsellSteps[0];
+
         // Verifica se o PayPal One-Click está habilitado para esta oferta
         if (offer.upsell.paypalOneClickEnabled) {
           // Extrai vault_id e customer_id do PayPal (se disponível)
@@ -307,7 +311,6 @@ export const captureOrder = async (req: Request, res: Response) => {
           let vaultId = vaultData?.id;
           let paypalCustomerId = vaultData?.customer?.id;
           const vaultStatus = vaultData?.status;
-
 
           // Se temos vault_id e customer_id, cria sessão de upsell one-click
           if (vaultId && paypalCustomerId) {
@@ -329,6 +332,7 @@ export const captureOrder = async (req: Request, res: Response) => {
                 paypalVaultId: vaultId,
                 paypalCustomerId: paypalCustomerId,
                 originalSaleId: newSale._id,
+                currentStepIndex: 0,
                 // Pass UTMs to the upsell session
                 utm_source: newSale.utm_source,
                 utm_medium: newSale.utm_medium,
@@ -337,35 +341,36 @@ export const captureOrder = async (req: Request, res: Response) => {
                 utm_content: newSale.utm_content,
               });
 
-              const separator = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
-              upsellRedirectUrl = `${offer.upsell.redirectUrl}${separator}token=${token}&payment_method=paypal&offerId=${offer._id}`;
+              upsellRedirectUrl = buildUpsellRedirectUrl(firstStep.redirectUrl, token, {
+                payment_method: "paypal",
+                offerId: (offer._id as any).toString(),
+              });
               upsellToken = token;
 
             } catch (upsellError: any) {
               console.error(`⚠️ [PayPal] Erro ao criar sessão de upsell:`, upsellError.message);
-              // Se falhar, redireciona sem token (checkout normal)
-              if (offer.upsell.redirectUrl) {
-                const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
-                upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal&offerId=${offer._id}`;
+              if (firstStep.redirectUrl) {
+                const sep = firstStep.redirectUrl.includes("?") ? "&" : "?";
+                upsellRedirectUrl = `${firstStep.redirectUrl}${sep}payment_method=paypal&offerId=${offer._id}`;
               }
             }
           } else {
             // Vault não disponível - redireciona para upsell sem one-click
             console.warn(`⚠️ [PayPal] Vault não disponível. Redirecionando para upsell sem one-click.`);
-            
-            if (offer.upsell.redirectUrl) {
-              const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
-              upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal&offerId=${offer._id}`;
+
+            if (firstStep.redirectUrl) {
+              const sep = firstStep.redirectUrl.includes("?") ? "&" : "?";
+              upsellRedirectUrl = `${firstStep.redirectUrl}${sep}payment_method=paypal&offerId=${offer._id}`;
             }
           }
         } else {
           // PayPal One-Click desabilitado - usa fluxo normal
-          
-          if (offer.upsell.fallbackCheckoutUrl) {
-            upsellRedirectUrl = offer.upsell.fallbackCheckoutUrl;
-          } else if (offer.upsell.redirectUrl) {
-            const sep = offer.upsell.redirectUrl.includes("?") ? "&" : "?";
-            upsellRedirectUrl = `${offer.upsell.redirectUrl}${sep}payment_method=paypal&offerId=${offer._id}`;
+
+          if (firstStep.fallbackCheckoutUrl) {
+            upsellRedirectUrl = firstStep.fallbackCheckoutUrl;
+          } else if (firstStep.redirectUrl) {
+            const sep = firstStep.redirectUrl.includes("?") ? "&" : "?";
+            upsellRedirectUrl = `${firstStep.redirectUrl}${sep}payment_method=paypal&offerId=${offer._id}`;
           }
         }
       }
@@ -430,11 +435,19 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
       return res.status(400).json({ success: false, message: "Dados de vault não encontrados." });
     }
 
-    // 4. Validar valor do upsell
-    const amountToCharge = offer.upsell.price;
+    // 4. Obter passo atual do funil
+    const steps = getUpsellSteps(offer);
+    const currentStep = steps[session.currentStepIndex];
+
+    if (!currentStep) {
+      return res.status(400).json({ success: false, message: "Passo de upsell inválido." });
+    }
+
+    // 5. Validar valor do upsell
+    const amountToCharge = currentStep.price;
 
     if (!amountToCharge || amountToCharge < 50) {
-      console.error(`❌ [PayPal Upsell] Valor inválido (${amountToCharge}) para a oferta ${offer.name}`);
+      console.error(`❌ [PayPal Upsell] Valor inválido (${amountToCharge}) para a oferta ${offer.name} (passo ${session.currentStepIndex})`);
       return res.status(400).json({ success: false, message: "Configuração de preço inválida para este Upsell." });
     }
 
@@ -484,10 +497,10 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
 
       const items = [
         {
-          name: offer.upsell.name,
+          name: currentStep.name,
           priceInCents: amountToCharge,
           isOrderBump: false,
-          customId: offer.upsell.customId,
+          customId: currentStep.customId,
         },
       ];
 
@@ -567,12 +580,29 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
       // Salva flags de integração
       await newSale.save();
 
-      // 9. Deletar sessão de upsell (token usado)
+      // 9. Verificar se há próximo passo no funil
+      const nextStepIndex = session.currentStepIndex + 1;
+
+      if (nextStepIndex < steps.length) {
+        // Avança para o próximo passo
+        session.currentStepIndex = nextStepIndex;
+        await session.save();
+
+        const nextRedirectUrl = buildUpsellRedirectUrl(steps[nextStepIndex].redirectUrl, token, {
+          payment_method: "paypal",
+          offerId: (offer._id as any).toString(),
+        });
+
+        return res.status(200).json({
+          success: true,
+          message: "Compra realizada com sucesso!",
+          redirectUrl: nextRedirectUrl,
+        });
+      }
+
+      // 10. Último passo: deletar sessão e redirecionar para Thank You Page
       await UpsellSession.deleteOne({ token });
-
-      // 10. Redirecionar para Thank You Page
       const redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
-
 
       res.status(200).json({
         success: true,
@@ -607,14 +637,33 @@ export const handlePayPalUpsellRefuse = async (req: Request, res: Response) => {
 
       if (session) {
         const offer = session.offerId as any;
+        const steps = getUpsellSteps(offer);
+        const nextStepIndex = session.currentStepIndex + 1;
+
+        // Se há próximo passo no funil, avança para ele
+        if (nextStepIndex < steps.length) {
+          session.currentStepIndex = nextStepIndex;
+          await session.save();
+
+          redirectUrl = buildUpsellRedirectUrl(steps[nextStepIndex].redirectUrl, token, {
+            payment_method: "paypal",
+            offerId: (offer._id as any).toString(),
+          });
+
+          return res.status(200).json({
+            success: true,
+            message: "Oferta recusada.",
+            redirectUrl,
+          });
+        }
+
+        // Último passo: deleta sessão e vai para thank you page
         redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
-        
-        // Deletar sessão
         await UpsellSession.deleteOne({ token });
       } else {
         console.warn(`⚠️ [PayPal Upsell] Sessão não encontrada ao recusar (token: ${token})`);
       }
-    } 
+    }
 
     // Se não encontrou URL via sessão, tenta via offerId direto
     if (!redirectUrl && offerId) {
