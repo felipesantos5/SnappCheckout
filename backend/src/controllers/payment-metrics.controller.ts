@@ -1,13 +1,14 @@
 /**
  * Payment Metrics Controller
  * Retorna métricas agregadas por plataforma de pagamento (Stripe e PayPal)
+ * Otimizado: Usa MongoDB aggregation + convertToBRLSync (sem await em loops)
  */
 
 import { Request, Response } from "express";
 import Sale from "../models/sale.model";
 import User from "../models/user.model";
 import mongoose from "mongoose";
-import { convertToBRL } from "../services/currency-conversion.service";
+import { convertToBRLSync } from "../services/currency-conversion.service";
 import stripe from "../lib/stripe";
 
 interface PaymentPlatformMetrics {
@@ -66,143 +67,165 @@ export const handleGetPaymentMetrics = async (req: Request, res: Response) => {
     // Determinar granularidade
     const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
     const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    const isHourly = daysDiff <= 1.1; // Menos de 26 horas
-    const isMonthly = daysDiff > 120; // Mais de 4 meses agrupa por mês para não quebrar o gráfico
 
-    // Buscar todas as vendas aprovadas do usuário no período
-    const sales = await Sale.find({
+    const isHourly = daysDiff <= 1.1;
+    const isMonthly = daysDiff > 120;
+
+    // Formato de agrupamento para MongoDB
+    let dateFormat: string;
+    if (isHourly) {
+      dateFormat = "%Y-%m-%dT%H";
+    } else if (isMonthly) {
+      dateFormat = "%Y-%m";
+    } else {
+      dateFormat = "%Y-%m-%d";
+    }
+
+    const baseMatch = {
       ownerId: new mongoose.Types.ObjectId(ownerId),
       status: "succeeded",
       createdAt: { $gte: startDate, $lte: endDate },
-    }).lean();
-
-    // Agregar por plataforma
-    const stripeMetrics: PaymentPlatformMetrics = {
-      totalSales: 0,
-      totalRevenue: 0,
-      totalFees: 0,
     };
 
-    const paypalMetrics: PaymentPlatformMetrics = {
-      totalSales: 0,
-      totalRevenue: 0,
-      totalFees: 0,
-    };
+    // Todas as aggregations em paralelo
+    const [platformAgg, chartAgg, user] = await Promise.all([
+      // Métricas por plataforma + moeda
+      Sale.aggregate([
+        { $match: baseMatch },
+        {
+          $group: {
+            _id: {
+              gateway: { $ifNull: ["$paymentMethod", "stripe"] },
+              currency: "$currency",
+            },
+            totalRevenue: { $sum: "$totalAmountInCents" },
+            totalFees: { $sum: { $ifNull: ["$platformFeeInCents", 0] } },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
 
-    const pagarmeMetrics: PaymentPlatformMetrics = {
-      totalSales: 0,
-      totalRevenue: 0,
-      totalFees: 0,
-    };
+      // Dados do gráfico por data + gateway + moeda
+      Sale.aggregate([
+        { $match: baseMatch },
+        {
+          $group: {
+            _id: {
+              date: { $dateToString: { format: dateFormat, date: "$createdAt", timezone: "America/Sao_Paulo" } },
+              gateway: { $ifNull: ["$paymentMethod", "stripe"] },
+              currency: "$currency",
+            },
+            revenue: { $sum: "$totalAmountInCents" },
+          },
+        },
+        { $sort: { "_id.date": 1 } },
+      ]),
 
-    // Mapa para dados do gráfico
-    const chartMap = new Map<string, { stripe: number; paypal: number; pagarme: number; label: string }>();
+      // Busca user para saldo Stripe
+      User.findById(ownerId).lean(),
+    ]);
 
-    // Função auxiliar para gerar chave e label
-    const formatKeyAndLabel = (dateInput: Date | string) => {
-      const date = new Date(dateInput);
+    // Processar métricas por plataforma (síncrono)
+    const stripeMetrics: PaymentPlatformMetrics = { totalSales: 0, totalRevenue: 0, totalFees: 0 };
+    const paypalMetrics: PaymentPlatformMetrics = { totalSales: 0, totalRevenue: 0, totalFees: 0 };
+    const pagarmeMetrics: PaymentPlatformMetrics = { totalSales: 0, totalRevenue: 0, totalFees: 0 };
+
+    for (const entry of platformAgg) {
+      const currency = entry._id.currency || "BRL";
+      const revenueBRL = convertToBRLSync(entry.totalRevenue, currency);
+      const feesBRL = convertToBRLSync(entry.totalFees, currency);
+
+      const target = entry._id.gateway === "paypal" ? paypalMetrics
+        : entry._id.gateway === "pagarme" ? pagarmeMetrics
+        : stripeMetrics;
+
+      target.totalSales += entry.count;
+      target.totalRevenue += revenueBRL;
+      target.totalFees += feesBRL;
+    }
+
+    // Processar gráfico
+    const formatKeyAndLabel = (dateKey: string) => {
       if (isHourly) {
-        const key = date.toISOString().slice(0, 13); // YYYY-MM-DDTHH
-        const label = date.toLocaleTimeString("pt-BR", { 
-          timeZone: "America/Sao_Paulo", 
-          hour: "2-digit", 
-          minute: "2-digit" 
+        const date = new Date(dateKey + ":00:00");
+        const label = date.toLocaleTimeString("pt-BR", {
+          timeZone: "America/Sao_Paulo",
+          hour: "2-digit",
+          minute: "2-digit"
         });
-        return { key, label };
+        return { key: dateKey, label };
       } else if (isMonthly) {
-        const brDate = new Date(date.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-        const year = brDate.getFullYear();
-        const month = (brDate.getMonth() + 1).toString().padStart(2, "0");
-        const key = `${year}-${month}`;
-        const label = `${month}/${year}`;
-        return { key, label };
+        const [year, month] = dateKey.split("-");
+        return { key: dateKey, label: `${month}/${year}` };
       } else {
-        const brDate = new Date(date.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-        const key = brDate.toISOString().split("T")[0];
-        const day = brDate.getDate().toString().padStart(2, "0");
-        const month = (brDate.getMonth() + 1).toString().padStart(2, "0");
-        const label = `${day}/${month}`;
-        return { key, label };
+        const parts = dateKey.split("-");
+        return { key: dateKey, label: `${parts[2]}/${parts[1]}` };
       }
     };
 
     // Inicializar chartMap com todas as datas do período
-    let current = new Date(startDate);
-    if (sales.length > 0 && new Date(sales[0].createdAt) > current) {
-      current = new Date(sales[0].createdAt);
-    }
+    const chartMap = new Map<string, { stripe: number; paypal: number; pagarme: number; label: string }>();
 
-    // Ajustar 'current' para o início do período (hora/dia/mês)
-    if (isHourly) {
-      current.setMinutes(0, 0, 0);
-    } else if (!isMonthly) { // Diário
-      current.setHours(0, 0, 0, 0);
-    } else { // Mensal
-      current.setDate(1);
-      current.setHours(0, 0, 0, 0);
-    }
+    let currentDate = new Date(startDate);
+    if (isHourly) currentDate.setMinutes(0, 0, 0);
+    else if (isMonthly) { currentDate.setDate(1); currentDate.setHours(0, 0, 0, 0); }
+    else currentDate.setHours(0, 0, 0, 0);
 
-    while (current <= endDate) {
-      const { key, label } = formatKeyAndLabel(current);
+    while (currentDate <= endDate) {
+      const brDate = new Date(currentDate.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+      let key: string;
+      let label: string;
+
+      if (isHourly) {
+        const y = brDate.getFullYear();
+        const m = (brDate.getMonth() + 1).toString().padStart(2, "0");
+        const d = brDate.getDate().toString().padStart(2, "0");
+        const h = brDate.getHours().toString().padStart(2, "0");
+        key = `${y}-${m}-${d}T${h}`;
+        const fkl = formatKeyAndLabel(key);
+        label = fkl.label;
+      } else if (isMonthly) {
+        const y = brDate.getFullYear();
+        const m = (brDate.getMonth() + 1).toString().padStart(2, "0");
+        key = `${y}-${m}`;
+        label = `${m}/${y}`;
+      } else {
+        const y = brDate.getFullYear();
+        const m = (brDate.getMonth() + 1).toString().padStart(2, "0");
+        const d = brDate.getDate().toString().padStart(2, "0");
+        key = `${y}-${m}-${d}`;
+        label = `${d}/${m}`;
+      }
+
       if (!chartMap.has(key)) {
         chartMap.set(key, { stripe: 0, paypal: 0, pagarme: 0, label });
       }
 
-      // Incrementar 'current' com base na granularidade
-      if (isHourly) {
-        current.setHours(current.getHours() + 1);
-      } else if (isMonthly) {
-        current.setMonth(current.getMonth() + 1);
-      } else {
-        current.setDate(current.getDate() + 1);
+      if (isHourly) currentDate.setHours(currentDate.getHours() + 1);
+      else if (isMonthly) currentDate.setMonth(currentDate.getMonth() + 1);
+      else currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Preencher com dados reais
+    for (const entry of chartAgg) {
+      const key = entry._id.date;
+      if (chartMap.has(key)) {
+        const data = chartMap.get(key)!;
+        const amountBRL = convertToBRLSync(entry.revenue, entry._id.currency || "BRL") / 100;
+        const gateway = entry._id.gateway || "stripe";
+        if (gateway === "paypal") data.paypal += amountBRL;
+        else if (gateway === "pagarme") data.pagarme += amountBRL;
+        else data.stripe += amountBRL;
       }
     }
 
-    // Processar cada venda sequencialmente para evitar race condition em +=
-    for (const sale of sales) {
-      const revenueInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
-      const feesInBRL = await convertToBRL(sale.platformFeeInCents || 0, sale.currency || "BRL");
-      const { key } = formatKeyAndLabel(sale.createdAt);
-
-      if (sale.paymentMethod === "paypal") {
-        paypalMetrics.totalSales += 1;
-        paypalMetrics.totalRevenue += revenueInBRL;
-        paypalMetrics.totalFees += feesInBRL;
-
-        // Adicionar ao gráfico
-        if (chartMap.has(key)) {
-          chartMap.get(key)!.paypal += revenueInBRL / 100; // Converter para reais
-        }
-      } else if (sale.paymentMethod === "pagarme") {
-        pagarmeMetrics.totalSales += 1;
-        pagarmeMetrics.totalRevenue += revenueInBRL;
-        pagarmeMetrics.totalFees += feesInBRL;
-
-        // Adicionar ao gráfico
-        if (chartMap.has(key)) {
-          chartMap.get(key)!.pagarme += revenueInBRL / 100; // Converter para reais
-        }
-      } else {
-        // Default: stripe
-        stripeMetrics.totalSales += 1;
-        stripeMetrics.totalRevenue += revenueInBRL;
-        stripeMetrics.totalFees += feesInBRL;
-
-        // Adicionar ao gráfico
-        if (chartMap.has(key)) {
-          chartMap.get(key)!.stripe += revenueInBRL / 100; // Converter para reais
-        }
-      }
-    }
-
-    // Converter mapa para array ordenado
+    // Converter para array ordenado
     const sortedKeys = Array.from(chartMap.keys()).sort();
     const chartData: ChartDataPoint[] = sortedKeys.map((key) => {
       const data = chartMap.get(key)!;
       return {
         date: data.label,
-        stripe: Math.round(data.stripe * 100) / 100, // Arredondar para 2 casas
+        stripe: Math.round(data.stripe * 100) / 100,
         paypal: Math.round(data.paypal * 100) / 100,
         pagarme: Math.round(data.pagarme * 100) / 100,
       };
@@ -213,10 +236,9 @@ export const handleGetPaymentMetrics = async (req: Request, res: Response) => {
     let stripeAvailable = 0;
 
     try {
-      const user = await User.findById(ownerId);
-      if (user?.stripeAccountId) {
+      if (user && (user as any).stripeAccountId) {
         const balance = await stripe.balance.retrieve({
-          stripeAccount: user.stripeAccountId,
+          stripeAccount: (user as any).stripeAccountId,
         });
 
         if (balance.pending && balance.pending.length > 0) {

@@ -26,8 +26,8 @@ let reconnectAttempts = 0;
  */
 const mongooseOptions: mongoose.ConnectOptions = {
   // Pool de conexões
-  maxPoolSize: 30,  // Reduzido de 50 - suficiente para checkout + webhooks + admin
-  minPoolSize: 5,   // Mantém conexões quentes
+  maxPoolSize: 50,  // 8 vCPU VPS - suporta picos de webhooks + dashboard + checkout
+  minPoolSize: 10,  // Mantém conexões quentes para resposta rápida
 
   // Timeouts
   serverSelectionTimeoutMS: 15000, // 15s para selecionar servidor (aumentado para dar margem em restart do mongo)
