@@ -546,8 +546,11 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
       offerIds = allOfferIds;
     }
 
+    // Limita a busca para evitar OOM - máximo 5000 vendas por período
+    const SALES_LIMIT = 5000;
+
     const [allSales, allFailedSalesCount, allMetrics] = await Promise.all([
-      // Vendas aprovadas - seleciona APENAS os campos necessários
+      // Vendas aprovadas - seleciona APENAS os campos necessários + limite de segurança
       Sale.find({
         ownerId: new mongoose.Types.ObjectId(ownerId),
         status: "succeeded",
@@ -555,6 +558,8 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
         offerId: { $in: offerIds },
       })
         .select("totalAmountInCents currency createdAt offerId isUpsell items.isOrderBump items.name items.priceInCents country gateway paymentMethod")
+        .sort({ createdAt: -1 })
+        .limit(SALES_LIMIT)
         .lean(),
 
       // Vendas falhadas - só precisamos da contagem
@@ -798,6 +803,8 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
         offerId: { $in: offerIds },
       })
         .select("totalAmountInCents currency isUpsell items.isOrderBump items.priceInCents")
+        .sort({ createdAt: -1 })
+        .limit(SALES_LIMIT)
         .lean(),
 
       Sale.countDocuments({
