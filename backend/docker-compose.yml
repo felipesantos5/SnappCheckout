@@ -33,15 +33,6 @@ services:
     # Durante esse período, falhas NÃO contam para o unhealthy
     # Sua API demora 1-2 min para subir, então usamos 150s de margem
     #
-    healthcheck:
-      test: ["CMD", "/healthcheck.sh"]
-      interval: 15s        # Verifica a cada 15 segundos
-      timeout: 10s         # Timeout do check
-      retries: 3           # 3 falhas consecutivas = unhealthy
-      start_period: 150s   # 2.5 min de carência (API demora 1-2 min para subir)
-    # Labels para autoheal
-    labels:
-      - "autoheal=true"
     # Limites de recursos para prevenir OOM
     deploy:
       resources:
@@ -74,22 +65,6 @@ services:
   # AUTOHEAL - Vigilante de containers
   # ============================================
   # Reinicia automaticamente containers unhealthy
-  autoheal:
-    image: willfarrell/autoheal:latest
-    restart: always
-    environment:
-      # Monitora containers com label autoheal=true
-      - AUTOHEAL_CONTAINER_LABEL=autoheal
-      # Intervalo de verificação (segundos)
-      - AUTOHEAL_INTERVAL=10
-      # Timeout padrão para restart
-      - AUTOHEAL_DEFAULT_STOP_TIMEOUT=30
-      # Webhook para notificações (opcional - configure se quiser alertas)
-      # - AUTOHEAL_WEBHOOK_URL=https://seu-webhook.com/notify
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
-    networks:
-      - app_network
 
 networks:
   app_network:
