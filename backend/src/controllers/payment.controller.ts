@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 import { getOrCreateCustomer } from "../helper/getOrCreateCustomer";
 import { calculateTotalAmount } from "../helper/calculateTotalAmount";
 import { getStripeAccountId } from "../helper/getStripeAccountId";
+import { getUpsellSteps, buildUpsellRedirectUrl } from "../helper/getUpsellSteps";
 
 export const handleCreatePaymentIntent = async (req: Request, res: Response) => {
   try {
@@ -88,6 +89,9 @@ export const generateUpsellToken = async (req: Request, res: Response) => {
     // Busca a Sale original para vincular ao upsell (consolidação de Facebook Purchase)
     const originalSale = await Sale.findOne({ stripePaymentIntentId: paymentIntentId });
 
+    const steps = getUpsellSteps(offer);
+    if (steps.length === 0) return res.status(400).json({ error: "Nenhum upsell configurado." });
+
     await UpsellSession.create({
       token,
       accountId: stripeAccountId,
@@ -100,11 +104,11 @@ export const generateUpsellToken = async (req: Request, res: Response) => {
       customerEmail,
       customerPhone,
       originalSaleId: originalSale?._id || null,
+      currentStepIndex: 0,
     });
 
-    // Constrói a URL de redirecionamento
-    const separator = offer.upsell?.redirectUrl.includes("?") ? "&" : "?";
-    const redirectUrl = `${offer.upsell?.redirectUrl}${separator}token=${token}`;
+    // Constrói a URL de redirecionamento para o primeiro passo
+    const redirectUrl = buildUpsellRedirectUrl(steps[0].redirectUrl, token);
 
     res.status(200).json({ token, redirectUrl });
   } catch (error: any) {
@@ -121,8 +125,26 @@ export const handleRefuseUpsell = async (req: Request, res: Response) => {
     if (!session) return res.status(403).json({ success: false, message: "Sessão expirada." });
 
     const offer = session.offerId as IOffer;
-    await UpsellSession.deleteOne({ token });
+    const steps = getUpsellSteps(offer);
+    const nextStepIndex = session.currentStepIndex + 1;
 
+    // Se há próximo passo no funil, avança para ele
+    if (nextStepIndex < steps.length) {
+      session.currentStepIndex = nextStepIndex;
+      await session.save();
+
+      const extraParams: Record<string, string> = {};
+      if (session.paymentMethod === "paypal") {
+        extraParams.payment_method = "paypal";
+        extraParams.offerId = (offer._id as any).toString();
+      }
+
+      const redirectUrl = buildUpsellRedirectUrl(steps[nextStepIndex].redirectUrl, token, extraParams);
+      return res.status(200).json({ success: true, message: "Oferta recusada.", redirectUrl });
+    }
+
+    // Último passo: deleta sessão e vai para thank you page
+    await UpsellSession.deleteOne({ token });
     const redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
 
     res.status(200).json({ success: true, message: "Oferta recusada.", redirectUrl });
@@ -146,18 +168,24 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: "Upsell não está ativo nesta oferta." });
     }
 
+    const steps = getUpsellSteps(offer);
+    const currentStep = steps[session.currentStepIndex];
+
+    if (!currentStep) {
+      return res.status(400).json({ success: false, message: "Passo de upsell inválido." });
+    }
+
     // NOVO: Verificar se o pagamento foi feito com PayPal (ou outro método não-Stripe)
     if (session.paymentMethod !== "stripe") {
-      // Se tem URL de checkout alternativo configurada, redireciona
-      if (offer.upsell.fallbackCheckoutUrl && offer.upsell.fallbackCheckoutUrl.trim() !== "") {
-        await UpsellSession.deleteOne({ token }); // Limpa a sessão
+      const fallbackUrl = currentStep.fallbackCheckoutUrl;
+      if (fallbackUrl && fallbackUrl.trim() !== "") {
+        await UpsellSession.deleteOne({ token });
         return res.status(200).json({
           success: true,
           message: "Redirecionando para checkout alternativo...",
-          redirectUrl: offer.upsell.fallbackCheckoutUrl,
+          redirectUrl: fallbackUrl,
         });
       } else {
-        // Se não tem URL alternativa configurada, retorna erro amigável
         return res.status(400).json({
           success: false,
           message: "One-click upsell não disponível para este método de pagamento. Configure um link de checkout alternativo.",
@@ -166,11 +194,10 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
     }
 
     // 2. Validação de Valor (CRÍTICO PARA EVITAR ERRO DO STRIPE)
-    const amountToCharge = offer.upsell.price;
+    const amountToCharge = currentStep.price;
 
     if (!amountToCharge || amountToCharge < 50) {
-      // Stripe exige mínimo de 50 centavos (na maioria das moedas)
-      console.error(`Erro Upsell: Valor inválido (${amountToCharge}) para a oferta ${offer.name}`);
+      console.error(`Erro Upsell: Valor inválido (${amountToCharge}) para a oferta ${offer.name} (passo ${session.currentStepIndex})`);
       return res.status(400).json({ success: false, message: "Configuração de preço inválida para este Upsell." });
     }
 
@@ -186,12 +213,12 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
         off_session: true,
         confirm: true,
         application_fee_amount: applicationFee,
-        description: `Upsell: ${offer.upsell.name}`,
+        description: `Upsell: ${currentStep.name}`,
         metadata: {
           isUpsell: "true",
+          upsellStepIndex: String(session.currentStepIndex),
           originalOfferSlug: offer.slug,
           originalSessionToken: token,
-          // Passa informações do cliente da sessão para manter localização e dados corretos
           ip: session.ip || "",
           customerName: session.customerName || "",
           customerEmail: session.customerEmail || "",
@@ -202,8 +229,19 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
     );
 
     if (paymentIntent.status === "succeeded") {
-      await UpsellSession.deleteOne({ token });
+      const nextStepIndex = session.currentStepIndex + 1;
 
+      // Se há próximo passo no funil, avança
+      if (nextStepIndex < steps.length) {
+        session.currentStepIndex = nextStepIndex;
+        await session.save();
+
+        const redirectUrl = buildUpsellRedirectUrl(steps[nextStepIndex].redirectUrl, token);
+        return res.status(200).json({ success: true, message: "Compra realizada com sucesso!", redirectUrl });
+      }
+
+      // Último passo: deleta sessão e vai para thank you page
+      await UpsellSession.deleteOne({ token });
       const redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
 
       res.status(200).json({ success: true, message: "Compra realizada com sucesso!", redirectUrl });

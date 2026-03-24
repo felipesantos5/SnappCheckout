@@ -7,6 +7,7 @@ import { processUtmfyIntegration, sendPurchaseToUTMfyWebhook } from "../../../se
 import stripe from "../../../lib/stripe";
 import { sendAccessWebhook } from "../../../services/integration.service";
 import { getCountryFromIP } from "../../../helper/getCountryFromIP";
+import { getUpsellSteps } from "../../../helper/getUpsellSteps";
 
 /**
  * Helper: Extrai informações sobre o método de pagamento do Stripe
@@ -134,10 +135,18 @@ export const handlePaymentIntentCreated = async (paymentIntent: Stripe.PaymentIn
     if (isUpsell) {
       items.push({
         _id: undefined,
-        name: offer.upsell?.name || metadata.productName || "Upsell",
+        name: (() => {
+          const stepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
+          const steps = getUpsellSteps(offer);
+          return steps[stepIndex]?.name || offer.upsell?.name || metadata.productName || "Upsell";
+        })(),
         priceInCents: paymentIntent.amount,
         isOrderBump: false,
-        customId: offer.upsell?.customId,
+        customId: (() => {
+          const stepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
+          const steps = getUpsellSteps(offer);
+          return steps[stepIndex]?.customId || offer.upsell?.customId;
+        })(),
       });
     } else {
       // Produto Principal
@@ -293,10 +302,18 @@ export const handlePaymentIntentFailed = async (paymentIntent: Stripe.PaymentInt
     if (isUpsell) {
       items.push({
         _id: undefined,
-        name: offer.upsell?.name || metadata.productName || "Upsell",
+        name: (() => {
+          const stepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
+          const steps = getUpsellSteps(offer);
+          return steps[stepIndex]?.name || offer.upsell?.name || metadata.productName || "Upsell";
+        })(),
         priceInCents: paymentIntent.amount,
         isOrderBump: false,
-        customId: offer.upsell?.customId,
+        customId: (() => {
+          const stepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
+          const steps = getUpsellSteps(offer);
+          return steps[stepIndex]?.customId || offer.upsell?.customId;
+        })(),
       });
     } else {
       // Produto Principal
@@ -477,10 +494,18 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     if (isUpsell) {
       items.push({
         _id: undefined,
-        name: offer.upsell?.name || metadata.productName || "Upsell",
+        name: (() => {
+          const stepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
+          const steps = getUpsellSteps(offer);
+          return steps[stepIndex]?.name || offer.upsell?.name || metadata.productName || "Upsell";
+        })(),
         priceInCents: paymentIntent.amount,
         isOrderBump: false,
-        customId: offer.upsell?.customId,
+        customId: (() => {
+          const stepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
+          const steps = getUpsellSteps(offer);
+          return steps[stepIndex]?.customId || offer.upsell?.customId;
+        })(),
       });
     } else {
       // Produto Principal
