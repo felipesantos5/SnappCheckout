@@ -59,8 +59,7 @@ export const handleOrderPaid = async (eventData: any) => {
 
   } catch (error: any) {
     console.error(`[Pagar.me Webhook] Erro ao processar order.paid:`, error);
-    // NÃO re-lança: o controller já respondeu 200, re-throw vira unhandled rejection
-    // que acumula no contador e mata o processo após 50 em 60s
+    throw error; // Re-throw para que o webhook seja retentado
   }
 };
 

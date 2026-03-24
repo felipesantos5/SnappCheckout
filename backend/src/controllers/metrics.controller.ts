@@ -5,7 +5,6 @@ import mongoose from "mongoose";
 import Offer from "../models/offer.model";
 import { sendFacebookEvent, createFacebookUserData } from "../services/facebook.service";
 import { convertToBRL } from "../services/currency-conversion.service";
-import { convertToBRLSync, getExchangeRatesSync } from "../services/currency-conversion.service";
 
 /**
  * Helper: Busca IDs de todas as ofertas ativas de um usuário
@@ -146,15 +145,28 @@ export const handleTrackMetric = async (req: Request, res: Response) => {
           // Envia para TODOS os pixels configurados em paralelo com tratamento individual de erros
 
           // Promise.allSettled garante que todos os pixels sejam processados, mesmo se algum falhar
-          await Promise.allSettled(
+          const results = await Promise.allSettled(
             pixels.map((pixel, index) =>
               sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventPayload)
+                .then(() => {
+                })
                 .catch((err) => {
                   console.error(`❌ Erro ao enviar InitiateCheckout para pixel ${index + 1}/${pixels.length} (${pixel.pixelId}):`, err);
-                  // NÃO re-lança: estamos dentro de fire-and-forget (res já foi enviada)
+                  throw err; // Re-lança para que o Promise.allSettled capture como rejected
                 })
             )
           );
+
+          // Log do resumo final
+          const successful = results.filter(r => r.status === 'fulfilled').length;
+          const failed = results.filter(r => r.status === 'rejected').length;
+
+          // Log detalhado dos erros
+          results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+              console.error(`❌ Detalhes do erro pixel ${index + 1} (${pixels[index].pixelId}):`, result.reason);
+            }
+          });
         }
       }
     }
@@ -490,23 +502,6 @@ export const handleGetOfferTotalRevenue = async (req: Request, res: Response) =>
   }
 };
 
-/**
- * Helper: Converte valores agregados por moeda para BRL usando convertToBRLSync
- * Recebe array de { currency, total } e retorna soma em BRL
- */
-function convertAggregatedToBRL(byCurrency: Array<{ currency: string; total: number }>): number {
-  let totalBRL = 0;
-  for (const entry of byCurrency) {
-    totalBRL += convertToBRLSync(entry.total, entry.currency || "BRL");
-  }
-  return totalBRL;
-}
-
-/**
- * Dashboard Overview - Versão otimizada com MongoDB Aggregation
- * Em vez de carregar 5000+ vendas e iterar com await, usa pipelines de aggregation
- * que computam KPIs diretamente no banco, retornando apenas os totais.
- */
 export const handleGetDashboardOverview = async (req: Request, res: Response) => {
   try {
     const ownerId = req.userId!;
@@ -534,9 +529,11 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
     }
 
     // --- LÓGICA DE GRANULARIDADE ---
+    // Se o intervalo for menor que 25 horas, agrupamos por hora. Se não, por dia.
     const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
     const hoursDiff = Math.ceil(diffTime / (1000 * 60 * 60));
-    const isHourly = hoursDiff <= 25;
+    const isHourly = hoursDiff <= 25; // Define se vamos mostrar horas ou dias
+    // -------------------------------
 
     let offerIds: any[];
     if (filterOfferId && filterOfferId !== "all") {
@@ -544,175 +541,23 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
       if (!offer) return res.status(404).json({ error: "Oferta não encontrada" });
       offerIds = [offer._id];
     } else {
+      // Busca TODAS as ofertas (métricas do dashboard não filtram por isActive)
       const allOfferIds = await getAllOfferIds(ownerId);
       offerIds = allOfferIds;
     }
 
-    const baseMatch = {
-      ownerId: new mongoose.Types.ObjectId(ownerId),
-      status: "succeeded",
-      createdAt: { $gte: startDate, $lte: endDate },
-      offerId: { $in: offerIds },
-    };
+    const [allSales, allFailedSalesCount, allMetrics] = await Promise.all([
+      // Vendas aprovadas - seleciona APENAS os campos necessários
+      Sale.find({
+        ownerId: new mongoose.Types.ObjectId(ownerId),
+        status: "succeeded",
+        createdAt: { $gte: startDate, $lte: endDate },
+        offerId: { $in: offerIds },
+      })
+        .select("totalAmountInCents currency createdAt offerId isUpsell items.isOrderBump items.name items.priceInCents country gateway paymentMethod")
+        .lean(),
 
-    // --- PERÍODO ANTERIOR PARA COMPARAÇÃO ---
-    const periodDiffMs = endDate.getTime() - startDate.getTime();
-    const previousStartDate = new Date(startDate.getTime() - periodDiffMs);
-    const previousEndDate = new Date(startDate);
-
-    const previousMatch = {
-      ownerId: new mongoose.Types.ObjectId(ownerId),
-      status: "succeeded",
-      createdAt: { $gte: previousStartDate, $lt: previousEndDate },
-      offerId: { $in: offerIds },
-    };
-
-    // Formato de agrupamento para gráficos
-    const dateGroupExpr = isHourly
-      ? { $dateToString: { format: "%Y-%m-%dT%H", date: "$createdAt", timezone: "America/Sao_Paulo" } }
-      : { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "America/Sao_Paulo" } };
-
-    // === TODAS AS AGGREGATIONS EM PARALELO ===
-    const [
-      // Período atual
-      kpiAgg,
-      chartAgg,
-      topOffersAgg,
-      topCountriesAgg,
-      topProductsAgg,
-      failedCount,
-      metricsCounts,
-      metricsChartAgg,
-      // Período anterior
-      prevKpiAgg,
-      prevFailedCount,
-      prevMetricsCounts,
-    ] = await Promise.all([
-      // 1. KPIs do período atual - agrupados por moeda para conversão
-      Sale.aggregate([
-        { $match: baseMatch },
-        {
-          $facet: {
-            // Total geral por moeda
-            totalByCurrency: [
-              {
-                $group: {
-                  _id: "$currency",
-                  total: { $sum: "$totalAmountInCents" },
-                  count: { $sum: 1 },
-                },
-              },
-            ],
-            // Upsells por moeda
-            upsellByCurrency: [
-              { $match: { isUpsell: true } },
-              {
-                $group: {
-                  _id: "$currency",
-                  total: { $sum: "$totalAmountInCents" },
-                  count: { $sum: 1 },
-                },
-              },
-            ],
-            // Order bumps - unwind items para pegar isOrderBump
-            orderBumpByCurrency: [
-              { $match: { isUpsell: { $ne: true } } },
-              { $unwind: "$items" },
-              { $match: { "items.isOrderBump": true } },
-              {
-                $group: {
-                  _id: "$currency",
-                  total: { $sum: "$items.priceInCents" },
-                  count: { $sum: 1 },
-                },
-              },
-            ],
-            // Breakdown por gateway+moeda
-            byGateway: [
-              {
-                $group: {
-                  _id: {
-                    gateway: {
-                      $ifNull: ["$gateway", { $ifNull: ["$paymentMethod", "stripe"] }],
-                    },
-                    currency: "$currency",
-                  },
-                  total: { $sum: "$totalAmountInCents" },
-                },
-              },
-            ],
-            // Contagem total
-            totalCount: [
-              { $count: "count" },
-            ],
-          },
-        },
-      ]),
-
-      // 2. Dados do gráfico - agrupados por data + moeda
-      Sale.aggregate([
-        { $match: baseMatch },
-        {
-          $group: {
-            _id: {
-              date: dateGroupExpr,
-              currency: "$currency",
-            },
-            revenue: { $sum: "$totalAmountInCents" },
-            salesCount: { $sum: 1 },
-          },
-        },
-        { $sort: { "_id.date": 1 } },
-      ]),
-
-      // 3. Top ofertas
-      Sale.aggregate([
-        { $match: baseMatch },
-        {
-          $group: {
-            _id: { offerId: "$offerId", currency: "$currency" },
-            total: { $sum: "$totalAmountInCents" },
-            count: { $sum: 1 },
-          },
-        },
-      ]),
-
-      // 4. Top países
-      Sale.aggregate([
-        { $match: baseMatch },
-        {
-          $group: {
-            _id: { country: { $ifNull: ["$country", "BR"] }, currency: "$currency" },
-            total: { $sum: "$totalAmountInCents" },
-            count: { $sum: 1 },
-          },
-        },
-      ]),
-
-      // 5. Top produtos (upsells + order bumps)
-      Sale.aggregate([
-        { $match: baseMatch },
-        { $unwind: "$items" },
-        {
-          $match: {
-            $or: [
-              { isUpsell: true },
-              { "items.isOrderBump": true },
-            ],
-          },
-        },
-        {
-          $group: {
-            _id: { name: { $ifNull: ["$items.name", "Produto sem nome"] }, currency: "$currency" },
-            total: { $sum: "$items.priceInCents" },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { total: -1 } },
-        { $limit: 20 }, // Pega mais que 5 para consolidar por moeda depois
-      ]),
-
-      // 6. Contagem de falhas
+      // Vendas falhadas - só precisamos da contagem
       Sale.countDocuments({
         ownerId: new mongoose.Types.ObjectId(ownerId),
         status: "failed",
@@ -720,213 +565,116 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
         offerId: { $in: offerIds },
       }),
 
-      // 7. Métricas de checkout (views, initiate_checkout) - contagem
-      CheckoutMetric.aggregate([
-        {
-          $match: {
-            offerId: { $in: offerIds },
-            createdAt: { $gte: startDate, $lte: endDate },
-          },
-        },
-        {
-          $group: {
-            _id: "$type",
-            count: { $sum: 1 },
-          },
-        },
-      ]),
-
-      // 8. Métricas de checkout por período (para gráficos)
-      CheckoutMetric.aggregate([
-        {
-          $match: {
-            offerId: { $in: offerIds },
-            createdAt: { $gte: startDate, $lte: endDate },
-          },
-        },
-        {
-          $group: {
-            _id: {
-              date: dateGroupExpr,
-              type: "$type",
-            },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { "_id.date": 1 } },
-      ]),
-
-      // === PERÍODO ANTERIOR ===
-      // 9. KPIs anteriores
-      Sale.aggregate([
-        { $match: previousMatch },
-        {
-          $facet: {
-            totalByCurrency: [
-              {
-                $group: {
-                  _id: "$currency",
-                  total: { $sum: "$totalAmountInCents" },
-                  count: { $sum: 1 },
-                },
-              },
-            ],
-            upsellByCurrency: [
-              { $match: { isUpsell: true } },
-              {
-                $group: {
-                  _id: "$currency",
-                  total: { $sum: "$totalAmountInCents" },
-                  count: { $sum: 1 },
-                },
-              },
-            ],
-            orderBumpByCurrency: [
-              { $match: { isUpsell: { $ne: true } } },
-              { $unwind: "$items" },
-              { $match: { "items.isOrderBump": true } },
-              {
-                $group: {
-                  _id: "$currency",
-                  total: { $sum: "$items.priceInCents" },
-                  count: { $sum: 1 },
-                },
-              },
-            ],
-            totalCount: [
-              { $count: "count" },
-            ],
-          },
-        },
-      ]),
-
-      // 10. Falhas anteriores
-      Sale.countDocuments({
-        ownerId: new mongoose.Types.ObjectId(ownerId),
-        status: "failed",
-        createdAt: { $gte: previousStartDate, $lt: previousEndDate },
+      CheckoutMetric.find({
         offerId: { $in: offerIds },
-      }),
-
-      // 11. Métricas checkout anteriores
-      CheckoutMetric.aggregate([
-        {
-          $match: {
-            offerId: { $in: offerIds },
-            createdAt: { $gte: previousStartDate, $lt: previousEndDate },
-          },
-        },
-        {
-          $group: {
-            _id: "$type",
-            count: { $sum: 1 },
-          },
-        },
-      ]),
+        createdAt: { $gte: startDate, $lte: endDate },
+      })
+        .select("type createdAt")
+        .lean(),
     ]);
 
-    // === PROCESSAR RESULTADOS (tudo síncrono, sem await em loops) ===
-
-    const currentKpi = kpiAgg[0];
-    const prevKpi = prevKpiAgg[0];
-
-    // --- KPIs do período atual ---
-    const totalSales = currentKpi.totalCount[0]?.count || 0;
-    const totalRevenueInBRL = convertAggregatedToBRL(
-      currentKpi.totalByCurrency.map((r: any) => ({ currency: r._id || "BRL", total: r.total }))
-    );
-
-    // Upsells
+    // Calcular KPIs Totais
+    let totalRevenueInBRL = 0;
+    let extraRevenueInBRL = 0;
+    let isolatedProductRevenueInBRL = 0;
+    let orderBumpRevenueInBRL = 0;
     let upsellRevenueInBRL = 0;
     let upsellCount = 0;
-    for (const entry of currentKpi.upsellByCurrency) {
-      upsellRevenueInBRL += convertToBRLSync(entry.total, entry._id || "BRL");
-      upsellCount += entry.count;
+    const revenueByGateway: Record<string, number> = {
+      stripe: 0,
+      paypal: 0,
+      pagarme: 0
+    };
+    const totalSales = allSales.length;
+
+    // Processamento sequencial para evitar race condition em +=
+    for (const sale of allSales) {
+      const saleAmountInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
+      totalRevenueInBRL += saleAmountInBRL;
+
+      // Breakdown por gateway
+      const gateway = sale.gateway || sale.paymentMethod || "stripe";
+      revenueByGateway[gateway] = (revenueByGateway[gateway] || 0) + saleAmountInBRL;
+
+      if (sale.isUpsell) {
+        extraRevenueInBRL += saleAmountInBRL;
+        upsellRevenueInBRL += saleAmountInBRL;
+        upsellCount++;
+      } else {
+        let hasOrderBump = false;
+        let orderBumpAmountInBRL = 0;
+        let mainProductAmountInBRL = saleAmountInBRL;
+
+        if (sale.items && sale.items.length > 0) {
+          for (const item of sale.items) {
+            if (item.isOrderBump) {
+              const itemAmountInBRL = await convertToBRL(item.priceInCents, sale.currency || "BRL");
+              orderBumpAmountInBRL += itemAmountInBRL;
+              mainProductAmountInBRL -= itemAmountInBRL;
+              extraRevenueInBRL += itemAmountInBRL;
+              hasOrderBump = true;
+            }
+          }
+        }
+
+        if (hasOrderBump) {
+          upsellCount++;
+          orderBumpRevenueInBRL += orderBumpAmountInBRL;
+          isolatedProductRevenueInBRL += mainProductAmountInBRL;
+        } else {
+          isolatedProductRevenueInBRL += saleAmountInBRL;
+        }
+      }
     }
-
-    // Order bumps
-    let orderBumpRevenueInBRL = 0;
-    for (const entry of currentKpi.orderBumpByCurrency) {
-      orderBumpRevenueInBRL += convertToBRLSync(entry.total, entry._id || "BRL");
-    }
-
-    const extraRevenueInBRL = upsellRevenueInBRL + orderBumpRevenueInBRL;
-    const isolatedProductRevenueInBRL = totalRevenueInBRL - extraRevenueInBRL;
-
-    // Contagem de upsells: vendas com isUpsell + vendas com orderBumps
-    // Para contar vendas com orderBump (não-upsell), usamos a contagem das que têm pelo menos 1 orderBump
-    const salesWithOrderBumps = currentKpi.orderBumpByCurrency.reduce((acc: number, e: any) => acc + e.count, 0);
-    const totalUpsellCount = upsellCount + (salesWithOrderBumps > 0 ? salesWithOrderBumps : 0);
 
     const averageTicket = totalSales > 0 ? totalRevenueInBRL / totalSales : 0;
-    const averageUpsellTicket = totalUpsellCount > 0 ? extraRevenueInBRL / totalUpsellCount : 0;
-
-    // Gateway breakdown
-    const revenueByGateway: Record<string, number> = { stripe: 0, paypal: 0, pagarme: 0 };
-    for (const entry of currentKpi.byGateway) {
-      const gateway = entry._id.gateway || "stripe";
-      const amountBRL = convertToBRLSync(entry.total, entry._id.currency || "BRL");
-      revenueByGateway[gateway] = (revenueByGateway[gateway] || 0) + amountBRL;
-    }
-
-    // Métricas de checkout
-    const metricsCountMap = new Map<string, number>();
-    for (const m of metricsCounts) {
-      metricsCountMap.set(m._id, m.count);
-    }
-    const totalVisitors = metricsCountMap.get("view") || 0;
-    const checkoutsInitiatedCount = metricsCountMap.get("initiate_checkout") || 0;
+    const averageUpsellTicket = upsellCount > 0 ? extraRevenueInBRL / upsellCount : 0;
+    const views = allMetrics.filter((m) => m.type === "view");
+    const checkoutsInitiatedCount = allMetrics.filter((m) => m.type === "initiate_checkout").length;
+    const totalVisitors = views.length;
     const conversionRate = totalVisitors > 0 ? (totalSales / totalVisitors) * 100 : 0;
     const checkoutApprovalRate = checkoutsInitiatedCount > 0 ? (totalSales / checkoutsInitiatedCount) * 100 : 0;
 
-    // Payment approval
-    const totalFailedSales = failedCount;
+    // NOVA MÉTRICA: Taxa de Aprovação de Pagamentos (Aprovados / Total de Tentativas)
+    const totalFailedSales = allFailedSalesCount;
     const totalPaymentAttempts = totalSales + totalFailedSales;
     const paymentApprovalRate = totalPaymentAttempts > 0 ? (totalSales / totalPaymentAttempts) * 100 : 0;
 
-    // --- GRÁFICOS ---
+    // --- GRÁFICOS (PREENCHIMENTO DE GAPS E FORMATAÇÃO) ---
     const dailyMap = new Map<string, { revenue: number; salesCount: number; visitorsCount: number; checkoutCount: number; label: string }>();
 
-    const formatKeyAndLabel = (dateKey: string) => {
+    // Função auxiliar para gerar a chave de agrupamento e o label
+    const formatKeyAndLabel = (dateInput: Date | string) => {
+      const date = new Date(dateInput);
       if (isHourly) {
-        // dateKey format: YYYY-MM-DDTHH (from MongoDB)
-        const date = new Date(dateKey + ":00:00");
+        // Chave única: YYYY-MM-DD-HH
+        const key = date.toISOString().slice(0, 13); // ex: 2023-10-25T10
+        // Label visual: HH:00
         const label = date.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
-        return { key: dateKey, label };
+        return { key, label };
       } else {
-        return { key: dateKey, label: dateKey };
+        // Chave única: YYYY-MM-DD (usando fuso BR para garantir dia correto)
+        const brDate = new Date(date.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+        const key = brDate.toISOString().split("T")[0];
+        // Label visual: DD/MM (ou YYYY-MM-DD)
+        const label = key; // O frontend já lida bem com YYYY-MM-DD
+        return { key, label };
       }
     };
 
-    // Inicializar gaps
+    // 1. Inicializar o mapa com ZEROS para todos os intervalos (Preencher Gaps)
+    // Isso garante que o gráfico não fique com buracos ou um ponto só
     let current = new Date(startDate);
     const endLoop = new Date(endDate);
 
+    // Pequena margem de segurança no loop
     while (current <= endLoop || (isHourly && current.getDate() === endLoop.getDate() && current.getHours() <= endLoop.getHours())) {
-      let key: string;
-      let label: string;
-
-      if (isHourly) {
-        const brDate = new Date(current.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-        const y = brDate.getFullYear();
-        const m = (brDate.getMonth() + 1).toString().padStart(2, "0");
-        const d = brDate.getDate().toString().padStart(2, "0");
-        const h = brDate.getHours().toString().padStart(2, "0");
-        key = `${y}-${m}-${d}T${h}`;
-        label = `${h}:00`;
-      } else {
-        const brDate = new Date(current.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-        const y = brDate.getFullYear();
-        const m = (brDate.getMonth() + 1).toString().padStart(2, "0");
-        const d = brDate.getDate().toString().padStart(2, "0");
-        key = `${y}-${m}-${d}`;
-        label = key;
-      }
-
+      const { key, label } = formatKeyAndLabel(current);
       if (!dailyMap.has(key)) {
         dailyMap.set(key, { revenue: 0, salesCount: 0, visitorsCount: 0, checkoutCount: 0, label });
       }
 
+      // Incremento
       if (isHourly) {
         current.setHours(current.getHours() + 1);
       } else {
@@ -934,29 +682,31 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
       }
     }
 
-    // Preencher com dados reais dos gráficos (já agrupados pelo MongoDB)
-    for (const entry of chartAgg) {
-      const key = entry._id.date;
+    // 2. Preencher com dados reais
+    for (const sale of allSales) {
+      const { key } = formatKeyAndLabel(sale.createdAt);
+      // Proteção: caso a venda esteja fora do range gerado (raro, mas possível com timezone)
       if (dailyMap.has(key)) {
-        const data = dailyMap.get(key)!;
-        data.revenue += convertToBRLSync(entry.revenue, entry._id.currency || "BRL");
-        data.salesCount += entry.salesCount;
+        const amount = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
+        const entry = dailyMap.get(key)!;
+        entry.revenue += amount;
+        entry.salesCount += 1;
       }
     }
 
-    // Métricas de checkout no gráfico
-    for (const entry of metricsChartAgg) {
-      const key = entry._id.date;
+    for (const metric of allMetrics) {
+      const { key } = formatKeyAndLabel(metric.createdAt);
       if (dailyMap.has(key)) {
-        const data = dailyMap.get(key)!;
-        if (entry._id.type === "view") {
-          data.visitorsCount += entry.count;
-        } else if (entry._id.type === "initiate_checkout") {
-          data.checkoutCount += entry.count;
+        const entry = dailyMap.get(key)!;
+        if (metric.type === "view") {
+          entry.visitorsCount += 1;
+        } else if (metric.type === "initiate_checkout") {
+          entry.checkoutCount += 1;
         }
       }
     }
 
+    // Ordenar as chaves para o gráfico
     const sortedKeys = Array.from(dailyMap.keys()).sort();
 
     const revenueChart = sortedKeys.map((key) => ({ date: dailyMap.get(key)!.label, value: dailyMap.get(key)!.revenue / 100 }));
@@ -977,92 +727,151 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
       };
     });
 
-    // --- TOP LISTS ---
-    // Top ofertas - consolida moedas
+    // Top Lists (Mesma lógica de antes)
+    const offersMap = new Map<string, { name: string; revenue: number; count: number }>();
     const allOfferDetails = await Offer.find({ _id: { $in: offerIds } }, "name").lean();
     const offerNameMap = new Map(allOfferDetails.map((o) => [o._id.toString(), o.name]));
 
-    const offersConsolidated = new Map<string, { name: string; revenue: number; count: number }>();
-    for (const entry of topOffersAgg) {
-      const oId = entry._id.offerId.toString();
+    for (const sale of allSales) {
+      const oId = (sale.offerId as any)?.toString();
+      if (!oId) continue;
       const name = offerNameMap.get(oId) || "Oferta Removida";
-      const amountBRL = convertToBRLSync(entry.total, entry._id.currency || "BRL");
-      const existing = offersConsolidated.get(oId) || { name, revenue: 0, count: 0 };
-      existing.revenue += amountBRL;
-      existing.count += entry.count;
-      offersConsolidated.set(oId, existing);
+      const amount = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
+      const current = offersMap.get(oId) || { name, revenue: 0, count: 0 };
+      current.revenue += amount;
+      current.count += 1;
+      offersMap.set(oId, current);
     }
-    const topOffers = Array.from(offersConsolidated.values())
+    const topOffers = Array.from(offersMap.values())
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5)
       .map((o) => ({ ...o, value: o.revenue / 100 }));
 
-    // Top países
-    const countriesConsolidated = new Map<string, { revenue: number; count: number }>();
-    for (const entry of topCountriesAgg) {
-      const country = entry._id.country;
-      const amountBRL = convertToBRLSync(entry.total, entry._id.currency || "BRL");
-      const existing = countriesConsolidated.get(country) || { revenue: 0, count: 0 };
-      existing.revenue += amountBRL;
-      existing.count += entry.count;
-      countriesConsolidated.set(country, existing);
+    const topCountriesMap = new Map<string, { revenue: number; count: number }>();
+    const topProductsMap = new Map<string, { name: string; revenue: number; count: number }>();
+
+    for (const sale of allSales) {
+      const country = sale.country || "BR";
+      const amount = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
+      const cCurrent = topCountriesMap.get(country) || { revenue: 0, count: 0 };
+      cCurrent.revenue += amount;
+      cCurrent.count += 1;
+      topCountriesMap.set(country, cCurrent);
+
+      if (sale.isUpsell && sale.items && sale.items.length > 0) {
+        const pName = sale.items[0].name || "Produto sem nome";
+        const pCurrent = topProductsMap.get(pName) || { name: pName, revenue: 0, count: 0 };
+        pCurrent.revenue += amount;
+        pCurrent.count += 1;
+        topProductsMap.set(pName, pCurrent);
+      } else if (sale.items) {
+        for (const item of sale.items) {
+          if (item.isOrderBump) {
+            const itemAmount = await convertToBRL(item.priceInCents, sale.currency || "BRL");
+            const pName = item.name || "Order Bump";
+            const pCurrent = topProductsMap.get(pName) || { name: pName, revenue: 0, count: 0 };
+            pCurrent.revenue += itemAmount;
+            pCurrent.count += 1;
+            topProductsMap.set(pName, pCurrent);
+          }
+        }
+      }
     }
-    const topCountries = Array.from(countriesConsolidated.entries())
+    const topCountries = Array.from(topCountriesMap.entries())
       .sort((a, b) => b[1].revenue - a[1].revenue)
       .map(([name, data]) => ({ name, value: data.revenue / 100, count: data.count }));
-
-    // Top produtos
-    const productsConsolidated = new Map<string, { name: string; revenue: number; count: number }>();
-    for (const entry of topProductsAgg) {
-      const pName = entry._id.name;
-      const amountBRL = convertToBRLSync(entry.total, entry._id.currency || "BRL");
-      const existing = productsConsolidated.get(pName) || { name: pName, revenue: 0, count: 0 };
-      existing.revenue += amountBRL;
-      existing.count += entry.count;
-      productsConsolidated.set(pName, existing);
-    }
-    const topProducts = Array.from(productsConsolidated.values())
+    const topProducts = Array.from(topProductsMap.values())
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5)
       .map((p) => ({ name: p.name, value: p.revenue / 100, count: p.count }));
 
-    // --- KPIs DO PERÍODO ANTERIOR ---
-    const prevTotalSales = prevKpi.totalCount[0]?.count || 0;
-    const previousTotalRevenueInBRL = convertAggregatedToBRL(
-      prevKpi.totalByCurrency.map((r: any) => ({ currency: r._id || "BRL", total: r.total }))
-    );
+    // --- CÁLCULO DO PERÍODO ANTERIOR PARA COMPARAÇÃO ---
+    const periodDiffMs = endDate.getTime() - startDate.getTime();
+    const previousStartDate = new Date(startDate.getTime() - periodDiffMs);
+    const previousEndDate = new Date(startDate);
 
-    let prevUpsellRevenueInBRL = 0;
-    let prevUpsellCount = 0;
-    for (const entry of prevKpi.upsellByCurrency) {
-      prevUpsellRevenueInBRL += convertToBRLSync(entry.total, entry._id || "BRL");
-      prevUpsellCount += entry.count;
+    const [previousSales, previousFailedSalesCount, previousMetrics] = await Promise.all([
+      Sale.find({
+        ownerId: new mongoose.Types.ObjectId(ownerId),
+        status: "succeeded",
+        createdAt: { $gte: previousStartDate, $lt: previousEndDate },
+        offerId: { $in: offerIds },
+      })
+        .select("totalAmountInCents currency isUpsell items.isOrderBump items.priceInCents")
+        .lean(),
+
+      Sale.countDocuments({
+        ownerId: new mongoose.Types.ObjectId(ownerId),
+        status: "failed",
+        createdAt: { $gte: previousStartDate, $lt: previousEndDate },
+        offerId: { $in: offerIds },
+      }),
+
+      CheckoutMetric.find({
+        offerId: { $in: offerIds },
+        createdAt: { $gte: previousStartDate, $lt: previousEndDate },
+      })
+        .select("type")
+        .lean(),
+    ]);
+
+    // Calcular KPIs do período anterior (Sequencial)
+    let previousTotalRevenueInBRL = 0;
+    let previousExtraRevenueInBRL = 0;
+    let previousIsolatedProductRevenueInBRL = 0;
+    let previousOrderBumpRevenueInBRL = 0;
+    let previousUpsellRevenueInBRL = 0;
+    let previousUpsellCount = 0;
+
+    for (const sale of previousSales) {
+      const saleAmountInBRL = await convertToBRL(sale.totalAmountInCents, sale.currency || "BRL");
+      previousTotalRevenueInBRL += saleAmountInBRL;
+
+      if (sale.isUpsell) {
+        previousExtraRevenueInBRL += saleAmountInBRL;
+        previousUpsellRevenueInBRL += saleAmountInBRL;
+        previousUpsellCount++;
+      } else {
+        let hasOrderBump = false;
+        let orderBumpAmountInBRL = 0;
+        let mainProductAmountInBRL = saleAmountInBRL;
+
+        if (sale.items && sale.items.length > 0) {
+          for (const item of sale.items) {
+            if (item.isOrderBump) {
+              const itemAmountInBRL = await convertToBRL(item.priceInCents, sale.currency || "BRL");
+              orderBumpAmountInBRL += itemAmountInBRL;
+              mainProductAmountInBRL -= itemAmountInBRL;
+              previousExtraRevenueInBRL += itemAmountInBRL;
+              hasOrderBump = true;
+            }
+          }
+        }
+
+        if (hasOrderBump) {
+          previousUpsellCount++;
+          previousOrderBumpRevenueInBRL += orderBumpAmountInBRL;
+          previousIsolatedProductRevenueInBRL += mainProductAmountInBRL;
+        } else {
+          previousIsolatedProductRevenueInBRL += saleAmountInBRL;
+        }
+      }
     }
 
-    let prevOrderBumpRevenueInBRL = 0;
-    for (const entry of prevKpi.orderBumpByCurrency) {
-      prevOrderBumpRevenueInBRL += convertToBRLSync(entry.total, entry._id || "BRL");
-    }
+    const previousAverageUpsellTicket = previousUpsellCount > 0 ? previousExtraRevenueInBRL / previousUpsellCount : 0;
 
-    const previousExtraRevenueInBRL = prevUpsellRevenueInBRL + prevOrderBumpRevenueInBRL;
-    const prevSalesWithOrderBumps = prevKpi.orderBumpByCurrency.reduce((acc: number, e: any) => acc + e.count, 0);
-    const prevTotalUpsellCount = prevUpsellCount + (prevSalesWithOrderBumps > 0 ? prevSalesWithOrderBumps : 0);
-    const previousAverageUpsellTicket = prevTotalUpsellCount > 0 ? previousExtraRevenueInBRL / prevTotalUpsellCount : 0;
+    const previousTotalSales = previousSales.length;
+    const previousAverageTicket = previousTotalSales > 0 ? previousTotalRevenueInBRL / previousTotalSales : 0;
+    const previousViews = previousMetrics.filter((m) => m.type === "view");
+    const previousCheckoutsInitiatedCount = previousMetrics.filter((m) => m.type === "initiate_checkout").length;
+    const previousTotalVisitors = previousViews.length;
+    const previousConversionRate = previousTotalVisitors > 0 ? (previousTotalSales / previousTotalVisitors) * 100 : 0;
+    const previousCheckoutApprovalRate = previousCheckoutsInitiatedCount > 0 ? (previousTotalSales / previousCheckoutsInitiatedCount) * 100 : 0;
 
-    const previousAverageTicket = prevTotalSales > 0 ? previousTotalRevenueInBRL / prevTotalSales : 0;
-
-    const prevMetricsMap = new Map<string, number>();
-    for (const m of prevMetricsCounts) {
-      prevMetricsMap.set(m._id, m.count);
-    }
-    const previousTotalVisitors = prevMetricsMap.get("view") || 0;
-    const previousCheckoutsInitiatedCount = prevMetricsMap.get("initiate_checkout") || 0;
-    const previousConversionRate = previousTotalVisitors > 0 ? (prevTotalSales / previousTotalVisitors) * 100 : 0;
-    const previousCheckoutApprovalRate = previousCheckoutsInitiatedCount > 0 ? (prevTotalSales / previousCheckoutsInitiatedCount) * 100 : 0;
-
-    const previousTotalFailedSales = prevFailedCount;
-    const previousTotalPaymentAttempts = prevTotalSales + previousTotalFailedSales;
-    const previousPaymentApprovalRate = previousTotalPaymentAttempts > 0 ? (prevTotalSales / previousTotalPaymentAttempts) * 100 : 0;
+    // Taxa de aprovação de pagamentos do período anterior
+    const previousTotalFailedSales = previousFailedSalesCount;
+    const previousTotalPaymentAttempts = previousTotalSales + previousTotalFailedSales;
+    const previousPaymentApprovalRate = previousTotalPaymentAttempts > 0 ? (previousTotalSales / previousTotalPaymentAttempts) * 100 : 0;
 
     // Calcular porcentagens de mudança
     const calculateChangePercentage = (current: number, previous: number) => {
@@ -1087,9 +896,9 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
         checkoutApprovalRate,
 
         // NOVA MÉTRICA: Taxa de Aprovação de Pagamentos
-        paymentApprovalRate,
-        totalPaymentAttempts,
-        totalFailedPayments: totalFailedSales,
+        paymentApprovalRate, // % de pagamentos aprovados do total de tentativas
+        totalPaymentAttempts, // Total de tentativas (aprovadas + negadas)
+        totalFailedPayments: totalFailedSales, // Total de pagamentos negados
 
         // Breakdown por gateway
         revenueByGateway,
@@ -1098,7 +907,7 @@ export const handleGetDashboardOverview = async (req: Request, res: Response) =>
         totalRevenueChange: calculateChangePercentage(totalRevenueInBRL, previousTotalRevenueInBRL),
         extraRevenueChange: calculateChangePercentage(extraRevenueInBRL, previousExtraRevenueInBRL),
         averageUpsellTicketChange: calculateChangePercentage(averageUpsellTicket, previousAverageUpsellTicket),
-        totalOrdersChange: calculateChangePercentage(totalSales, prevTotalSales),
+        totalOrdersChange: calculateChangePercentage(totalSales, previousTotalSales),
         averageTicketChange: calculateChangePercentage(averageTicket, previousAverageTicket),
         totalVisitorsChange: calculateChangePercentage(totalVisitors, previousTotalVisitors),
         conversionRateChange: calculateChangePercentage(conversionRate, previousConversionRate),
