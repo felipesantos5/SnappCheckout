@@ -65,6 +65,8 @@ export interface IOffer extends Document {
     redirectUrl: string;
     fallbackCheckoutUrl?: string; // URL de checkout alternativo para métodos não-Stripe (PayPal, etc)
     customId?: string;
+    acceptNextStep?: number | null; // Índice do próximo step ao aceitar upsell #1
+    declineNextStep?: number | null; // Índice do próximo step ao recusar upsell #1
     paypalOneClickEnabled?: boolean; // Habilita one-click upsell com PayPal Vault
     steps?: Array<{
       name: string;
@@ -72,6 +74,8 @@ export interface IOffer extends Document {
       redirectUrl: string;
       customId?: string;
       fallbackCheckoutUrl?: string;
+      acceptNextStep?: number | null; // Índice do próximo step ao aceitar (null = thank you page)
+      declineNextStep?: number | null; // Índice do próximo step ao recusar (null = thank you page)
     }>;
   };
 
@@ -165,6 +169,8 @@ const offerSchema = new Schema<IOffer>(
       redirectUrl: { type: String, default: "" },
       fallbackCheckoutUrl: { type: String, default: "" }, // URL de checkout alternativo para PayPal
       customId: { type: String, default: "" },
+      acceptNextStep: { type: Number, default: null },
+      declineNextStep: { type: Number, default: null },
       paypalOneClickEnabled: { type: Boolean, default: false }, // Habilita one-click upsell com PayPal Vault
       steps: {
         type: [
@@ -174,6 +180,8 @@ const offerSchema = new Schema<IOffer>(
             redirectUrl: { type: String, default: "" },
             customId: { type: String, default: "" },
             fallbackCheckoutUrl: { type: String, default: "" },
+            acceptNextStep: { type: Number, default: null },
+            declineNextStep: { type: Number, default: null },
           },
         ],
         default: [],

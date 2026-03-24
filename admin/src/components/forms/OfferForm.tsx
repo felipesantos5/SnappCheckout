@@ -173,6 +173,8 @@ const upsellStepSchema = z.object({
   redirectUrl: optionalUrl,
   customId: z.string().optional(),
   fallbackCheckoutUrl: optionalUrl,
+  acceptNextStep: z.coerce.number().nullable().optional(),
+  declineNextStep: z.coerce.number().nullable().optional(),
 });
 
 const upsellSchema = z.object({
@@ -181,6 +183,8 @@ const upsellSchema = z.object({
   price: z.coerce.number().min(0, { message: "Preço deve ser maior ou igual a 0." }).optional(),
   redirectUrl: optionalUrl,
   customId: z.string().optional(),
+  acceptNextStep: z.coerce.number().nullable().optional(),
+  declineNextStep: z.coerce.number().nullable().optional(),
   paypalOneClickEnabled: z.boolean().default(false),
   steps: z.array(upsellStepSchema).optional(),
 });
@@ -1061,6 +1065,73 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                     />
                   </div>
                   <CustomIdInput name="upsell.customId" />
+
+                  {/* --- Ramificação do Funil para Upsell #1 --- */}
+                  {upsellStepFields.length > 0 && (
+                    <div className="mt-3 p-3 bg-muted/30 rounded-md border border-dashed space-y-3">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ramificação do Funil</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="upsell.acceptNextStep"
+                          render={({ field }: any) => (
+                            <FormItem>
+                              <FormLabel className="text-green-700">Se ACEITAR, ir para:</FormLabel>
+                              <Select
+                                value={field.value !== null && field.value !== undefined ? String(field.value) : "next"}
+                                onValueChange={(val) => field.onChange(val === "next" ? null : Number(val))}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione..." />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="next">Próximo step (padrão)</SelectItem>
+                                  <SelectItem value="-1">Página de obrigado</SelectItem>
+                                  {upsellStepFields.map((_, stepIdx) => (
+                                    <SelectItem key={stepIdx} value={String(stepIdx + 1)}>
+                                      Step #{stepIdx + 2} - {form.watch(`upsell.steps.${stepIdx}.name` as any) || "Sem nome"}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="upsell.declineNextStep"
+                          render={({ field }: any) => (
+                            <FormItem>
+                              <FormLabel className="text-red-700">Se RECUSAR, ir para:</FormLabel>
+                              <Select
+                                value={field.value !== null && field.value !== undefined ? String(field.value) : "next"}
+                                onValueChange={(val) => field.onChange(val === "next" ? null : Number(val))}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione..." />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="next">Próximo step (padrão)</SelectItem>
+                                  <SelectItem value="-1">Página de obrigado</SelectItem>
+                                  {upsellStepFields.map((_, stepIdx) => (
+                                    <SelectItem key={stepIdx} value={String(stepIdx + 1)}>
+                                      Step #{stepIdx + 2} - {form.watch(`upsell.steps.${stepIdx}.name` as any) || "Sem nome"}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* --- UPSELLS ADICIONAIS (steps array) --- */}
@@ -1069,7 +1140,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded">UPSELL #{index + 2}</span>
-                        <span className="text-sm text-muted-foreground">Exibido após o upsell #{index + 1}</span>
+                        <span className="text-sm text-muted-foreground">Step do funil (índice {index + 1})</span>
                       </div>
                       <Button
                         type="button"
@@ -1112,6 +1183,81 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                       />
                     </div>
                     <CustomIdInput name={`upsell.steps.${index}.customId` as any} />
+
+                    {/* --- Configuração de Ramificação do Funil --- */}
+                    <div className="mt-3 p-3 bg-muted/30 rounded-md border border-dashed space-y-3">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ramificação do Funil</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name={`upsell.steps.${index}.acceptNextStep` as any}
+                          render={({ field }: any) => (
+                            <FormItem>
+                              <FormLabel className="text-green-700">Se ACEITAR, ir para:</FormLabel>
+                              <Select
+                                value={field.value !== null && field.value !== undefined ? String(field.value) : "next"}
+                                onValueChange={(val) => field.onChange(val === "next" ? null : Number(val))}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione..." />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="next">Próximo step (padrão)</SelectItem>
+                                  <SelectItem value="-1">Página de obrigado</SelectItem>
+                                  <SelectItem value="0">
+                                    Step #1 - {form.watch("upsell.name") || "Upsell #1"}
+                                  </SelectItem>
+                                  {upsellStepFields.map((_, stepIdx) =>
+                                    stepIdx !== index ? (
+                                      <SelectItem key={stepIdx} value={String(stepIdx + 1)}>
+                                        Step #{stepIdx + 2} - {form.watch(`upsell.steps.${stepIdx}.name` as any) || "Sem nome"}
+                                      </SelectItem>
+                                    ) : null
+                                  )}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`upsell.steps.${index}.declineNextStep` as any}
+                          render={({ field }: any) => (
+                            <FormItem>
+                              <FormLabel className="text-red-700">Se RECUSAR, ir para:</FormLabel>
+                              <Select
+                                value={field.value !== null && field.value !== undefined ? String(field.value) : "next"}
+                                onValueChange={(val) => field.onChange(val === "next" ? null : Number(val))}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione..." />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="next">Próximo step (padrão)</SelectItem>
+                                  <SelectItem value="-1">Página de obrigado</SelectItem>
+                                  <SelectItem value="0">
+                                    Step #1 - {form.watch("upsell.name") || "Upsell #1"}
+                                  </SelectItem>
+                                  {upsellStepFields.map((_, stepIdx) =>
+                                    stepIdx !== index ? (
+                                      <SelectItem key={stepIdx} value={String(stepIdx + 1)}>
+                                        Step #{stepIdx + 2} - {form.watch(`upsell.steps.${stepIdx}.name` as any) || "Sem nome"}
+                                      </SelectItem>
+                                    ) : null
+                                  )}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
 
@@ -1119,7 +1265,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   type="button"
                   variant="outline"
                   className="w-full border-dashed"
-                  onClick={() => appendUpsellStep({ name: "", price: 0, redirectUrl: "", customId: "" } as any)}
+                  onClick={() => appendUpsellStep({ name: "", price: 0, redirectUrl: "", customId: "", acceptNextStep: null, declineNextStep: null } as any)}
                 >
                   + Adicionar Upsell ao Funil
                 </Button>

@@ -126,10 +126,16 @@ export const handleRefuseUpsell = async (req: Request, res: Response) => {
 
     const offer = session.offerId as IOffer;
     const steps = getUpsellSteps(offer);
-    const nextStepIndex = session.currentStepIndex + 1;
+    const currentStep = steps[session.currentStepIndex];
 
-    // Se há próximo passo no funil, avança para ele
-    if (nextStepIndex < steps.length) {
+    // Determina próximo step: usa declineNextStep configurado, senão avança linear
+    const declineNextStep = currentStep?.declineNextStep;
+    const nextStepIndex = (declineNextStep !== undefined && declineNextStep !== null)
+      ? declineNextStep
+      : session.currentStepIndex + 1;
+
+    // Se há próximo passo válido no funil, avança para ele
+    if (nextStepIndex >= 0 && nextStepIndex < steps.length) {
       session.currentStepIndex = nextStepIndex;
       await session.save();
 
@@ -229,10 +235,14 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
     );
 
     if (paymentIntent.status === "succeeded") {
-      const nextStepIndex = session.currentStepIndex + 1;
+      // Determina próximo step: usa acceptNextStep configurado, senão avança linear
+      const acceptNextStep = currentStep?.acceptNextStep;
+      const nextStepIndex = (acceptNextStep !== undefined && acceptNextStep !== null)
+        ? acceptNextStep
+        : session.currentStepIndex + 1;
 
-      // Se há próximo passo no funil, avança
-      if (nextStepIndex < steps.length) {
+      // Se há próximo passo válido no funil, avança
+      if (nextStepIndex >= 0 && nextStepIndex < steps.length) {
         session.currentStepIndex = nextStepIndex;
         await session.save();
 

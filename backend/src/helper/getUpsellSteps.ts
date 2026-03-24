@@ -6,34 +6,39 @@ export interface UpsellStep {
   redirectUrl: string;
   customId?: string;
   fallbackCheckoutUrl?: string;
+  acceptNextStep?: number | null;
+  declineNextStep?: number | null;
 }
 
 /**
  * Retorna os passos do funil de upsell de uma oferta.
- * Compatível com ofertas antigas (campos flat) e novas (steps array).
+ * Sempre inclui o upsell #1 (campos flat) como step 0, seguido dos steps adicionais.
+ * Compatível com ofertas antigas (só campos flat) e novas (flat + steps array).
  */
 export function getUpsellSteps(offer: IOffer): UpsellStep[] {
   if (!offer.upsell?.enabled) return [];
 
-  // Novo formato: steps array
-  if (offer.upsell.steps && offer.upsell.steps.length > 0) {
-    return offer.upsell.steps;
-  }
+  const allSteps: UpsellStep[] = [];
 
-  // Formato antigo: campos flat → converte para array de 1 step
+  // Step 0: upsell #1 (campos flat)
   if (offer.upsell.name || offer.upsell.redirectUrl) {
-    return [
-      {
-        name: offer.upsell.name,
-        price: offer.upsell.price,
-        redirectUrl: offer.upsell.redirectUrl,
-        customId: offer.upsell.customId,
-        fallbackCheckoutUrl: offer.upsell.fallbackCheckoutUrl,
-      },
-    ];
+    allSteps.push({
+      name: offer.upsell.name,
+      price: offer.upsell.price,
+      redirectUrl: offer.upsell.redirectUrl,
+      customId: offer.upsell.customId,
+      fallbackCheckoutUrl: offer.upsell.fallbackCheckoutUrl,
+      acceptNextStep: offer.upsell.acceptNextStep ?? null,
+      declineNextStep: offer.upsell.declineNextStep ?? null,
+    });
   }
 
-  return [];
+  // Steps adicionais (upsell #2, #3, downsells, etc.)
+  if (offer.upsell.steps && offer.upsell.steps.length > 0) {
+    allSteps.push(...offer.upsell.steps);
+  }
+
+  return allSteps;
 }
 
 /**
