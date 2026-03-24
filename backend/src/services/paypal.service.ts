@@ -65,8 +65,8 @@ export const createOrder = async (amount: number, currency: string, clientId: st
             locale: "pt-BR",
             landing_page: "LOGIN",
             user_action: "PAY_NOW",
-            return_url: "https://backend2.snappcheckout.com/api/paypal/return",
-            cancel_url: "https://backend2.snappcheckout.com/api/paypal/cancel",
+            return_url: "https://backend3.snappcheckout.com/api/paypal/return",
+            cancel_url: "https://backend3.snappcheckout.com/api/paypal/cancel",
           },
           attributes: {
             vault: {
@@ -79,17 +79,13 @@ export const createOrder = async (amount: number, currency: string, clientId: st
       };
     }
 
-    const response = await axios.post(
-      `${PAYPAL_API_URL}/v2/checkout/orders`,
-      orderPayload,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        ...getAxiosConfig(PAYPAL_TIMEOUT),
-      }
-    );
+    const response = await axios.post(`${PAYPAL_API_URL}/v2/checkout/orders`, orderPayload, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      ...getAxiosConfig(PAYPAL_TIMEOUT),
+    });
     return response.data;
   } catch (error: any) {
     // Extrair detalhes do erro do PayPal para debugging
@@ -119,7 +115,7 @@ export const captureOrder = async (orderId: string, clientId: string, clientSecr
         "Content-Type": "application/json",
       },
       ...getAxiosConfig(PAYPAL_TIMEOUT),
-    }
+    },
   );
   return response.data;
 };
@@ -129,21 +125,18 @@ export const captureOrder = async (orderId: string, clientId: string, clientSecr
 export const getCustomerPaymentTokens = async (
   paypalCustomerId: string,
   clientId: string,
-  clientSecret: string
+  clientSecret: string,
 ): Promise<{ id: string; customer: { id: string } } | null> => {
   try {
     const accessToken = await generateAccessToken(clientId, clientSecret);
 
-    const response = await axios.get(
-      `${PAYPAL_API_URL}/v3/vault/payment-tokens?customer_id=${paypalCustomerId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        ...getAxiosConfig(PAYPAL_TIMEOUT),
-      }
-    );
+    const response = await axios.get(`${PAYPAL_API_URL}/v3/vault/payment-tokens?customer_id=${paypalCustomerId}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      ...getAxiosConfig(PAYPAL_TIMEOUT),
+    });
 
     const tokens = response.data?.payment_tokens;
     if (tokens && tokens.length > 0) {
@@ -169,10 +162,9 @@ export const waitForVaultToken = async (
   clientId: string,
   clientSecret: string,
   maxAttempts: number = 5,
-  baseIntervalMs: number = 2000
+  baseIntervalMs: number = 2000,
 ): Promise<{ id: string; customer: { id: string } } | null> => {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-
     const token = await getCustomerPaymentTokens(paypalCustomerId, clientId, clientSecret);
     if (token) {
       return token;
@@ -196,7 +188,7 @@ export const createAndCaptureOrderWithVault = async (
   vaultId: string,
   paypalCustomerId: string,
   clientId: string,
-  clientSecret: string
+  clientSecret: string,
 ) => {
   // Validação
   if (!amount || amount <= 0) {
@@ -232,18 +224,13 @@ export const createAndCaptureOrderWithVault = async (
       },
     };
 
-
-    const response = await axios.post(
-      `${PAYPAL_API_URL}/v2/checkout/orders`,
-      orderPayload,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        ...getAxiosConfig(PAYPAL_TIMEOUT),
-      }
-    );
+    const response = await axios.post(`${PAYPAL_API_URL}/v2/checkout/orders`, orderPayload, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      ...getAxiosConfig(PAYPAL_TIMEOUT),
+    });
 
     const order = response.data;
 
@@ -258,7 +245,7 @@ export const createAndCaptureOrderWithVault = async (
             "Content-Type": "application/json",
           },
           ...getAxiosConfig(PAYPAL_TIMEOUT),
-        }
+        },
       );
 
       return captureResponse.data;
@@ -294,15 +281,14 @@ export const createAndCaptureOrderWithVault = async (
 export const getVaultTokenByCustomerId = async (
   paypalCustomerId: string,
   clientId: string,
-  clientSecret: string
+  clientSecret: string,
 ): Promise<{ id: string; customer: { id: string } } | null> => {
-  
   try {
     const token = await getCustomerPaymentTokens(paypalCustomerId, clientId, clientSecret);
     if (token) {
       return token;
     }
-    
+
     console.warn(`⚠️ [PayPal Vault] Nenhum token encontrado para customer ${paypalCustomerId}`);
     return null;
   } catch (error: any) {

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 
 export const getUpsellScript = (req: Request, res: Response) => {
-  const backendUrl = process.env.BACKEND_URL || "https://backend2.snappcheckout.com";
+  const backendUrl = process.env.BACKEND_URL || "https://backend3.snappcheckout.com";
 
   const scriptContent = `
 (function() {
