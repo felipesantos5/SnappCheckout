@@ -146,7 +146,8 @@ const processConsolidatedPurchase = async (parentSale: any): Promise<void> => {
     pixels.map((pixel) =>
       sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventData).catch((err) => {
         console.error(`❌ [Facebook Job] Erro pixel ${pixel.pixelId}:`, err.message);
-        throw err;
+        // NÃO re-lança: Promise.allSettled já captura como "rejected"
+        // Re-throw aqui anulava o propósito do allSettled e gerava unhandled rejections
       })
     )
   );

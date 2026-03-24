@@ -93,9 +93,13 @@ function ensureRatesUpdated(): void {
   const now = Date.now();
   if (!lastUpdate || now - lastUpdate.getTime() > CACHE_DURATION_MS) {
     if (!fetchPromise) {
-      fetchPromise = fetchExchangeRates().finally(() => {
-        fetchPromise = null;
-      });
+      fetchPromise = fetchExchangeRates()
+        .catch((err) => {
+          console.error("❌ Erro ao atualizar taxas de câmbio em background:", err);
+        })
+        .finally(() => {
+          fetchPromise = null;
+        });
     }
   }
 }

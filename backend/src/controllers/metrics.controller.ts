@@ -146,28 +146,15 @@ export const handleTrackMetric = async (req: Request, res: Response) => {
           // Envia para TODOS os pixels configurados em paralelo com tratamento individual de erros
 
           // Promise.allSettled garante que todos os pixels sejam processados, mesmo se algum falhar
-          const results = await Promise.allSettled(
+          await Promise.allSettled(
             pixels.map((pixel, index) =>
               sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventPayload)
-                .then(() => {
-                })
                 .catch((err) => {
                   console.error(`❌ Erro ao enviar InitiateCheckout para pixel ${index + 1}/${pixels.length} (${pixel.pixelId}):`, err);
-                  throw err; // Re-lança para que o Promise.allSettled capture como rejected
+                  // NÃO re-lança: estamos dentro de fire-and-forget (res já foi enviada)
                 })
             )
           );
-
-          // Log do resumo final
-          const successful = results.filter(r => r.status === 'fulfilled').length;
-          const failed = results.filter(r => r.status === 'rejected').length;
-
-          // Log detalhado dos erros
-          results.forEach((result, index) => {
-            if (result.status === 'rejected') {
-              console.error(`❌ Detalhes do erro pixel ${index + 1} (${pixels[index].pixelId}):`, result.reason);
-            }
-          });
         }
       }
     }

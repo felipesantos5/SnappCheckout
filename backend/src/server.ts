@@ -36,11 +36,12 @@ process.on("unhandledRejection", (reason: any, promise) => {
 
   unhandledRejectionCount++;
 
-  // Só mata o processo se houver cascata (50+ rejeições em 60s)
-  // Limiar alto: rejeições de APIs externas (Facebook, UTMfy, Husky, Stripe)
-  // são comuns sob carga e NÃO devem derrubar o servidor
-  if (unhandledRejectionCount >= 50) {
-    console.error("CRITICAL: 50+ unhandled rejections in 60s - restarting process");
+  // Só mata o processo se houver cascata extrema (200+ rejeições em 60s)
+  // Rejeições de APIs externas (Facebook, UTMfy, Husky, Stripe, PayPal)
+  // são comuns sob carga e NÃO devem derrubar o servidor.
+  // Limiar aumentado de 50 para 200 para evitar restart desnecessário.
+  if (unhandledRejectionCount >= 200) {
+    console.error("CRITICAL: 200+ unhandled rejections in 60s - restarting process");
     gracefulShutdown("unhandledRejection_cascade");
   }
   // Rejeições isoladas são logadas mas NÃO matam o processo

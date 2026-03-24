@@ -283,7 +283,8 @@ export const processUtmfyIntegration = async (
 
 
     // Envia para todas as URLs configuradas em paralelo
-    await Promise.all(webhookUrls.map((url) => sendPurchaseToUTMfyWebhook(url, utmfyPayload)));
+    // Promise.allSettled garante que falha em 1 URL não cancela as outras
+    await Promise.allSettled(webhookUrls.map((url) => sendPurchaseToUTMfyWebhook(url, utmfyPayload)));
   } catch (error) {
     console.error("Erro na lógica do serviço UTMfy:", error);
   }
@@ -449,7 +450,8 @@ export const processUtmfyIntegrationForPayPal = async (
 
 
     // Envia para todas as URLs configuradas em paralelo
-    await Promise.all(webhookUrls.map((url) => sendPurchaseToUTMfyWebhook(url, utmfyPayload)));
+    // Promise.allSettled garante que falha em 1 URL não cancela as outras
+    await Promise.allSettled(webhookUrls.map((url) => sendPurchaseToUTMfyWebhook(url, utmfyPayload)));
   } catch (error) {
     console.error("❌ [PayPal] Erro na lógica do serviço UTMfy:", error);
   }
