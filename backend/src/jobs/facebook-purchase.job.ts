@@ -74,11 +74,11 @@ const processConsolidatedPurchase = async (parentSale: any): Promise<void> => {
     return;
   }
 
-  // 3. Busca vendas filhas (upsells) vinculadas a esta venda
+  // 3. Busca vendas filhas (upsells) vinculadas a esta venda (limite de 50 para segurança)
   const childSales = await Sale.find({
     parentSaleId: parentSale._id,
     status: "succeeded",
-  });
+  }).select("totalAmountInCents items").limit(50).lean();
 
   // 4. Consolida valor total e itens
   let totalAmountInCents = parentSale.totalAmountInCents;
@@ -146,7 +146,8 @@ const processConsolidatedPurchase = async (parentSale: any): Promise<void> => {
     pixels.map((pixel) =>
       sendFacebookEvent(pixel.pixelId, pixel.accessToken, eventData).catch((err) => {
         console.error(`❌ [Facebook Job] Erro pixel ${pixel.pixelId}:`, err.message);
-        throw err;
+        // NÃO re-lança: Promise.allSettled já captura como "rejected"
+        // Re-throw aqui anulava o propósito do allSettled e gerava unhandled rejections
       })
     )
   );

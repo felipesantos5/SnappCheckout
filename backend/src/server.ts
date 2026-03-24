@@ -19,8 +19,14 @@ process.on("uncaughtException", (error) => {
   gracefulShutdown("uncaughtException");
 });
 
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("WARNING: Unhandled Rejection at:", promise, "reason:", reason);
+process.on("unhandledRejection", (reason: any, promise) => {
+  // Log detalhado para rastrear a ORIGEM da rejeição
+  const errorMessage = reason?.message || reason || "Unknown";
+  const errorStack = reason?.stack || "";
+  console.error(`WARNING: Unhandled Rejection #${unhandledRejectionCount + 1}: ${errorMessage}`);
+  if (errorStack) {
+    console.error(`  Stack: ${errorStack.split("\n").slice(0, 3).join("\n  ")}`);
+  }
 
   // Reseta o contador a cada 60 segundos
   if (Date.now() - lastRejectionReset > 60000) {
@@ -30,14 +36,15 @@ process.on("unhandledRejection", (reason, promise) => {
 
   unhandledRejectionCount++;
 
-  // Só mata o processo se houver cascata (10+ rejeições em 60s)
-  // Isso indica problema sistêmico (ex: MongoDB caiu de vez)
-  if (unhandledRejectionCount >= 10) {
-    console.error("CRITICAL: 10+ unhandled rejections in 60s - restarting process");
+  // Só mata o processo se houver cascata extrema (200+ rejeições em 60s)
+  // Rejeições de APIs externas (Facebook, UTMfy, Husky, Stripe, PayPal)
+  // são comuns sob carga e NÃO devem derrubar o servidor.
+  // Limiar aumentado de 50 para 200 para evitar restart desnecessário.
+  if (unhandledRejectionCount >= 200) {
+    console.error("CRITICAL: 200+ unhandled rejections in 60s - restarting process");
     gracefulShutdown("unhandledRejection_cascade");
   }
   // Rejeições isoladas são logadas mas NÃO matam o processo
-  // (ex: Facebook API timeout, webhook async error)
 });
 
 const PORT = process.env.PORT || 4242;
@@ -139,6 +146,25 @@ async function startServer() {
     server.on("connection", (socket) => {
       socket.setKeepAlive(true, 30000); // Keep-alive a cada 30s
     });
+
+    // Monitoramento periódico de memória (a cada 60s)
+    // Detecta vazamentos de memória antes que causem problemas
+    setInterval(() => {
+      const memUsage = process.memoryUsage();
+      const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+      const rssMB = Math.round(memUsage.rss / 1024 / 1024);
+
+      // Loga se o heap estiver acima de 2GB (indica possível leak)
+      if (heapUsedMB > 2048) {
+        console.warn(`⚠️ [Memory] Heap alto: ${heapUsedMB}MB | RSS: ${rssMB}MB | Uptime: ${Math.round(process.uptime())}s`);
+
+        // Tenta forçar garbage collection se disponível (requer --expose-gc)
+        if (global.gc) {
+          console.warn("🗑️ [Memory] Forçando garbage collection...");
+          global.gc();
+        }
+      }
+    }, 60000);
 
   } catch (error) {
     console.error("❌ Falha ao iniciar servidor:", error);

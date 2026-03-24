@@ -8,6 +8,11 @@ if (!MONGO_URI) {
   throw new Error("Por favor, defina a variável de ambiente MONGO_URI dentro do .env");
 }
 
+// Configura timeout global para comandos bufferizados
+// Quando MongoDB desconecta, operações ficam em buffer por até 30s antes de falharem
+// Isso evita que operações fiquem penduradas indefinidamente durante desconexões
+mongoose.set("bufferTimeoutMS", 30000);
+
 // Flag para controlar tentativas de reconexão
 let isReconnecting = false;
 const MAX_RECONNECT_ATTEMPTS = 10;
@@ -21,8 +26,8 @@ let reconnectAttempts = 0;
  */
 const mongooseOptions: mongoose.ConnectOptions = {
   // Pool de conexões
-  maxPoolSize: 30,  // Reduzido de 50 - suficiente para checkout + webhooks + admin
-  minPoolSize: 5,   // Mantém conexões quentes
+  maxPoolSize: 50,  // 8 vCPU VPS - suporta picos de webhooks + dashboard + checkout
+  minPoolSize: 10,  // Mantém conexões quentes para resposta rápida
 
   // Timeouts
   serverSelectionTimeoutMS: 15000, // 15s para selecionar servidor (aumentado para dar margem em restart do mongo)
@@ -44,12 +49,14 @@ const mongooseOptions: mongoose.ConnectOptions = {
   // comandos são bufferizados ao invés de falharem instantaneamente
   bufferCommands: true,
 
+
   // Auto-index em produção desabilitado para performance
   autoIndex: process.env.NODE_ENV !== "production",
 };
 
 /**
  * Tenta reconectar ao MongoDB com backoff exponencial
+ * IMPORTANTE: Erros aqui NÃO devem gerar unhandled rejections
  */
 async function attemptReconnect(): Promise<void> {
   if (isReconnecting) return;
@@ -59,11 +66,19 @@ async function attemptReconnect(): Promise<void> {
   reconnectAttempts++;
 
   const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000); // Max 30s
-
+  console.warn(`🔄 Tentativa de reconexão ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} em ${delay}ms...`);
 
   await new Promise(resolve => setTimeout(resolve, delay));
 
   try {
+    // Verifica se já reconectou automaticamente pelo driver (readyState 1 = connected)
+    if (mongoose.connection.readyState === 1) {
+      console.log("✅ MongoDB já reconectou automaticamente pelo driver");
+      reconnectAttempts = 0;
+      isReconnecting = false;
+      return;
+    }
+
     await mongoose.connect(MONGO_URI!, mongooseOptions);
     reconnectAttempts = 0;
     isReconnecting = false;
@@ -72,7 +87,10 @@ async function attemptReconnect(): Promise<void> {
     isReconnecting = false;
 
     if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-      attemptReconnect();
+      // Usa .catch() para garantir que a promise não vira unhandled rejection
+      attemptReconnect().catch((err) => {
+        console.error("❌ Erro inesperado no attemptReconnect:", err);
+      });
     } else {
       console.error("❌ Máximo de tentativas de reconexão atingido. Reiniciando processo...");
       process.exit(1); // Força reinício pelo orquestrador (Coolify)
@@ -102,7 +120,10 @@ mongoose.connection.on("disconnected", () => {
 
   if (process.env.SHUTTING_DOWN !== "true") {
     console.warn("🔄 Iniciando tentativa de reconexão automática...");
-    attemptReconnect();
+    // .catch() evita unhandled rejection que pode acumular e derrubar o processo
+    attemptReconnect().catch((err) => {
+      console.error("❌ Erro inesperado ao tentar reconectar:", err);
+    });
   }
 });
 
