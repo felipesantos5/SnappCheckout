@@ -11,64 +11,10 @@ services:
     env_file: .env
     environment:
       - TZ=America/Sao_Paulo
-      # - MONGO_URI=mongodb://root:${DB_PASSWORD}@mongodb:27017/checkout?authSource=admin
     restart: unless-stopped
-    depends_on:
-      mongodb:
-        condition: service_healthy
-    networks:
-      - app_network
-    # ============================================
-    # HEALTHCHECK OTIMIZADO PARA CHECKOUT
-    # ============================================
-    #
-    # FLUXO DE DETECÇÃO:
-    # 1. API começa a dar erro 500 ou não responde
-    # 2. Healthcheck falha (a cada 15s)
-    # 3. Após 3 falhas consecutivas (45s) → marcado unhealthy
-    # 4. Autoheal detecta (em até 10s) e reinicia
-    # 5. Total worst-case: ~55 segundos até começar restart
-    #
-    # start_period: Tempo de carência após container iniciar
-    # Durante esse período, falhas NÃO contam para o unhealthy
-    # Sua API demora 1-2 min para subir, então usamos 150s de margem
-    #
-    # Limites de recursos para prevenir OOM
     deploy:
       resources:
         limits:
           memory: 2G
         reservations:
           memory: 512M
-
-  mongodb:
-    image: mongo:6.0
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:27017:27017"
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=${DB_PASSWORD}
-    volumes:
-      - mongo_data:/data/db
-    networks:
-      - app_network
-    # Healthcheck do MongoDB (usa credenciais de admin)
-    healthcheck:
-      test: ["CMD", "mongosh", "-u", "root", "-p", "${DB_PASSWORD}", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  # ============================================
-  # AUTOHEAL - Vigilante de containers
-  # ============================================
-  # Reinicia automaticamente containers unhealthy
-
-networks:
-  app_network:
-    driver: bridge
-
-volumes:
-  mongo_data:
