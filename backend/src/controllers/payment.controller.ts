@@ -66,16 +66,34 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
 export const generateUpsellToken = async (req: Request, res: Response) => {
   try {
     const { paymentIntentId, offerSlug } = req.body;
-    if (!paymentIntentId || !offerSlug) return res.status(400).json({ error: "Dados insuficientes." });
+    console.log(`🔵 [UpsellToken] Iniciando geração de token | offerSlug: ${offerSlug} | paymentIntentId: ${paymentIntentId}`);
+
+    if (!paymentIntentId || !offerSlug) {
+      console.warn(`⚠️ [UpsellToken] Dados insuficientes | paymentIntentId: ${paymentIntentId} | offerSlug: ${offerSlug}`);
+      return res.status(400).json({ error: "Dados insuficientes." });
+    }
 
     const stripeAccountId = await getStripeAccountId(offerSlug);
     const offer = await Offer.findOne({ slug: offerSlug });
-    if (!offer) return res.status(404).json({ error: "Oferta não encontrada." });
+    if (!offer) {
+      console.warn(`⚠️ [UpsellToken] Oferta não encontrada | slug: ${offerSlug}`);
+      return res.status(404).json({ error: "Oferta não encontrada." });
+    }
+
+    console.log(`🔵 [UpsellToken] Oferta encontrada: "${offer.name}" | stripeAccountId: ${stripeAccountId}`);
 
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, { stripeAccount: stripeAccountId });
 
-    if (paymentIntent.status !== "succeeded") return res.status(400).json({ error: "Pagamento não confirmado." });
-    if (!paymentIntent.customer || !paymentIntent.payment_method) return res.status(400).json({ error: "Método de pagamento ausente." });
+    console.log(`🔵 [UpsellToken] PaymentIntent status: ${paymentIntent.status} | customer: ${paymentIntent.customer} | payment_method: ${paymentIntent.payment_method}`);
+
+    if (paymentIntent.status !== "succeeded") {
+      console.warn(`⚠️ [UpsellToken] Pagamento não confirmado | status: ${paymentIntent.status}`);
+      return res.status(400).json({ error: "Pagamento não confirmado." });
+    }
+    if (!paymentIntent.customer || !paymentIntent.payment_method) {
+      console.warn(`⚠️ [UpsellToken] Método de pagamento ausente | customer: ${paymentIntent.customer} | payment_method: ${paymentIntent.payment_method}`);
+      return res.status(400).json({ error: "Método de pagamento ausente." });
+    }
 
     const token = uuidv4();
 
@@ -88,9 +106,15 @@ export const generateUpsellToken = async (req: Request, res: Response) => {
 
     // Busca a Sale original para vincular ao upsell (consolidação de Facebook Purchase)
     const originalSale = await Sale.findOne({ stripePaymentIntentId: paymentIntentId });
+    console.log(`🔵 [UpsellToken] Sale original: ${originalSale?._id || "NÃO ENCONTRADA (webhook pode não ter chegado ainda)"}`);
 
     const steps = getUpsellSteps(offer);
-    if (steps.length === 0) return res.status(400).json({ error: "Nenhum upsell configurado." });
+    console.log(`🔵 [UpsellToken] Steps do funil: ${steps.length} passos | Steps: ${JSON.stringify(steps.map((s, i) => ({ index: i, name: s.name, price: s.price, isDownsell: s.isDownsell, redirectUrl: s.redirectUrl?.substring(0, 60) })))}`);
+
+    if (steps.length === 0) {
+      console.warn(`⚠️ [UpsellToken] Nenhum upsell configurado para oferta "${offer.name}"`);
+      return res.status(400).json({ error: "Nenhum upsell configurado." });
+    }
 
     await UpsellSession.create({
       token,
@@ -110,8 +134,11 @@ export const generateUpsellToken = async (req: Request, res: Response) => {
     // Constrói a URL de redirecionamento para o primeiro passo
     const redirectUrl = buildUpsellRedirectUrl(steps[0].redirectUrl, token);
 
+    console.log(`✅ [UpsellToken] Token gerado com sucesso | token: ${token} | redirectUrl: ${redirectUrl} | customer: ${customerEmail} | paymentMethod: ${paymentIntent.payment_method}`);
+
     res.status(200).json({ token, redirectUrl });
   } catch (error: any) {
+    console.error(`❌ [UpsellToken] Erro ao gerar token:`, error.message, error.stack);
     res.status(500).json({ error: { message: "Falha ao gerar link." } });
   }
 };
@@ -119,20 +146,29 @@ export const generateUpsellToken = async (req: Request, res: Response) => {
 export const handleRefuseUpsell = async (req: Request, res: Response) => {
   try {
     const { token } = req.body;
+    console.log(`🔴 [UpsellRefuse] Requisição recebida | token: ${token || "VAZIO"}`);
+
     if (!token) return res.status(400).json({ success: false, message: "Token inválido." });
 
     const session: any = await UpsellSession.findOne({ token }).populate("offerId");
-    if (!session) return res.status(403).json({ success: false, message: "Sessão expirada." });
+    if (!session) {
+      console.warn(`⚠️ [UpsellRefuse] Sessão NÃO encontrada | token: ${token}`);
+      return res.status(403).json({ success: false, message: "Sessão expirada." });
+    }
 
     const offer = session.offerId as IOffer;
     const steps = getUpsellSteps(offer);
     const currentStep = steps[session.currentStepIndex];
+
+    console.log(`🔴 [UpsellRefuse] Recusando step | oferta: "${offer?.name}" | currentStepIndex: ${session.currentStepIndex} | stepName: "${currentStep?.name}" | isDownsell: ${currentStep?.isDownsell} | customer: ${session.customerEmail}`);
 
     // Determina próximo step: usa declineNextStep configurado, senão avança linear
     const declineNextStep = currentStep?.declineNextStep;
     const nextStepIndex = (declineNextStep !== undefined && declineNextStep !== null)
       ? declineNextStep
       : session.currentStepIndex + 1;
+
+    console.log(`🔴 [UpsellRefuse] Navegação | declineNextStep: ${declineNextStep} | nextStepIndex: ${nextStepIndex} | totalSteps: ${steps.length}`);
 
     // Se há próximo passo válido no funil, avança para ele
     if (nextStepIndex >= 0 && nextStepIndex < steps.length) {
@@ -146,6 +182,7 @@ export const handleRefuseUpsell = async (req: Request, res: Response) => {
       }
 
       const redirectUrl = buildUpsellRedirectUrl(steps[nextStepIndex].redirectUrl, token, extraParams);
+      console.log(`🔴 [UpsellRefuse] Avançando para próximo step | nextStepIndex: ${nextStepIndex} | nextStepName: "${steps[nextStepIndex].name}" | redirectUrl: ${redirectUrl}`);
       return res.status(200).json({ success: true, message: "Oferta recusada.", redirectUrl });
     }
 
@@ -153,8 +190,10 @@ export const handleRefuseUpsell = async (req: Request, res: Response) => {
     await UpsellSession.deleteOne({ token });
     const redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
 
+    console.log(`🔴 [UpsellRefuse] Funil finalizado (recusa) | thankYouPageUrl: ${redirectUrl || "NÃO CONFIGURADA"} | customer: ${session.customerEmail}`);
     res.status(200).json({ success: true, message: "Oferta recusada.", redirectUrl });
   } catch (error: any) {
+    console.error(`❌ [UpsellRefuse] Erro:`, error.message, error.stack);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -162,27 +201,38 @@ export const handleRefuseUpsell = async (req: Request, res: Response) => {
 export const handleOneClickUpsell = async (req: Request, res: Response) => {
   try {
     const { token } = req.body;
+    console.log(`🟡 [OneClickUpsell] Requisição recebida | token: ${token || "VAZIO"}`);
+
     if (!token) throw new Error("Token inválido.");
 
     const session: any = await UpsellSession.findOne({ token }).populate("offerId");
-    if (!session) return res.status(403).json({ success: false, message: "Sessão expirada ou token já usado." });
+    if (!session) {
+      console.warn(`⚠️ [OneClickUpsell] Sessão NÃO encontrada | token: ${token} | Possíveis causas: expirou (TTL 30min), já foi usado, ou token inválido`);
+      return res.status(403).json({ success: false, message: "Sessão expirada ou token já usado." });
+    }
 
     const offer = session.offerId as IOffer;
+    console.log(`🟡 [OneClickUpsell] Sessão encontrada | oferta: "${offer?.name}" | slug: ${offer?.slug} | paymentMethod: ${session.paymentMethod} | customerId: ${session.customerId} | paymentMethodId: ${session.paymentMethodId} | currentStepIndex: ${session.currentStepIndex} | sessionCreatedAt: ${session.createdAt} | customerEmail: ${session.customerEmail}`);
 
     // 1. Validação de Upsell Ativo
     if (!offer?.upsell?.enabled) {
+      console.warn(`⚠️ [OneClickUpsell] Upsell DESABILITADO na oferta "${offer?.name}" | upsell config: ${JSON.stringify(offer?.upsell)}`);
       return res.status(400).json({ success: false, message: "Upsell não está ativo nesta oferta." });
     }
 
     const steps = getUpsellSteps(offer);
     const currentStep = steps[session.currentStepIndex];
 
+    console.log(`🟡 [OneClickUpsell] Funil de steps: ${steps.length} total | currentStepIndex: ${session.currentStepIndex} | currentStep: ${JSON.stringify(currentStep ? { name: currentStep.name, price: currentStep.price, isDownsell: currentStep.isDownsell, acceptNextStep: currentStep.acceptNextStep, declineNextStep: currentStep.declineNextStep } : "NULL")}`);
+
     if (!currentStep) {
+      console.warn(`⚠️ [OneClickUpsell] Step inválido | index: ${session.currentStepIndex} | totalSteps: ${steps.length}`);
       return res.status(400).json({ success: false, message: "Passo de upsell inválido." });
     }
 
     // NOVO: Verificar se o pagamento foi feito com PayPal (ou outro método não-Stripe)
     if (session.paymentMethod !== "stripe") {
+      console.log(`🟡 [OneClickUpsell] Método não-Stripe detectado: ${session.paymentMethod} | Redirecionando para fallback`);
       const fallbackUrl = currentStep.fallbackCheckoutUrl;
       if (fallbackUrl && fallbackUrl.trim() !== "") {
         await UpsellSession.deleteOne({ token });
@@ -192,6 +242,7 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
           redirectUrl: fallbackUrl,
         });
       } else {
+        console.warn(`⚠️ [OneClickUpsell] Sem fallbackCheckoutUrl configurado para método ${session.paymentMethod}`);
         return res.status(400).json({
           success: false,
           message: "One-click upsell não disponível para este método de pagamento. Configure um link de checkout alternativo.",
@@ -203,11 +254,13 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
     const amountToCharge = currentStep.price;
 
     if (!amountToCharge || amountToCharge < 50) {
-      console.error(`Erro Upsell: Valor inválido (${amountToCharge}) para a oferta ${offer.name} (passo ${session.currentStepIndex})`);
+      console.error(`❌ [OneClickUpsell] Valor inválido | amount: ${amountToCharge} | oferta: "${offer.name}" | step: ${session.currentStepIndex} | stepName: "${currentStep.name}"`);
       return res.status(400).json({ success: false, message: "Configuração de preço inválida para este Upsell." });
     }
 
     const applicationFee = Math.round(amountToCharge * 0.05);
+
+    console.log(`🟡 [OneClickUpsell] Criando PaymentIntent off_session | amount: ${amountToCharge} | currency: ${offer.currency || "brl"} | customer: ${session.customerId} | paymentMethod: ${session.paymentMethodId} | stripeAccount: ${session.accountId} | applicationFee: ${applicationFee} | stepName: "${currentStep.name}"`);
 
     // 3. Processamento
     const paymentIntent = await stripe.paymentIntents.create(
@@ -234,6 +287,8 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
       { stripeAccount: session.accountId }
     );
 
+    console.log(`🟡 [OneClickUpsell] PaymentIntent criado | id: ${paymentIntent.id} | status: ${paymentIntent.status} | amount: ${paymentIntent.amount}`);
+
     if (paymentIntent.status === "succeeded") {
       // Determina próximo step: usa acceptNextStep configurado, senão avança linear
       const acceptNextStep = currentStep?.acceptNextStep;
@@ -241,12 +296,15 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
         ? acceptNextStep
         : session.currentStepIndex + 1;
 
+      console.log(`🟡 [OneClickUpsell] Pagamento SUCESSO | acceptNextStep: ${acceptNextStep} | nextStepIndex: ${nextStepIndex} | totalSteps: ${steps.length}`);
+
       // Se há próximo passo válido no funil, avança
       if (nextStepIndex >= 0 && nextStepIndex < steps.length) {
         session.currentStepIndex = nextStepIndex;
         await session.save();
 
         const redirectUrl = buildUpsellRedirectUrl(steps[nextStepIndex].redirectUrl, token);
+        console.log(`✅ [OneClickUpsell] Avançando para próximo step | nextStepIndex: ${nextStepIndex} | nextStepName: "${steps[nextStepIndex].name}" | redirectUrl: ${redirectUrl}`);
         return res.status(200).json({ success: true, message: "Compra realizada com sucesso!", redirectUrl });
       }
 
@@ -254,12 +312,17 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
       await UpsellSession.deleteOne({ token });
       const redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
 
+      console.log(`✅ [OneClickUpsell] Último passo concluído | thankYouPageUrl: ${redirectUrl || "NÃO CONFIGURADA"} | customer: ${session.customerEmail}`);
       res.status(200).json({ success: true, message: "Compra realizada com sucesso!", redirectUrl });
     } else {
+      console.warn(`⚠️ [OneClickUpsell] Pagamento NÃO succeeded | status: ${paymentIntent.status} | id: ${paymentIntent.id} | customer: ${session.customerEmail}`);
       res.status(400).json({ success: false, message: "Pagamento recusado pelo banco.", status: paymentIntent.status });
     }
   } catch (error: any) {
-    console.error("Erro handleOneClickUpsell:", error);
+    const stripeCode = error.code || error.raw?.code || "N/A";
+    const stripeDeclineCode = error.raw?.decline_code || error.decline_code || "N/A";
+    const stripeType = error.type || error.raw?.type || "N/A";
+    console.error(`❌ [OneClickUpsell] ERRO | type: ${stripeType} | code: ${stripeCode} | decline_code: ${stripeDeclineCode} | message: ${error.raw?.message || error.message}`, error.stack);
     const errorMessage = error.raw ? error.raw.message : error.message;
     res.status(500).json({ success: false, message: errorMessage || "Erro interno ao processar upsell." });
   }

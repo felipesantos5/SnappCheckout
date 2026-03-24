@@ -26,15 +26,24 @@ export const getUpsellScript = (req: Request, res: Response) => {
     const urlPaymentMethod = urlParams.get('payment_method');
     const paymentMethod = btnElement.getAttribute('data-payment-method') || btnElement.dataset.paymentMethod || urlPaymentMethod || 'stripe';
 
+    console.log('[CHK-Upsell] Ação iniciada:', {
+      acao: isBuy ? 'COMPRAR' : 'RECUSAR',
+      token: token ? token.substring(0, 8) + '...' : 'VAZIO',
+      offerId: offerId || 'N/A',
+      paymentMethod: paymentMethod,
+      fallbackUrl: fallbackUrl || 'NÃO CONFIGURADA',
+      urlCompleta: window.location.href
+    });
 
     // Se não tem token e tem fallback URL (e é BUY), redireciona direto (one-click não disponível)
     if (!token && isBuy) {
+      console.warn('[CHK-Upsell] Token AUSENTE na URL! One-click não disponível.');
       if (fallbackUrl && fallbackUrl.trim() !== '') {
+        console.warn('[CHK-Upsell] Redirecionando para fallback (sem token):', fallbackUrl);
         window.location.href = fallbackUrl;
         return;
       }
-      // Se não tem fallback, não mostra erro (silencioso)
-      console.warn('One-click não disponível e fallback URL não configurada.');
+      console.warn('[CHK-Upsell] Sem token E sem fallback URL. Botão ficará sem ação.');
       return;
     }
 
@@ -55,19 +64,31 @@ export const getUpsellScript = (req: Request, res: Response) => {
       // Define a rota baseado no método de pagamento
       const baseRoute = paymentMethod === 'paypal' ? '/paypal/' : '/payments/';
 
+      const fullUrl = apiUrl + baseRoute + endpoint;
+      console.log('[CHK-Upsell] Chamando API:', { url: fullUrl, token: token ? token.substring(0, 8) + '...' : 'VAZIO', offerId });
 
-      const res = await fetch(apiUrl + baseRoute + endpoint, {
+      const res = await fetch(fullUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, offerId })
       });
 
+      console.log('[CHK-Upsell] Resposta HTTP:', { status: res.status, statusText: res.statusText });
+
       const data = await res.json();
+      console.log('[CHK-Upsell] Resposta da API:', {
+        success: data.success,
+        message: data.message,
+        redirectUrl: data.redirectUrl || 'NENHUMA',
+        httpStatus: res.status
+      });
 
       if (data.success) {
         if (data.redirectUrl) {
+          console.log('[CHK-Upsell] SUCESSO - Redirecionando para:', data.redirectUrl);
           window.location.href = data.redirectUrl;
         } else {
+          console.warn('[CHK-Upsell] Sucesso mas SEM redirectUrl | isBuy:', isBuy);
           // Se não tiver redirect e for recusa, o cliente provavelmente quer ir para o obrigado.
           // Como não temos a URL, tentamos um reload ou mantemos como está (silencioso).
           if (!isBuy) {
@@ -77,28 +98,34 @@ export const getUpsellScript = (req: Request, res: Response) => {
           }
         }
       } else {
+        console.error('[CHK-Upsell] API retornou ERRO:', { message: data.message, status: data.status, httpStatus: res.status });
+
         // Se a requisição falhou E é compra, redireciona para fallback
         if (isBuy && fallbackUrl && fallbackUrl.trim() !== '') {
+          console.warn('[CHK-Upsell] Redirecionando para fallback (erro API):', fallbackUrl);
           window.location.href = fallbackUrl;
           return;
         }
 
         // Se não tem fallback, apenas loga e reabilita (para não travar a página)
-        console.error('Erro na requisição:', data.message);
+        console.error('[CHK-Upsell] Sem fallback configurada. Reabilitando botões.');
         document.querySelectorAll('.chk-buy, .chk-refuse').forEach(b => b.disabled = false);
         btnElement.innerText = originalText;
         btnElement.classList.remove("chk-btn-loading");
       }
 
     } catch (e) {
+      console.error('[CHK-Upsell] ERRO DE CONEXÃO:', { message: e.message, name: e.name, stack: e.stack });
+
       // Se deu erro E tem fallback URL configurada (e é botão de compra), redireciona
       if (isBuy && fallbackUrl && fallbackUrl.trim() !== '') {
+        console.warn('[CHK-Upsell] Redirecionando para fallback (erro conexão):', fallbackUrl);
         window.location.href = fallbackUrl;
         return;
       }
 
       // Se não tem fallback, apenas loga e reabilita
-      console.error('Erro de conexão:', e.message);
+      console.error('[CHK-Upsell] Sem fallback configurada. Reabilitando botões.');
       document.querySelectorAll('.chk-buy, .chk-refuse').forEach(b => b.disabled = false);
       btnElement.innerText = originalText;
       btnElement.classList.remove("chk-btn-loading");
@@ -109,6 +136,14 @@ export const getUpsellScript = (req: Request, res: Response) => {
   function initUpsellButtons() {
     // Verifica se já inicializou (evita duplicação)
     if (window._chkUpsellInit) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    console.log('[CHK-Upsell] Inicializando script...', {
+      token: urlParams.get('token') ? urlParams.get('token').substring(0, 8) + '...' : 'AUSENTE',
+      offerId: urlParams.get('offerId') || 'N/A',
+      payment_method: urlParams.get('payment_method') || 'N/A (default stripe)',
+      url: window.location.href
+    });
 
     // Encontra botões de compra
     const buyBtns = document.querySelectorAll('.chk-buy');
@@ -128,9 +163,19 @@ export const getUpsellScript = (req: Request, res: Response) => {
       });
     });
 
+    console.log('[CHK-Upsell] Botões encontrados:', {
+      compra: buyBtns.length,
+      recusa: refuseBtns.length,
+      buyFallbackUrls: Array.from(buyBtns).map(b => b.getAttribute('data-fallback-url') || 'NÃO CONFIGURADA'),
+      refuseFallbackUrls: Array.from(refuseBtns).map(b => b.getAttribute('data-fallback-url') || 'NÃO CONFIGURADA')
+    });
+
     // Marca como inicializado
     if (buyBtns.length > 0 || refuseBtns.length > 0) {
       window._chkUpsellInit = true;
+      console.log('[CHK-Upsell] Script inicializado com sucesso!');
+    } else {
+      console.warn('[CHK-Upsell] Nenhum botão .chk-buy ou .chk-refuse encontrado no DOM. Aguardando MutationObserver...');
     }
   }
 
