@@ -11,7 +11,7 @@ services:
     env_file: .env
     environment:
       - TZ=America/Sao_Paulo
-      - MONGO_URI=mongodb://root:${DB_PASSWORD}@mongodb:27017/checkout?authSource=admin
+      # - MONGO_URI=mongodb://root:${DB_PASSWORD}@mongodb:27017/checkout?authSource=admin
     restart: unless-stopped
     depends_on:
       mongodb:
