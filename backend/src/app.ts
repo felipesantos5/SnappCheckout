@@ -27,7 +27,7 @@ app.use(
     },
     crossOriginEmbedderPolicy: false, // Necessário para Stripe e integrações externas
     crossOriginResourcePolicy: { policy: "cross-origin" }, // Permite recursos de diferentes origens
-  })
+  }),
 );
 
 app.use(
@@ -36,7 +36,7 @@ app.use(
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "sentry-trace", "baggage"],
-  })
+  }),
 );
 
 // Rate limiting global
@@ -86,7 +86,7 @@ app.get("/health", async (req: Request, res: Response) => {
       db: "connected",
       memory: `${heapUsedMB}/${heapTotalMB}MB`,
       responseTime: `${responseTime}ms`,
-      uptime: Math.round(process.uptime())
+      uptime: Math.round(process.uptime()),
     });
   } else {
     res.status(503).json({
@@ -94,7 +94,7 @@ app.get("/health", async (req: Request, res: Response) => {
       db: dbHealthy ? "connected" : "disconnected",
       memory: memoryHealthy ? "ok" : `critical (${heapUsedMB}MB)`,
       eventLoop: eventLoopHealthy ? "ok" : `slow (${responseTime}ms)`,
-      uptime: Math.round(process.uptime())
+      uptime: Math.round(process.uptime()),
     });
   }
 });
@@ -115,9 +115,7 @@ app.use((err: any, req: Request, res: Response, _next: any) => {
   const statusCode = err.status || err.statusCode || 500;
   res.status(statusCode).json({
     error: {
-      message: process.env.NODE_ENV === "production"
-        ? "Erro interno do servidor"
-        : err.message || "Erro interno do servidor",
+      message: process.env.NODE_ENV === "production" ? "Erro interno do servidor" : err.message || "Erro interno do servidor",
     },
   });
 });
