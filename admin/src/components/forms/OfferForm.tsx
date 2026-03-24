@@ -167,14 +167,21 @@ const productSchema = z.object({
   customId: z.string().optional(),
 });
 
+const downsellSchema = z.object({
+  name: z.string().optional(),
+  price: z.coerce.number().min(0, { message: "Preço deve ser maior ou igual a 0." }).optional(),
+  redirectUrl: optionalUrl,
+  customId: z.string().optional(),
+  fallbackCheckoutUrl: optionalUrl,
+});
+
 const upsellStepSchema = z.object({
   name: z.string().optional(),
   price: z.coerce.number().min(0, { message: "Preço deve ser maior ou igual a 0." }).optional(),
   redirectUrl: optionalUrl,
   customId: z.string().optional(),
   fallbackCheckoutUrl: optionalUrl,
-  acceptNextStep: z.coerce.number().nullable().optional(),
-  declineNextStep: z.coerce.number().nullable().optional(),
+  downsell: downsellSchema.optional(),
 });
 
 const upsellSchema = z.object({
@@ -183,8 +190,7 @@ const upsellSchema = z.object({
   price: z.coerce.number().min(0, { message: "Preço deve ser maior ou igual a 0." }).optional(),
   redirectUrl: optionalUrl,
   customId: z.string().optional(),
-  acceptNextStep: z.coerce.number().nullable().optional(),
-  declineNextStep: z.coerce.number().nullable().optional(),
+  downsell: downsellSchema.optional(),
   paypalOneClickEnabled: z.boolean().default(false),
   steps: z.array(upsellStepSchema).optional(),
 });
@@ -406,9 +412,17 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         upsell: {
           ...data.upsell,
           price: data.upsell?.price ? Math.round(data.upsell.price * 100) : 0,
+          downsell: data.upsell?.downsell?.name || data.upsell?.downsell?.redirectUrl ? {
+            ...data.upsell.downsell,
+            price: data.upsell.downsell?.price ? Math.round(data.upsell.downsell.price * 100) : 0,
+          } : undefined,
           steps: data.upsell?.steps?.map((step) => ({
             ...step,
             price: step.price ? Math.round(step.price * 100) : 0,
+            downsell: step.downsell?.name || step.downsell?.redirectUrl ? {
+              ...step.downsell,
+              price: step.downsell?.price ? Math.round(step.downsell.price * 100) : 0,
+            } : undefined,
           })) || [],
         },
         utmfyWebhookUrls: data.utmfyWebhookUrls?.filter((url) => url && url.trim() !== ""),
@@ -1024,156 +1038,39 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
             />
 
             {form.watch("upsell.enabled") && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+              <div className="space-y-0 animate-in fade-in slide-in-from-top-2">
 
-                {/* --- UPSELL #1 (campos originais, backward compat) --- */}
-                <div className="space-y-4 p-4 bg-muted/20 rounded-lg border">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded">UPSELL #1</span>
-                      <span className="text-sm text-muted-foreground">Primeira oferta do funil</span>
-                    </div>
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="upsell.name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome da Oferta</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: Pacote VIP" {...field} value={field.value || ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <MoneyInput form={form} name="upsell.price" label="Preço" placeholder="0,00" currency={form.watch("currency")} />
-                    <FormField
-                      control={form.control}
-                      name="upsell.redirectUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>URL da Página de Upsell</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://..." {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <CustomIdInput name="upsell.customId" />
-
-                  {/* --- Ramificação do Funil para Upsell #1 --- */}
-                  {upsellStepFields.length > 0 && (
-                    <div className="mt-3 p-3 bg-muted/30 rounded-md border border-dashed space-y-3">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ramificação do Funil</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="upsell.acceptNextStep"
-                          render={({ field }: any) => (
-                            <FormItem>
-                              <FormLabel className="text-green-700">Se ACEITAR, ir para:</FormLabel>
-                              <Select
-                                value={field.value !== null && field.value !== undefined ? String(field.value) : "next"}
-                                onValueChange={(val) => field.onChange(val === "next" ? null : Number(val))}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Selecione..." />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="next">Próximo step (padrão)</SelectItem>
-                                  <SelectItem value="-1">Página de obrigado</SelectItem>
-                                  {upsellStepFields.map((_, stepIdx) => (
-                                    <SelectItem key={stepIdx} value={String(stepIdx + 1)}>
-                                      Step #{stepIdx + 2} - {form.watch(`upsell.steps.${stepIdx}.name` as any) || "Sem nome"}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="upsell.declineNextStep"
-                          render={({ field }: any) => (
-                            <FormItem>
-                              <FormLabel className="text-red-700">Se RECUSAR, ir para:</FormLabel>
-                              <Select
-                                value={field.value !== null && field.value !== undefined ? String(field.value) : "next"}
-                                onValueChange={(val) => field.onChange(val === "next" ? null : Number(val))}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Selecione..." />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="next">Próximo step (padrão)</SelectItem>
-                                  <SelectItem value="-1">Página de obrigado</SelectItem>
-                                  {upsellStepFields.map((_, stepIdx) => (
-                                    <SelectItem key={stepIdx} value={String(stepIdx + 1)}>
-                                      Step #{stepIdx + 2} - {form.watch(`upsell.steps.${stepIdx}.name` as any) || "Sem nome"}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* --- UPSELLS ADICIONAIS (steps array) --- */}
-                {upsellStepFields.map((field, index) => (
-                  <div key={field.id} className="space-y-4 p-4 bg-muted/20 rounded-lg border">
+                {/* === UPSELL #1 === */}
+                <div className="relative">
+                  <div className="space-y-4 p-4 bg-card rounded-lg border-2 border-border shadow-sm">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded">UPSELL #{index + 2}</span>
-                        <span className="text-sm text-muted-foreground">Step do funil (índice {index + 1})</span>
+                        <span className="bg-primary text-primary-foreground text-xs font-bold px-2.5 py-1 rounded-md">UPSELL</span>
+                        <span className="text-sm font-medium">Upsell Offer #1</span>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeUpsellStep(index)}
-                        className="shrink-0 text-destructive hover:text-destructive h-8 w-8"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
                     </div>
 
                     <FormField
                       control={form.control}
-                      name={`upsell.steps.${index}.name` as any}
-                      render={({ field }: any) => (
+                      name="upsell.name"
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Nome da Oferta</FormLabel>
                           <FormControl>
-                            <Input placeholder="Ex: Mentoria Exclusiva" {...field} value={field.value || ""} />
+                            <Input placeholder="Ex: Pacote VIP" {...field} value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <MoneyInput form={form} name={`upsell.steps.${index}.price`} label="Preço" placeholder="0,00" currency={form.watch("currency")} />
+                      <MoneyInput form={form} name="upsell.price" label="Preço" placeholder="0,00" currency={form.watch("currency")} />
                       <FormField
                         control={form.control}
-                        name={`upsell.steps.${index}.redirectUrl` as any}
-                        render={({ field }: any) => (
+                        name="upsell.redirectUrl"
+                        render={({ field }) => (
                           <FormItem>
-                            <FormLabel>URL da Página de Upsell</FormLabel>
+                            <FormLabel>URL da Página</FormLabel>
                             <FormControl>
                               <Input placeholder="https://..." {...field} value={field.value || ""} />
                             </FormControl>
@@ -1182,81 +1079,218 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                         )}
                       />
                     </div>
-                    <CustomIdInput name={`upsell.steps.${index}.customId` as any} />
+                    <CustomIdInput name="upsell.customId" />
+                  </div>
 
-                    {/* --- Configuração de Ramificação do Funil --- */}
-                    <div className="mt-3 p-3 bg-muted/30 rounded-md border border-dashed space-y-3">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ramificação do Funil</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name={`upsell.steps.${index}.acceptNextStep` as any}
-                          render={({ field }: any) => (
-                            <FormItem>
-                              <FormLabel className="text-green-700">Se ACEITAR, ir para:</FormLabel>
-                              <Select
-                                value={field.value !== null && field.value !== undefined ? String(field.value) : "next"}
-                                onValueChange={(val) => field.onChange(val === "next" ? null : Number(val))}
-                              >
+                  {/* --- Downsell do Upsell #1 --- */}
+                  {form.watch("upsell.downsell.name") || form.watch("upsell.downsell.redirectUrl") ? (
+                    <div className="ml-8 mt-0 relative">
+                      <div className="absolute -top-1 left-4 w-px h-4 bg-red-300" />
+                      <div className="absolute top-3 left-0 w-4 h-px bg-red-300" />
+                      <div className="pt-4">
+                        <div className="space-y-4 p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border-2 border-red-200 dark:border-red-900 shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-md">DOWNSELL</span>
+                              <span className="text-sm font-medium">Downsell Offer #1</span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                form.setValue("upsell.downsell", { name: "", price: 0, redirectUrl: "", customId: "" } as any);
+                              }}
+                              className="shrink-0 text-destructive hover:text-destructive h-8 w-8"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-red-600 dark:text-red-400">Exibido quando o cliente recusar o Upsell #1</p>
+
+                          <FormField
+                            control={form.control}
+                            name={"upsell.downsell.name" as any}
+                            render={({ field }: any) => (
+                              <FormItem>
+                                <FormLabel>Nome da Oferta</FormLabel>
                                 <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Selecione..." />
-                                  </SelectTrigger>
+                                  <Input placeholder="Ex: Oferta especial reduzida" {...field} value={field.value || ""} />
                                 </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="next">Próximo step (padrão)</SelectItem>
-                                  <SelectItem value="-1">Página de obrigado</SelectItem>
-                                  <SelectItem value="0">
-                                    Step #1 - {form.watch("upsell.name") || "Upsell #1"}
-                                  </SelectItem>
-                                  {upsellStepFields.map((_, stepIdx) =>
-                                    stepIdx !== index ? (
-                                      <SelectItem key={stepIdx} value={String(stepIdx + 1)}>
-                                        Step #{stepIdx + 2} - {form.watch(`upsell.steps.${stepIdx}.name` as any) || "Sem nome"}
-                                      </SelectItem>
-                                    ) : null
-                                  )}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`upsell.steps.${index}.declineNextStep` as any}
-                          render={({ field }: any) => (
-                            <FormItem>
-                              <FormLabel className="text-red-700">Se RECUSAR, ir para:</FormLabel>
-                              <Select
-                                value={field.value !== null && field.value !== undefined ? String(field.value) : "next"}
-                                onValueChange={(val) => field.onChange(val === "next" ? null : Number(val))}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Selecione..." />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="next">Próximo step (padrão)</SelectItem>
-                                  <SelectItem value="-1">Página de obrigado</SelectItem>
-                                  <SelectItem value="0">
-                                    Step #1 - {form.watch("upsell.name") || "Upsell #1"}
-                                  </SelectItem>
-                                  {upsellStepFields.map((_, stepIdx) =>
-                                    stepIdx !== index ? (
-                                      <SelectItem key={stepIdx} value={String(stepIdx + 1)}>
-                                        Step #{stepIdx + 2} - {form.watch(`upsell.steps.${stepIdx}.name` as any) || "Sem nome"}
-                                      </SelectItem>
-                                    ) : null
-                                  )}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <MoneyInput form={form} name="upsell.downsell.price" label="Preço" placeholder="0,00" currency={form.watch("currency")} />
+                            <FormField
+                              control={form.control}
+                              name={"upsell.downsell.redirectUrl" as any}
+                              render={({ field }: any) => (
+                                <FormItem>
+                                  <FormLabel>URL da Página</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="https://..." {...field} value={field.value || ""} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          <CustomIdInput name={"upsell.downsell.customId" as any} />
+                        </div>
                       </div>
+                    </div>
+                  ) : (
+                    <div className="ml-8 mt-2 mb-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-dashed border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 text-xs"
+                        onClick={() => form.setValue("upsell.downsell", { name: "Downsell", price: 0, redirectUrl: "", customId: "" } as any)}
+                      >
+                        <Plus className="w-3 h-3 mr-1" /> Adicionar Downsell
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* --- Conector visual entre steps --- */}
+                <div className="flex justify-center py-2">
+                  <div className="w-px h-6 bg-border" />
+                </div>
+
+                {/* === UPSELLS ADICIONAIS === */}
+                {upsellStepFields.map((field, index) => (
+                  <div key={field.id}>
+                    <div className="relative">
+                      <div className="space-y-4 p-4 bg-card rounded-lg border-2 border-border shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="bg-primary text-primary-foreground text-xs font-bold px-2.5 py-1 rounded-md">UPSELL</span>
+                            <span className="text-sm font-medium">Upsell Offer #{index + 2}</span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeUpsellStep(index)}
+                            className="shrink-0 text-destructive hover:text-destructive h-8 w-8"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+
+                        <FormField
+                          control={form.control}
+                          name={`upsell.steps.${index}.name` as any}
+                          render={({ field }: any) => (
+                            <FormItem>
+                              <FormLabel>Nome da Oferta</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Ex: Mentoria Exclusiva" {...field} value={field.value || ""} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <MoneyInput form={form} name={`upsell.steps.${index}.price`} label="Preço" placeholder="0,00" currency={form.watch("currency")} />
+                          <FormField
+                            control={form.control}
+                            name={`upsell.steps.${index}.redirectUrl` as any}
+                            render={({ field }: any) => (
+                              <FormItem>
+                                <FormLabel>URL da Página</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="https://..." {...field} value={field.value || ""} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <CustomIdInput name={`upsell.steps.${index}.customId` as any} />
+                      </div>
+
+                      {/* --- Downsell deste step --- */}
+                      {form.watch(`upsell.steps.${index}.downsell.name` as any) || form.watch(`upsell.steps.${index}.downsell.redirectUrl` as any) ? (
+                        <div className="ml-8 mt-0 relative">
+                          <div className="absolute -top-1 left-4 w-px h-4 bg-red-300" />
+                          <div className="absolute top-3 left-0 w-4 h-px bg-red-300" />
+                          <div className="pt-4">
+                            <div className="space-y-4 p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border-2 border-red-200 dark:border-red-900 shadow-sm">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-md">DOWNSELL</span>
+                                  <span className="text-sm font-medium">Downsell Offer #{index + 2}</span>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    form.setValue(`upsell.steps.${index}.downsell` as any, { name: "", price: 0, redirectUrl: "", customId: "" });
+                                  }}
+                                  className="shrink-0 text-destructive hover:text-destructive h-8 w-8"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <p className="text-xs text-red-600 dark:text-red-400">Exibido quando o cliente recusar o Upsell #{index + 2}</p>
+
+                              <FormField
+                                control={form.control}
+                                name={`upsell.steps.${index}.downsell.name` as any}
+                                render={({ field }: any) => (
+                                  <FormItem>
+                                    <FormLabel>Nome da Oferta</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="Ex: Oferta especial reduzida" {...field} value={field.value || ""} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <MoneyInput form={form} name={`upsell.steps.${index}.downsell.price`} label="Preço" placeholder="0,00" currency={form.watch("currency")} />
+                                <FormField
+                                  control={form.control}
+                                  name={`upsell.steps.${index}.downsell.redirectUrl` as any}
+                                  render={({ field }: any) => (
+                                    <FormItem>
+                                      <FormLabel>URL da Página</FormLabel>
+                                      <FormControl>
+                                        <Input placeholder="https://..." {...field} value={field.value || ""} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                              <CustomIdInput name={`upsell.steps.${index}.downsell.customId` as any} />
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="ml-8 mt-2 mb-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="border-dashed border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 text-xs"
+                            onClick={() => form.setValue(`upsell.steps.${index}.downsell` as any, { name: "Downsell", price: 0, redirectUrl: "", customId: "" })}
+                          >
+                            <Plus className="w-3 h-3 mr-1" /> Adicionar Downsell
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* --- Conector visual entre steps --- */}
+                    <div className="flex justify-center py-2">
+                      <div className="w-px h-6 bg-border" />
                     </div>
                   </div>
                 ))}
@@ -1265,7 +1299,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   type="button"
                   variant="outline"
                   className="w-full border-dashed"
-                  onClick={() => appendUpsellStep({ name: "", price: 0, redirectUrl: "", customId: "", acceptNextStep: null, declineNextStep: null } as any)}
+                  onClick={() => appendUpsellStep({ name: "", price: 0, redirectUrl: "", customId: "" } as any)}
                 >
                   + Adicionar Upsell ao Funil
                 </Button>
