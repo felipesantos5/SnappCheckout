@@ -42,6 +42,6 @@ export const handleAccountUpdated = async (account: Stripe.Account): Promise<voi
     console.error(`Erro: ${error.message}`);
     console.error(`Stack: ${error.stack}`);
     console.error(`${"=".repeat(80)}\n`);
-    // NÃO re-lança: acumula unhandled rejections que matam o processo
+    throw error; // Re-lança o erro para que o Stripe tente novamente
   }
 };

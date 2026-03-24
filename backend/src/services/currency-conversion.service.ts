@@ -25,9 +25,6 @@ let cachedRates: ExchangeRates = {
 let lastUpdate: Date | null = null;
 const CACHE_DURATION_MS = 1000 * 60 * 60; // 1 hora
 
-// Mutex para evitar múltiplas chamadas simultâneas à API
-let fetchPromise: Promise<void> | null = null;
-
 /**
  * Busca taxas de câmbio atualizadas de uma API externa
  */
@@ -78,6 +75,7 @@ async function fetchExchangeRates(): Promise<void> {
       }
 
       lastUpdate = new Date();
+      // console.log("✅ Taxas de câmbio atualizadas:", cachedRates);
     }
   } catch (error) {
     console.error("❌ Erro ao buscar taxas de câmbio, usando valores em cache:", error);
@@ -86,42 +84,27 @@ async function fetchExchangeRates(): Promise<void> {
 }
 
 /**
- * Atualiza as taxas se o cache expirou (com mutex para evitar chamadas simultâneas)
- * Chamado de forma fire-and-forget - nunca bloqueia a conversão
+ * Retorna as taxas de câmbio, atualizando se necessário
  */
-function ensureRatesUpdated(): void {
-  const now = Date.now();
-  if (!lastUpdate || now - lastUpdate.getTime() > CACHE_DURATION_MS) {
-    if (!fetchPromise) {
-      fetchPromise = fetchExchangeRates()
-        .catch((err) => {
-          console.error("❌ Erro ao atualizar taxas de câmbio em background:", err);
-        })
-        .finally(() => {
-          fetchPromise = null;
-        });
-    }
-  }
-}
+async function getExchangeRates(): Promise<ExchangeRates> {
+  const now = new Date();
 
-/**
- * Retorna as taxas de câmbio atuais (síncrono)
- * Dispara atualização em background se cache expirou
- */
-export function getExchangeRatesSync(): ExchangeRates {
-  ensureRatesUpdated();
+  // Atualiza se nunca foi atualizado ou se passou do tempo de cache
+  if (!lastUpdate || now.getTime() - lastUpdate.getTime() > CACHE_DURATION_MS) {
+    await fetchExchangeRates();
+  }
+
   return cachedRates;
 }
 
 /**
- * Converte um valor de uma moeda para BRL (SÍNCRONO)
- * Usa taxas em cache - nunca bloqueia. Atualização do cache é feita em background.
+ * Converte um valor de uma moeda para BRL
  *
  * @param amountInCents - Valor em centavos na moeda original
  * @param fromCurrency - Código da moeda de origem (USD, EUR, BRL, etc.)
  * @returns Valor em centavos em BRL
  */
-export function convertToBRLSync(amountInCents: number, fromCurrency: string): number {
+export async function convertToBRL(amountInCents: number, fromCurrency: string): Promise<number> {
   const currency = fromCurrency.toUpperCase();
 
   // Se já é BRL, retorna o mesmo valor
@@ -129,30 +112,22 @@ export function convertToBRLSync(amountInCents: number, fromCurrency: string): n
     return amountInCents;
   }
 
-  // Dispara atualização em background se necessário
-  ensureRatesUpdated();
+  // Obtém taxas atualizadas
+  const rates = await getExchangeRates();
 
-  // Obtém a taxa de conversão do cache
-  const rate = cachedRates[currency];
+  // Obtém a taxa de conversão
+  const rate = rates[currency];
 
   if (!rate) {
     console.warn(`⚠️  Taxa de conversão não encontrada para ${currency}, usando taxa padrão de 5.0`);
+    // Taxa padrão genérica
     return Math.round(amountInCents * 5.0);
   }
 
-  return Math.round(amountInCents * rate);
-}
+  // Converte para BRL
+  const brlAmountInCents = Math.round(amountInCents * rate);
 
-/**
- * Converte um valor de uma moeda para BRL (ASYNC - retrocompatível)
- * Mantido para compatibilidade com código existente fora do dashboard
- *
- * @param amountInCents - Valor em centavos na moeda original
- * @param fromCurrency - Código da moeda de origem (USD, EUR, BRL, etc.)
- * @returns Valor em centavos em BRL
- */
-export async function convertToBRL(amountInCents: number, fromCurrency: string): Promise<number> {
-  return convertToBRLSync(amountInCents, fromCurrency);
+  return brlAmountInCents;
 }
 
 /**

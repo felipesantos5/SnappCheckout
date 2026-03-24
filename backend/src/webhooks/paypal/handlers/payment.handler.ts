@@ -90,7 +90,7 @@ export const handlePaymentCaptureCompleted = async (event: PayPalWebhookEvent): 
     }
   } catch (error: any) {
     console.error(`❌ [PayPal] Erro ao processar PAYMENT.CAPTURE.COMPLETED:`, error.message);
-    // NÃO re-lança: acumula unhandled rejections que matam o processo
+    throw error;
   }
 };
 

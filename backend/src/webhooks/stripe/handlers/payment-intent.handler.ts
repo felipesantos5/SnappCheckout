@@ -674,11 +674,9 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     console.error(`❌ [Stripe] Mensagem: ${error.message}`);
     console.error(`❌ [Stripe] Stack trace:`, error.stack);
 
-    // NÃO re-lança o erro. Re-lançar causa:
-    // 1. Stripe retenta o webhook → mais erros → cascata de unhandled rejections
-    // 2. Se o semaphore propagar o erro como unhandled rejection, acumula no contador
-    // 3. Após 50 rejections em 60s o processo é morto
-    // A venda já foi salva (ou não existia). Integrações externas têm retry próprio.
+    // Aqui relançamos o erro APENAS se for falha crítica de banco/stripe
+    // Para que o Stripe tente enviar o webhook novamente.
+    throw error;
   }
 };
 
