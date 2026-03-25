@@ -172,6 +172,16 @@ export const handleRefuseUpsell = async (req: Request, res: Response) => {
 
     // Se há próximo passo válido no funil, avança para ele
     if (nextStepIndex >= 0 && nextStepIndex < steps.length) {
+      const nextStep = steps[nextStepIndex];
+
+      // Valida se o próximo step tem redirectUrl antes de redirecionar
+      if (!nextStep.redirectUrl || nextStep.redirectUrl.trim() === "") {
+        console.warn(`⚠️ [UpsellRefuse] Próximo step (${nextStepIndex}) sem redirectUrl! Finalizando funil. | stepName: "${nextStep.name}"`);
+        await UpsellSession.deleteOne({ token });
+        const redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
+        return res.status(200).json({ success: true, message: "Oferta recusada.", redirectUrl });
+      }
+
       session.currentStepIndex = nextStepIndex;
       await session.save();
 
@@ -181,8 +191,8 @@ export const handleRefuseUpsell = async (req: Request, res: Response) => {
         extraParams.offerId = (offer._id as any).toString();
       }
 
-      const redirectUrl = buildUpsellRedirectUrl(steps[nextStepIndex].redirectUrl, token, extraParams);
-      console.log(`🔴 [UpsellRefuse] Avançando para próximo step | nextStepIndex: ${nextStepIndex} | nextStepName: "${steps[nextStepIndex].name}" | redirectUrl: ${redirectUrl}`);
+      const redirectUrl = buildUpsellRedirectUrl(nextStep.redirectUrl, token, extraParams);
+      console.log(`🔴 [UpsellRefuse] Avançando para próximo step | nextStepIndex: ${nextStepIndex} | nextStepName: "${nextStep.name}" | redirectUrl: ${redirectUrl}`);
       return res.status(200).json({ success: true, message: "Oferta recusada.", redirectUrl });
     }
 
@@ -300,11 +310,21 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
 
       // Se há próximo passo válido no funil, avança
       if (nextStepIndex >= 0 && nextStepIndex < steps.length) {
+        const nextStep = steps[nextStepIndex];
+
+        // Valida se o próximo step tem redirectUrl antes de redirecionar
+        if (!nextStep.redirectUrl || nextStep.redirectUrl.trim() === "") {
+          console.warn(`⚠️ [OneClickUpsell] Próximo step (${nextStepIndex}) sem redirectUrl! Finalizando funil. | stepName: "${nextStep.name}"`);
+          await UpsellSession.deleteOne({ token });
+          const redirectUrl = offer.thankYouPageUrl && offer.thankYouPageUrl.trim() !== "" ? offer.thankYouPageUrl : null;
+          return res.status(200).json({ success: true, message: "Compra realizada com sucesso!", redirectUrl });
+        }
+
         session.currentStepIndex = nextStepIndex;
         await session.save();
 
-        const redirectUrl = buildUpsellRedirectUrl(steps[nextStepIndex].redirectUrl, token);
-        console.log(`✅ [OneClickUpsell] Avançando para próximo step | nextStepIndex: ${nextStepIndex} | nextStepName: "${steps[nextStepIndex].name}" | redirectUrl: ${redirectUrl}`);
+        const redirectUrl = buildUpsellRedirectUrl(nextStep.redirectUrl, token);
+        console.log(`✅ [OneClickUpsell] Avançando para próximo step | nextStepIndex: ${nextStepIndex} | nextStepName: "${nextStep.name}" | redirectUrl: ${redirectUrl}`);
         return res.status(200).json({ success: true, message: "Compra realizada com sucesso!", redirectUrl });
       }
 

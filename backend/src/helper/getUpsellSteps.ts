@@ -42,7 +42,7 @@ export function getUpsellSteps(offer: IOffer): UpsellStep[] {
   // 1. Coleta todos os raw steps (upsell #1 flat + steps adicionais)
   const rawSteps: RawStep[] = [];
 
-  if (offer.upsell.name || offer.upsell.redirectUrl) {
+  if ((offer.upsell.name || offer.upsell.redirectUrl) && offer.upsell.redirectUrl?.trim()) {
     rawSteps.push({
       name: offer.upsell.name,
       price: offer.upsell.price,
@@ -53,10 +53,17 @@ export function getUpsellSteps(offer: IOffer): UpsellStep[] {
         ? offer.upsell.downsell
         : undefined,
     });
+  } else if (offer.upsell.name && !offer.upsell.redirectUrl?.trim()) {
+    console.warn(`⚠️ [getUpsellSteps] Upsell principal ignorado (sem redirectUrl) | name: "${offer.upsell.name}" | oferta: "${offer.name}"`);
   }
 
   if (offer.upsell.steps && offer.upsell.steps.length > 0) {
     for (const step of offer.upsell.steps) {
+      // Ignora steps sem redirectUrl (dados incompletos/vazios)
+      if (!step.redirectUrl || step.redirectUrl.trim() === "") {
+        console.warn(`⚠️ [getUpsellSteps] Step ignorado (sem redirectUrl) | name: "${step.name}" | oferta: "${offer.name}"`);
+        continue;
+      }
       rawSteps.push({
         ...step,
         downsell: step.downsell?.name || step.downsell?.redirectUrl
@@ -135,6 +142,10 @@ export function buildUpsellRedirectUrl(
   token: string,
   extraParams?: Record<string, string>
 ): string {
+  if (!stepRedirectUrl || stepRedirectUrl.trim() === "") {
+    console.error(`❌ [buildUpsellRedirectUrl] redirectUrl vazia ou undefined! token: ${token}`);
+    throw new Error("redirectUrl do step de upsell não está configurada.");
+  }
   const separator = stepRedirectUrl.includes("?") ? "&" : "?";
   const params = new URLSearchParams({ token, ...extraParams });
   return `${stepRedirectUrl}${separator}${params.toString()}`;

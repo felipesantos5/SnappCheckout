@@ -602,35 +602,42 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
         facebookPurchaseSendAfter = new Date(Date.now() + 10 * 60 * 1000);
       }
 
-      sale = await Sale.create({
-        ownerId: offer.ownerId,
-        offerId: offer._id,
-        abTestId: metadata.abTestId || null, // A/B test tracking
-        stripePaymentIntentId: paymentIntent.id,
-        customerName: finalCustomerName,
-        customerEmail: finalCustomerEmail,
+      // Usa findOneAndUpdate com upsert para evitar E11000 duplicate key em race conditions
+      // (quando payment_intent.created e payment_intent.succeeded chegam quase ao mesmo tempo)
+      sale = await Sale.findOneAndUpdate(
+        { stripePaymentIntentId: paymentIntent.id },
+        {
+          $set: {
+            ownerId: offer.ownerId,
+            offerId: offer._id,
+            abTestId: metadata.abTestId || null,
+            customerName: finalCustomerName,
+            customerEmail: finalCustomerEmail,
+            ip: clientIp,
+            country: countryCode,
+            totalAmountInCents: paymentIntent.amount,
+            platformFeeInCents: paymentIntent.application_fee_amount || 0,
+            currency: offer.currency || "brl",
+            status: "succeeded",
+            isUpsell: isUpsell,
+            parentSaleId,
+            facebookPurchaseSendAfter,
+            items,
+            paymentMethodType,
+            walletType,
+            utm_source: metadata.utm_source || "",
+            utm_medium: metadata.utm_medium || "",
+            utm_campaign: metadata.utm_campaign || "",
+            utm_term: metadata.utm_term || "",
+            utm_content: metadata.utm_content || "",
+          },
+        },
+        { upsert: true, new: true }
+      ) as any;
 
-        ip: clientIp,
-        country: countryCode,
-
-        totalAmountInCents: paymentIntent.amount,
-        platformFeeInCents: paymentIntent.application_fee_amount || 0,
-        currency: offer.currency || "brl",
-        status: "succeeded",
-        isUpsell: isUpsell,
-        parentSaleId,
-        facebookPurchaseSendAfter,
-        items,
-        paymentMethodType,
-        walletType,
-
-        // UTM Tracking
-        utm_source: metadata.utm_source || "",
-        utm_medium: metadata.utm_medium || "",
-        utm_campaign: metadata.utm_campaign || "",
-        utm_term: metadata.utm_term || "",
-        utm_content: metadata.utm_content || "",
-      });
+      if (!sale) {
+        throw new Error(`Falha ao criar/atualizar Sale para PaymentIntent ${paymentIntent.id}`);
+      }
 
     }
 
