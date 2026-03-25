@@ -132,21 +132,17 @@ export const handlePaymentIntentCreated = async (paymentIntent: Stripe.PaymentIn
       customId?: string;
     }> = [];
 
+    const upsellStepIndexForItems = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
+    const stepsForItems = isUpsell ? getUpsellSteps(offer) : [];
+    const isDownsell = isUpsell ? (stepsForItems[upsellStepIndexForItems]?.isDownsell === true) : false;
+
     if (isUpsell) {
       items.push({
         _id: undefined,
-        name: (() => {
-          const stepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
-          const steps = getUpsellSteps(offer);
-          return steps[stepIndex]?.name || offer.upsell?.name || metadata.productName || "Upsell";
-        })(),
+        name: stepsForItems[upsellStepIndexForItems]?.name || offer.upsell?.name || metadata.productName || "Upsell",
         priceInCents: paymentIntent.amount,
         isOrderBump: false,
-        customId: (() => {
-          const stepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
-          const steps = getUpsellSteps(offer);
-          return steps[stepIndex]?.customId || offer.upsell?.customId;
-        })(),
+        customId: stepsForItems[upsellStepIndexForItems]?.customId || offer.upsell?.customId,
       });
     } else {
       // Produto Principal
@@ -193,6 +189,7 @@ export const handlePaymentIntentCreated = async (paymentIntent: Stripe.PaymentIn
       currency: offer.currency || "brl",
       status: "pending", // Tentativa iniciada
       isUpsell: isUpsell,
+      isDownsell: isDownsell,
       items,
 
       // UTM Tracking
@@ -299,21 +296,17 @@ export const handlePaymentIntentFailed = async (paymentIntent: Stripe.PaymentInt
       customId?: string;
     }> = [];
 
+    const failedStepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
+    const failedSteps = isUpsell ? getUpsellSteps(offer) : [];
+    const isDownsellFailed = isUpsell ? (failedSteps[failedStepIndex]?.isDownsell === true) : false;
+
     if (isUpsell) {
       items.push({
         _id: undefined,
-        name: (() => {
-          const stepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
-          const steps = getUpsellSteps(offer);
-          return steps[stepIndex]?.name || offer.upsell?.name || metadata.productName || "Upsell";
-        })(),
+        name: failedSteps[failedStepIndex]?.name || offer.upsell?.name || metadata.productName || "Upsell",
         priceInCents: paymentIntent.amount,
         isOrderBump: false,
-        customId: (() => {
-          const stepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
-          const steps = getUpsellSteps(offer);
-          return steps[stepIndex]?.customId || offer.upsell?.customId;
-        })(),
+        customId: failedSteps[failedStepIndex]?.customId || offer.upsell?.customId,
       });
     } else {
       // Produto Principal
@@ -379,6 +372,7 @@ export const handlePaymentIntentFailed = async (paymentIntent: Stripe.PaymentInt
       failureReason: failureReason,
       failureMessage: failureMessage,
       isUpsell: isUpsell,
+      isDownsell: isDownsellFailed,
       items,
 
       // UTM Tracking
@@ -491,21 +485,17 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       customId?: string;
     }> = [];
 
+    const upsellStepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
+    const steps = isUpsell ? getUpsellSteps(offer) : [];
+    const isDownsell = isUpsell ? (steps[upsellStepIndex]?.isDownsell === true) : false;
+
     if (isUpsell) {
       items.push({
         _id: undefined,
-        name: (() => {
-          const stepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
-          const steps = getUpsellSteps(offer);
-          return steps[stepIndex]?.name || offer.upsell?.name || metadata.productName || "Upsell";
-        })(),
+        name: steps[upsellStepIndex]?.name || offer.upsell?.name || metadata.productName || "Upsell",
         priceInCents: paymentIntent.amount,
         isOrderBump: false,
-        customId: (() => {
-          const stepIndex = metadata.upsellStepIndex ? parseInt(metadata.upsellStepIndex) : 0;
-          const steps = getUpsellSteps(offer);
-          return steps[stepIndex]?.customId || offer.upsell?.customId;
-        })(),
+        customId: steps[upsellStepIndex]?.customId || offer.upsell?.customId,
       });
     } else {
       // Produto Principal
@@ -559,6 +549,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       sale.items = items;
       sale.paymentMethodType = paymentMethodType;
       sale.walletType = walletType;
+      sale.isDownsell = isDownsell;
 
       // UTM Tracking
       sale.utm_source = metadata.utm_source || sale.utm_source || "";
@@ -620,6 +611,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
             currency: offer.currency || "brl",
             status: "succeeded",
             isUpsell: isUpsell,
+            isDownsell: isDownsell,
             parentSaleId,
             facebookPurchaseSendAfter,
             items,

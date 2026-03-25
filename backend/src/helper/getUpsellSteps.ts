@@ -59,15 +59,12 @@ export function getUpsellSteps(offer: IOffer): UpsellStep[] {
           }
         : undefined,
     });
-  } else if (offer.upsell.name && !offer.upsell.redirectUrl?.trim()) {
-    console.warn(`⚠️ [getUpsellSteps] Upsell principal ignorado (sem redirectUrl) | name: "${offer.upsell.name}" | oferta: "${offer.name}"`);
   }
 
   if (offer.upsell.steps && offer.upsell.steps.length > 0) {
     for (const step of offer.upsell.steps) {
       // Ignora steps sem redirectUrl (dados incompletos/vazios)
       if (!step.redirectUrl || step.redirectUrl.trim() === "") {
-        console.warn(`⚠️ [getUpsellSteps] Step ignorado (sem redirectUrl) | name: "${step.name}" | oferta: "${offer.name}"`);
         continue;
       }
       rawSteps.push({
@@ -159,7 +156,6 @@ export function buildUpsellRedirectUrl(
   extraParams?: Record<string, string>
 ): string {
   if (!stepRedirectUrl || stepRedirectUrl.trim() === "") {
-    console.error(`❌ [buildUpsellRedirectUrl] redirectUrl vazia ou undefined! token: ${token}`);
     throw new Error("redirectUrl do step de upsell não está configurada.");
   }
   const separator = stepRedirectUrl.includes("?") ? "&" : "?";

@@ -50,6 +50,7 @@ export interface ISale extends Document {
   failureReason?: string; // Motivo da falha (código de erro do Stripe)
   failureMessage?: string; // Mensagem de erro legível
   isUpsell: boolean;
+  isDownsell?: boolean;
   parentSaleId?: Schema.Types.ObjectId; // Vincula venda de upsell à venda original (para consolidar Facebook Purchase)
   facebookPurchaseSendAfter?: Date; // Quando o evento consolidado de Purchase deve ser enviado (now + 10min)
   items: ISaleItem[]; // O que foi comprado
@@ -105,6 +106,7 @@ const saleSchema = new Schema<ISale>(
     addressCountry: { type: String, default: "" },
 
     isUpsell: { type: Boolean, default: false },
+    isDownsell: { type: Boolean, default: false },
     parentSaleId: { type: Schema.Types.ObjectId, ref: "Sale", default: null },
     facebookPurchaseSendAfter: { type: Date, default: null },
 

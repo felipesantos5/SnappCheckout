@@ -15,6 +15,7 @@ export interface Sale {
   createdAt: string;
   updatedAt: string;
   isUpsell?: boolean;
+  isDownsell?: boolean;
   country?: string; // Código do país (ex: BR, US, FR)
   paymentMethod?: "stripe" | "paypal" | "pagarme"; // Plataforma de pagamento usada
   offerId: {

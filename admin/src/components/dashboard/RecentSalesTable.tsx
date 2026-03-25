@@ -244,8 +244,18 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
 
                       <TableCell className="text-center">
                         <div className="flex flex-col items-center gap-1">
+                          {/* TAG DE DOWNSELL */}
+                          {sale.isDownsell && (
+                            <Badge
+                              variant="outline"
+                              className="border-orange-200 bg-orange-50 text-orange-700 text-[10px] px-1 py-0 h-5 font-semibold"
+                            >
+                              ↓ Downsell
+                            </Badge>
+                          )}
+
                           {/* TAG DE UPSELL (Prioridade Alta) */}
-                          {sale.isUpsell && (
+                          {sale.isUpsell && !sale.isDownsell && (
                             <Badge
                               variant="outline"
                               className="border-yellow-200 bg-yellow-50 text-yellow-700 text-[10px] px-1 py-0 h-5 font-semibold"
@@ -261,8 +271,8 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
                             </Badge>
                           )}
 
-                          {/* TAG PADRÃO (Só aparece se não for upsell nem bump) */}
-                          {!hasOrderBump && !sale.isUpsell && (
+                          {/* TAG PADRÃO (Só aparece se não for upsell/downsell nem bump) */}
+                          {!hasOrderBump && !sale.isUpsell && !sale.isDownsell && (
                             <Badge variant="secondary" className="text-[10px] h-5">
                               Padrão
                             </Badge>

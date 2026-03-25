@@ -17,7 +17,24 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Trash2, ChevronDown, Settings, CreditCard, Box, Layers, ArrowUpCircle, Link as LinkIcon, Code, Copy, Check, Plus, Eye, EyeOff, Bell, LayoutTemplate } from "lucide-react";
+import {
+  Trash2,
+  ChevronDown,
+  Settings,
+  CreditCard,
+  Box,
+  Layers,
+  ArrowUpCircle,
+  Link as LinkIcon,
+  Code,
+  Copy,
+  Check,
+  Plus,
+  Eye,
+  EyeOff,
+  Bell,
+  LayoutTemplate,
+} from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 import { API_URL } from "@/config/BackendUrl";
 import { MoneyInput } from "./MoneyInput";
@@ -203,8 +220,8 @@ const membershipWebhookSchema = z.object({
 
 const autoNotificationsSchema = z.object({
   enabled: z.boolean().default(false),
-  genderFilter: z.enum(['all', 'male', 'female']).default('all'),
-  region: z.enum(['pt', 'en', 'es', 'fr']).default('pt'),
+  genderFilter: z.enum(["all", "male", "female"]).default("all"),
+  region: z.enum(["pt", "en", "es", "fr"]).default("pt"),
   intervalSeconds: z.coerce.number().min(1).default(10),
   soundEnabled: z.boolean().default(true),
 });
@@ -220,7 +237,7 @@ const facebookPixelSchema = z.object({
   accessToken: z.string().min(1, { message: "Token de acesso é obrigatório." }),
 });
 
-const layoutTypeSchema = z.enum(['classic', 'modern', 'minimal']).default('classic');
+const layoutTypeSchema = z.enum(["classic", "modern", "minimal"]).default("classic");
 
 const offerFormSchema = z.object({
   name: z.string().min(3, { message: "Nome do link é obrigatório." }),
@@ -240,15 +257,18 @@ const offerFormSchema = z.object({
   paypalEnabled: z.boolean().default(false),
   pagarme_pix_enabled: z.boolean().default(false),
   stripe_card_enabled: z.boolean().default(true),
-  customDomain: z.string().optional().refine(
-    (val) => {
-      if (!val || val.trim() === "") return true;
-      // Valida formato de domínio
-      const domainRegex = /^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/i;
-      return domainRegex.test(val.trim());
-    },
-    { message: "Domínio inválido. Use o formato: checkout.seudominio.com.br" }
-  ),
+  customDomain: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val.trim() === "") return true;
+        // Valida formato de domínio
+        const domainRegex = /^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/i;
+        return domainRegex.test(val.trim());
+      },
+      { message: "Domínio inválido. Use o formato: checkout.seudominio.com.br" },
+    ),
 
   // Cores
   primaryColor: colorSchema,
@@ -273,7 +293,7 @@ const offerFormSchema = z.object({
       },
       {
         message: "IDs de Pixel duplicados encontrados. Cada Pixel ID deve ser único.",
-      }
+      },
     ),
   upsell: upsellSchema,
   membershipWebhook: membershipWebhookSchema,
@@ -297,7 +317,10 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
   const isEditMode = !!offerId;
 
   React.useEffect(() => {
-    axios.get(`${API_URL}/categories`).then(res => setCategories(res.data)).catch(() => { });
+    axios
+      .get(`${API_URL}/categories`)
+      .then((res) => setCategories(res.data))
+      .catch(() => {});
   }, []);
 
   const form = useForm<OfferFormData>({
@@ -351,8 +374,8 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
       textColor: "#374151", // NOVO - Texto cinza escuro
       autoNotifications: {
         enabled: false,
-        genderFilter: 'all' as const,
-        region: 'pt' as const,
+        genderFilter: "all" as const,
+        region: "pt" as const,
         intervalSeconds: 10,
         soundEnabled: true,
       },
@@ -393,28 +416,26 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
   });
 
   // Estado local para controlar visibilidade do card de downsell (confiável para re-render)
-  const [showDownsell1, setShowDownsell1] = useState(
-    !!(initialData?.upsell?.downsell?.name || initialData?.upsell?.downsell?.redirectUrl)
-  );
+  const [showDownsell1, setShowDownsell1] = useState(!!(initialData?.upsell?.downsell?.name || initialData?.upsell?.downsell?.redirectUrl));
   const [stepsDownsellVisible, setStepsDownsellVisible] = useState<boolean[]>(() =>
-    (initialData?.upsell?.steps || []).map((s: any) => !!(s?.downsell?.name || s?.downsell?.redirectUrl))
+    (initialData?.upsell?.steps || []).map((s: any) => !!(s?.downsell?.name || s?.downsell?.redirectUrl)),
   );
 
   const appendUpsellStep = (data: any) => {
     appendUpsellStepRaw(data);
-    setStepsDownsellVisible(prev => [...prev, false]);
+    setStepsDownsellVisible((prev) => [...prev, false]);
   };
 
   const removeUpsellStep = (index: number) => {
     removeUpsellStepRaw(index);
-    setStepsDownsellVisible(prev => prev.filter((_, i) => i !== index));
+    setStepsDownsellVisible((prev) => prev.filter((_, i) => i !== index));
   };
 
   async function onSubmit(values: OfferFormData) {
     setIsLoading(true);
 
     const transformPrices = (data: OfferFormOutput) => {
-      const cleanSubDoc = (doc: { priceInCents: number; compareAtPriceInCents?: number; _id?: string;[key: string]: any }) => {
+      const cleanSubDoc = (doc: { priceInCents: number; compareAtPriceInCents?: number; _id?: string; [key: string]: any }) => {
         const { _id, ...rest } = doc;
         const priceInCents = Math.round(doc.priceInCents * 100);
         const compareAtPriceInCents =
@@ -430,22 +451,29 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         upsell: {
           ...data.upsell,
           price: data.upsell?.price ? Math.round(data.upsell.price * 100) : 0,
-          downsell: data.upsell?.downsell?.name || data.upsell?.downsell?.redirectUrl ? {
-            ...data.upsell.downsell,
-            price: data.upsell.downsell?.price ? Math.round(data.upsell.downsell.price * 100) : 0,
-          } : undefined,
-          steps: data.upsell?.steps?.map((step) => ({
-            ...step,
-            price: step.price ? Math.round(step.price * 100) : 0,
-            downsell: step.downsell?.name || step.downsell?.redirectUrl ? {
-              ...step.downsell,
-              price: step.downsell?.price ? Math.round(step.downsell.price * 100) : 0,
-            } : undefined,
-          })) || [],
+          downsell:
+            data.upsell?.downsell?.name || data.upsell?.downsell?.redirectUrl
+              ? {
+                  ...data.upsell.downsell,
+                  price: data.upsell.downsell?.price ? Math.round(data.upsell.downsell.price * 100) : 0,
+                }
+              : undefined,
+          steps:
+            data.upsell?.steps?.map((step) => ({
+              ...step,
+              price: step.price ? Math.round(step.price * 100) : 0,
+              downsell:
+                step.downsell?.name || step.downsell?.redirectUrl
+                  ? {
+                      ...step.downsell,
+                      price: step.downsell?.price ? Math.round(step.downsell.price * 100) : 0,
+                    }
+                  : undefined,
+            })) || [],
         },
         utmfyWebhookUrls: data.utmfyWebhookUrls?.filter((url) => url && url.trim() !== ""),
         facebookPixels: data.facebookPixels?.filter(
-          (pixel) => pixel.pixelId && pixel.pixelId.trim() !== "" && pixel.accessToken && pixel.accessToken.trim() !== ""
+          (pixel) => pixel.pixelId && pixel.pixelId.trim() !== "" && pixel.accessToken && pixel.accessToken.trim() !== "",
         ),
       };
     };
@@ -542,7 +570,9 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                     <SelectContent>
                       <SelectItem value="none">Nenhuma (Outras Ofertas)</SelectItem>
                       {categories.map((cat: any) => (
-                        <SelectItem key={cat._id} value={cat._id}>{cat.name}</SelectItem>
+                        <SelectItem key={cat._id} value={cat._id}>
+                          {cat.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -576,7 +606,9 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   <FormControl>
                     <Input placeholder="https://seusite.com/oferta-especial" {...field} value={field.value || ""} />
                   </FormControl>
-                  <FormDescription>Quando o cliente tentar voltar do checkout, será redirecionado para esta URL (ex: oferta com desconto).</FormDescription>
+                  <FormDescription>
+                    Quando o cliente tentar voltar do checkout, será redirecionado para esta URL (ex: oferta com desconto).
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -1036,7 +1068,11 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
           title="Funil de Upsell (One-Click)"
           icon={<ArrowUpCircle className="w-5 h-5" />}
           description="Ofertas exibidas em sequência após a compra aprovada."
-          badge={form.watch("upsell.enabled") ? `Ativado (${1 + (upsellStepFields?.length || 0)} ${1 + (upsellStepFields?.length || 0) === 1 ? 'etapa' : 'etapas'})` : undefined}
+          badge={
+            form.watch("upsell.enabled")
+              ? `Ativado (${1 + (upsellStepFields?.length || 0)} ${1 + (upsellStepFields?.length || 0) === 1 ? "etapa" : "etapas"})`
+              : undefined
+          }
         >
           <div className="space-y-6">
             <FormField
@@ -1057,7 +1093,6 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
 
             {form.watch("upsell.enabled") && (
               <div className="space-y-0 animate-in fade-in slide-in-from-top-2">
-
                 {/* === UPSELL #1 === */}
                 <div className="relative">
                   <div className="space-y-4 p-4 bg-card rounded-lg border-2 border-border shadow-sm">
@@ -1215,7 +1250,13 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                           )}
                         />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <MoneyInput form={form} name={`upsell.steps.${index}.price`} label="Preço" placeholder="0,00" currency={form.watch("currency")} />
+                          <MoneyInput
+                            form={form}
+                            name={`upsell.steps.${index}.price`}
+                            label="Preço"
+                            placeholder="0,00"
+                            currency={form.watch("currency")}
+                          />
                           <FormField
                             control={form.control}
                             name={`upsell.steps.${index}.redirectUrl` as any}
@@ -1251,7 +1292,11 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                                   size="icon"
                                   onClick={() => {
                                     form.setValue(`upsell.steps.${index}.downsell` as any, { name: "", price: 0, redirectUrl: "", customId: "" });
-                                    setStepsDownsellVisible(prev => { const n = [...prev]; n[index] = false; return n; });
+                                    setStepsDownsellVisible((prev) => {
+                                      const n = [...prev];
+                                      n[index] = false;
+                                      return n;
+                                    });
                                   }}
                                   className="shrink-0 text-destructive hover:text-destructive h-8 w-8"
                                 >
@@ -1274,7 +1319,13 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                                 )}
                               />
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <MoneyInput form={form} name={`upsell.steps.${index}.downsell.price`} label="Preço" placeholder="0,00" currency={form.watch("currency")} />
+                                <MoneyInput
+                                  form={form}
+                                  name={`upsell.steps.${index}.downsell.price`}
+                                  label="Preço"
+                                  placeholder="0,00"
+                                  currency={form.watch("currency")}
+                                />
                                 <FormField
                                   control={form.control}
                                   name={`upsell.steps.${index}.downsell.redirectUrl` as any}
@@ -1300,7 +1351,13 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                             variant="outline"
                             size="sm"
                             className="border-dashed border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 text-xs"
-                            onClick={() => setStepsDownsellVisible(prev => { const n = [...prev]; n[index] = true; return n; })}
+                            onClick={() =>
+                              setStepsDownsellVisible((prev) => {
+                                const n = [...prev];
+                                n[index] = true;
+                                return n;
+                              })
+                            }
                           >
                             <Plus className="w-3 h-3 mr-1" /> Adicionar Downsell
                           </Button>
@@ -1318,14 +1375,14 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full border-dashed"
+                  className="w-full border-dashed mb-6"
                   onClick={() => appendUpsellStep({ name: "", price: 0, redirectUrl: "", customId: "" } as any)}
                 >
                   + Adicionar Upsell ao Funil
                 </Button>
 
                 {/* --- PAYPAL ONE-CLICK UPSELL --- */}
-                <FormField
+                {/* <FormField
                   control={form.control}
                   name="upsell.paypalOneClickEnabled"
                   render={({ field }: any) => (
@@ -1336,12 +1393,13 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                       <div className="space-y-1 leading-none">
                         <FormLabel>PayPal One-Click Upsell</FormLabel>
                         <FormDescription>
-                          Habilita upsell com 1 clique usando PayPal Vault. <strong>Requer vault habilitado na sua conta PayPal.</strong> Se desabilitado, o cliente será redirecionado para checkout normal.
+                          Habilita upsell com 1 clique usando PayPal Vault. <strong>Requer vault habilitado na sua conta PayPal.</strong> Se
+                          desabilitado, o cliente será redirecionado para checkout normal.
                         </FormDescription>
                       </div>
                     </FormItem>
                   )}
-                />
+                /> */}
 
                 {/* --- BOTÕES DE GERAR SCRIPTS --- */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1649,9 +1707,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   </FormControl>
                   <div className="space-y-1 leading-none">
                     <FormLabel>Ativar Notificações Automáticas</FormLabel>
-                    <FormDescription>
-                      Exibe toasts simulando compras de outros clientes a cada 10 segundos.
-                    </FormDescription>
+                    <FormDescription>Exibe toasts simulando compras de outros clientes a cada 10 segundos.</FormDescription>
                   </div>
                 </FormItem>
               )}
@@ -1716,14 +1772,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                       <FormItem>
                         <FormLabel>Intervalo entre Notificações (segundos)</FormLabel>
                         <FormControl>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={60}
-                            placeholder="10"
-                            {...field}
-                            value={field.value || 10}
-                          />
+                          <Input type="number" min={1} max={60} placeholder="10" {...field} value={field.value || 10} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

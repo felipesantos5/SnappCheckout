@@ -249,6 +249,129 @@ const { register, handleSubmit } = useForm({
 });
 ```
 
+## Funil de Upsell / Downsell (One-Click)
+
+### Como funciona
+
+Após uma compra aprovada, o cliente pode ser levado por um funil de ofertas encadeadas (upsell/downsell) sem precisar digitar o cartão novamente.
+
+**Fluxo completo:**
+```
+Compra aprovada no checkout
+    → checkout/src/components/checkout/CheckoutForm.tsx
+        chama POST /api/payments/upsell-token
+            → cria UpsellSession com currentStepIndex=0
+            → redireciona para a URL do Upsell #1 (com ?token=...)
+
+Página externa do Upsell #1 (site do cliente com script injetado)
+    → GET /api/script/upsell  (script.controller.ts — carrega os botões .chk-buy e .chk-refuse)
+
+    Aceitar upsell:
+        → POST /api/payments/one-click-upsell
+            → cobra cartão off_session via Stripe
+            → vai para o próximo step do funil (ou thank you page)
+
+    Recusar upsell:
+        → POST /api/payments/upsell-refuse
+            → NÃO cobra nada
+            → se tiver downsell configurado → vai para a página do downsell
+            → se não tiver downsell → vai para o próximo upsell
+            → se não houver mais nada → vai para a thankYouPageUrl
+
+    Aceitar downsell:
+        → POST /api/payments/one-click-upsell (mesmo endpoint)
+            → cobra cartão
+            → vai para o próximo upsell do funil (ou thank you page)
+
+    Recusar downsell:
+        → POST /api/payments/upsell-refuse
+            → vai para o próximo upsell (ou thank you page)
+```
+
+### Arquivos que mexem no funil
+
+| Arquivo | O que faz |
+|---|---|
+| `backend/src/helper/getUpsellSteps.ts` | **Núcleo do funil.** Transforma a config da oferta num array expandido de steps com `acceptNextStep` e `declineNextStep`. SEMPRE usar propriedades explícitas (não `...step` spread) em Mongoose SubDocuments. |
+| `backend/src/controllers/payment.controller.ts` | Endpoints: `generateUpsellToken`, `handleOneClickUpsell`, `handleRefuseUpsell`. |
+| `backend/src/models/upsell-session.model.ts` | Sessão temporária (TTL 30min). Guarda token, customerId, paymentMethodId e `currentStepIndex`. |
+| `backend/src/controllers/script.controller.ts` | Gera o JS injetado na página do cliente (botões `.chk-buy` e `.chk-refuse`). |
+| `admin/src/components/forms/OfferForm.tsx` | UI de configuração do funil no admin. |
+| `backend/src/routes/payment.routes.ts` | Rotas: `/upsell-token`, `/one-click-upsell`, `/upsell-refuse`. |
+
+### Estrutura de dados do funil na oferta (MongoDB)
+
+```
+offer.upsell = {
+  enabled: true,
+  name: "Upsell #1",          // nome interno
+  price: 9700,                // centavos
+  redirectUrl: "https://...", // página externa do cliente com o script
+  customId: "",
+  downsell: {                 // opcional — exibido se o cliente RECUSAR o Upsell #1
+    name: "Downsell #1",
+    price: 4700,
+    redirectUrl: "https://...",
+  },
+  steps: [                    // Upsell #2, #3, ... (cada um pode ter seu downsell)
+    {
+      name: "Upsell #2",
+      price: 19700,
+      redirectUrl: "https://...",
+      downsell: { name: "Downsell #2", price: 9700, redirectUrl: "https://..." }
+    }
+  ]
+}
+```
+
+### Como getUpsellSteps constrói a navegação
+
+`getUpsellSteps(offer)` expande a config acima num array linear com índices de navegação:
+
+```
+rawSteps = [upsell1, upsell2]  (com downsells embutidos)
+
+expanded = [
+  index 0: Upsell #1   → acceptNextStep=2, declineNextStep=1  (tem downsell)
+  index 1: Downsell #1 → acceptNextStep=2, declineNextStep=2
+  index 2: Upsell #2   → acceptNextStep=-1, declineNextStep=3 (tem downsell)
+  index 3: Downsell #2 → acceptNextStep=-1, declineNextStep=-1
+]
+// -1 = fim do funil → vai para thankYouPageUrl
+```
+
+### Regra crítica: spread em Mongoose SubDocuments
+
+**NUNCA** usar `{ ...step }` para copiar um subdocumento do Mongoose — as propriedades definidas no schema NÃO são propriedades próprias (são getters no prototype), então o spread retorna vazio.
+
+```typescript
+// ❌ ERRADO — redirectUrl, name, price ficam undefined
+rawSteps.push({ ...step, downsell: ... });
+
+// ✅ CORRETO — sempre listar as propriedades explicitamente
+rawSteps.push({
+  name: step.name,
+  price: step.price,
+  redirectUrl: step.redirectUrl,
+  customId: step.customId,
+  ...
+});
+```
+
+### Visibilidade do card de downsell no Admin (React Hook Form)
+
+`form.setValue("upsell.downsell", {...})` (path pai) **não dispara** `form.watch("upsell.downsell.name")` (path filho) no RHF. Por isso a visibilidade do card de downsell é controlada por **estado local**:
+
+```typescript
+const [showDownsell1, setShowDownsell1] = useState(
+  !!(initialData?.upsell?.downsell?.name || initialData?.upsell?.downsell?.redirectUrl)
+);
+const [stepsDownsellVisible, setStepsDownsellVisible] = useState<boolean[]>(...);
+
+// Botão "Adicionar Downsell" → setShowDownsell1(true)
+// Botão lixeira → limpa form + setShowDownsell1(false)
+```
+
 ## Testing Payment Flows
 
 1. Use Stripe test cards: `4242 4242 4242 4242` (any future date, any CVC)

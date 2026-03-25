@@ -30,6 +30,7 @@ interface Sale {
   failureReason?: string;
   createdAt: string;
   isUpsell: boolean;
+  isDownsell?: boolean;
   ip?: string;
   country?: string;
   paymentMethod?: "stripe" | "paypal" | "pagarme";
@@ -88,6 +89,14 @@ export function SalesHistoryTable({ offerId }: SalesHistoryTableProps) {
   }, [offerId, token]);
 
   const getSaleTypeIcon = (sale: Sale) => {
+    if (sale.isDownsell) {
+      return (
+        <Badge variant="outline" className="border-orange-200 text-orange-700 bg-orange-50">
+          ↓ Downsell
+        </Badge>
+      );
+    }
+
     if (sale.isUpsell) {
       return (
         <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50">
