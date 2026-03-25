@@ -87,6 +87,11 @@ export const handleUpdateOffer = async (req: Request, res: Response) => {
     const ownerId = req.userId!;
     const payload = req.body as UpdateOfferPayload;
 
+    // Log para debug de upsell steps
+    if (payload.upsell) {
+      console.log(`🔧 [OfferUpdate] Upsell recebido | offerId: ${id} | enabled: ${payload.upsell.enabled} | name: "${(payload as any).upsell?.name}" | steps: ${JSON.stringify((payload as any).upsell?.steps?.map((s: any, i: number) => ({ index: i, name: s.name, price: s.price, redirectUrl: s.redirectUrl?.substring(0, 60) })) || [])}`);
+    }
+
     const offer = await offerService.updateOffer(id, ownerId, payload);
 
     if (!offer) {

@@ -225,11 +225,21 @@ export const updateOffer = async (id: string, ownerId: string, payload: UpdateOf
     }
 
     // 2. Atualiza os campos
-    // 'set' é um método do Mongoose que atualiza o documento
-    // com os novos valores do payload.
     offer.set(payload);
 
-    // 3. Salva o documento atualizado
+    // 3. Marca paths de arrays aninhados como modificados
+    // (Mongoose nem sempre detecta mudanças em arrays dentro de nested objects)
+    if ((payload as any).upsell) {
+      offer.markModified("upsell");
+    }
+    if ((payload as any).facebookPixels) {
+      offer.markModified("facebookPixels");
+    }
+    if ((payload as any).utmfyWebhookUrls) {
+      offer.markModified("utmfyWebhookUrls");
+    }
+
+    // 4. Salva o documento atualizado
     await offer.save();
 
     // 4. Retorna a oferta transformada
