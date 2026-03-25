@@ -385,12 +385,30 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
 
   const {
     fields: upsellStepFields,
-    append: appendUpsellStep,
-    remove: removeUpsellStep,
+    append: appendUpsellStepRaw,
+    remove: removeUpsellStepRaw,
   } = useFieldArray({
     control: form.control,
     name: "upsell.steps" as any,
   });
+
+  // Estado local para controlar visibilidade do card de downsell (confiável para re-render)
+  const [showDownsell1, setShowDownsell1] = useState(
+    !!(initialData?.upsell?.downsell?.name || initialData?.upsell?.downsell?.redirectUrl)
+  );
+  const [stepsDownsellVisible, setStepsDownsellVisible] = useState<boolean[]>(() =>
+    (initialData?.upsell?.steps || []).map((s: any) => !!(s?.downsell?.name || s?.downsell?.redirectUrl))
+  );
+
+  const appendUpsellStep = (data: any) => {
+    appendUpsellStepRaw(data);
+    setStepsDownsellVisible(prev => [...prev, false]);
+  };
+
+  const removeUpsellStep = (index: number) => {
+    removeUpsellStepRaw(index);
+    setStepsDownsellVisible(prev => prev.filter((_, i) => i !== index));
+  };
 
   async function onSubmit(values: OfferFormData) {
     setIsLoading(true);
@@ -1083,7 +1101,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   </div>
 
                   {/* --- Downsell do Upsell #1 --- */}
-                  {form.watch("upsell.downsell.name") || form.watch("upsell.downsell.redirectUrl") ? (
+                  {showDownsell1 ? (
                     <div className="ml-8 mt-0 relative">
                       <div className="absolute -top-1 left-4 w-px h-4 bg-red-300" />
                       <div className="absolute top-3 left-0 w-4 h-px bg-red-300" />
@@ -1099,7 +1117,8 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                               variant="ghost"
                               size="icon"
                               onClick={() => {
-                                form.setValue("upsell.downsell", { name: "", price: 0, redirectUrl: "", customId: "" } as any);
+                                form.setValue("upsell.downsell" as any, { name: "", price: 0, redirectUrl: "", customId: "" });
+                                setShowDownsell1(false);
                               }}
                               className="shrink-0 text-destructive hover:text-destructive h-8 w-8"
                             >
@@ -1148,7 +1167,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                         variant="outline"
                         size="sm"
                         className="border-dashed border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 text-xs"
-                        onClick={() => form.setValue("upsell.downsell", { name: "Downsell", price: 0, redirectUrl: "", customId: "" } as any)}
+                        onClick={() => setShowDownsell1(true)}
                       >
                         <Plus className="w-3 h-3 mr-1" /> Adicionar Downsell
                       </Button>
@@ -1215,7 +1234,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                       </div>
 
                       {/* --- Downsell deste step --- */}
-                      {form.watch(`upsell.steps.${index}.downsell.name` as any) || form.watch(`upsell.steps.${index}.downsell.redirectUrl` as any) ? (
+                      {stepsDownsellVisible[index] ? (
                         <div className="ml-8 mt-0 relative">
                           <div className="absolute -top-1 left-4 w-px h-4 bg-red-300" />
                           <div className="absolute top-3 left-0 w-4 h-px bg-red-300" />
@@ -1232,6 +1251,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                                   size="icon"
                                   onClick={() => {
                                     form.setValue(`upsell.steps.${index}.downsell` as any, { name: "", price: 0, redirectUrl: "", customId: "" });
+                                    setStepsDownsellVisible(prev => { const n = [...prev]; n[index] = false; return n; });
                                   }}
                                   className="shrink-0 text-destructive hover:text-destructive h-8 w-8"
                                 >
@@ -1280,7 +1300,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                             variant="outline"
                             size="sm"
                             className="border-dashed border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 text-xs"
-                            onClick={() => form.setValue(`upsell.steps.${index}.downsell` as any, { name: "Downsell", price: 0, redirectUrl: "", customId: "" })}
+                            onClick={() => setStepsDownsellVisible(prev => { const n = [...prev]; n[index] = true; return n; })}
                           >
                             <Plus className="w-3 h-3 mr-1" /> Adicionar Downsell
                           </Button>
