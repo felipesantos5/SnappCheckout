@@ -225,21 +225,27 @@ export const updateOffer = async (id: string, ownerId: string, payload: UpdateOf
     }
 
     // 2. Atualiza os campos
-    offer.set(payload);
+    // Extrai campos nested com arrays que o .set() do Mongoose não persiste corretamente
+    const { upsell, facebookPixels, utmfyWebhookUrls, ...restPayload } = payload as any;
 
-    // 3. Marca paths de arrays aninhados como modificados
-    // (Mongoose nem sempre detecta mudanças em arrays dentro de nested objects)
-    if ((payload as any).upsell) {
+    // .set() funciona para campos simples
+    offer.set(restPayload);
+
+    // Para campos nested com arrays, atribui diretamente para forçar substituição completa
+    if (upsell !== undefined) {
+      (offer as any).upsell = upsell;
       offer.markModified("upsell");
     }
-    if ((payload as any).facebookPixels) {
+    if (facebookPixels !== undefined) {
+      (offer as any).facebookPixels = facebookPixels;
       offer.markModified("facebookPixels");
     }
-    if ((payload as any).utmfyWebhookUrls) {
+    if (utmfyWebhookUrls !== undefined) {
+      (offer as any).utmfyWebhookUrls = utmfyWebhookUrls;
       offer.markModified("utmfyWebhookUrls");
     }
 
-    // 4. Salva o documento atualizado
+    // 3. Salva o documento atualizado
     await offer.save();
 
     // 4. Retorna a oferta transformada

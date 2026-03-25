@@ -50,7 +50,13 @@ export function getUpsellSteps(offer: IOffer): UpsellStep[] {
       customId: offer.upsell.customId,
       fallbackCheckoutUrl: offer.upsell.fallbackCheckoutUrl,
       downsell: offer.upsell.downsell?.name || offer.upsell.downsell?.redirectUrl
-        ? offer.upsell.downsell
+        ? {
+            name: offer.upsell.downsell.name,
+            price: offer.upsell.downsell.price,
+            redirectUrl: offer.upsell.downsell.redirectUrl,
+            customId: offer.upsell.downsell.customId,
+            fallbackCheckoutUrl: offer.upsell.downsell.fallbackCheckoutUrl,
+          }
         : undefined,
     });
   } else if (offer.upsell.name && !offer.upsell.redirectUrl?.trim()) {
@@ -65,9 +71,19 @@ export function getUpsellSteps(offer: IOffer): UpsellStep[] {
         continue;
       }
       rawSteps.push({
-        ...step,
+        name: step.name,
+        price: step.price,
+        redirectUrl: step.redirectUrl,
+        customId: step.customId,
+        fallbackCheckoutUrl: step.fallbackCheckoutUrl,
         downsell: step.downsell?.name || step.downsell?.redirectUrl
-          ? step.downsell
+          ? {
+              name: step.downsell.name,
+              price: step.downsell.price,
+              redirectUrl: step.downsell.redirectUrl,
+              customId: step.downsell.customId,
+              fallbackCheckoutUrl: step.downsell.fallbackCheckoutUrl,
+            }
           : undefined,
       });
     }
