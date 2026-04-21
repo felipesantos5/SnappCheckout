@@ -60,13 +60,42 @@ interface ApiOfferData {
     price: number;
     redirectUrl: string;
     customId?: string;
+    fallbackCheckoutUrl?: string;
     paypalOneClickEnabled: boolean;
+    downsell?: {
+      name: string;
+      price: number;
+      redirectUrl: string;
+      customId?: string;
+      fallbackCheckoutUrl?: string;
+      downsell?: {
+        name: string;
+        price: number;
+        redirectUrl: string;
+        customId?: string;
+        fallbackCheckoutUrl?: string;
+      };
+    };
     steps?: Array<{
       name: string;
       price: number;
       redirectUrl: string;
       customId?: string;
       fallbackCheckoutUrl?: string;
+      downsell?: {
+        name: string;
+        price: number;
+        redirectUrl: string;
+        customId?: string;
+        fallbackCheckoutUrl?: string;
+        downsell?: {
+          name: string;
+          price: number;
+          redirectUrl: string;
+          customId?: string;
+          fallbackCheckoutUrl?: string;
+        };
+      };
     }>;
   };
   mainProduct: ApiProductData;
@@ -133,7 +162,7 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
         authToken: "",
       },
 
-    // Mapear Upsell (incluindo customId e steps)
+    // Mapear Upsell (incluindo customId, downsell e steps)
     upsell: data.upsell
       ? {
         enabled: data.upsell.enabled,
@@ -141,13 +170,50 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
         price: data.upsell.price ? data.upsell.price / 100 : 0,
         redirectUrl: data.upsell.redirectUrl,
         customId: data.upsell.customId,
+        fallbackCheckoutUrl: data.upsell.fallbackCheckoutUrl,
         paypalOneClickEnabled: data.upsell.paypalOneClickEnabled,
+        downsell: data.upsell.downsell?.name || data.upsell.downsell?.redirectUrl
+          ? {
+            name: data.upsell.downsell.name,
+            price: data.upsell.downsell.price ? data.upsell.downsell.price / 100 : 0,
+            redirectUrl: data.upsell.downsell.redirectUrl,
+            customId: data.upsell.downsell.customId,
+            fallbackCheckoutUrl: data.upsell.downsell.fallbackCheckoutUrl,
+            downsell: data.upsell.downsell.downsell?.name || data.upsell.downsell.downsell?.redirectUrl
+              ? {
+                name: data.upsell.downsell.downsell.name,
+                price: data.upsell.downsell.downsell.price ? data.upsell.downsell.downsell.price / 100 : 0,
+                redirectUrl: data.upsell.downsell.downsell.redirectUrl,
+                customId: data.upsell.downsell.downsell.customId,
+                fallbackCheckoutUrl: data.upsell.downsell.downsell.fallbackCheckoutUrl,
+              }
+              : undefined,
+          }
+          : undefined,
         steps: data.upsell.steps?.map((step) => ({
           name: step.name,
           price: step.price ? step.price / 100 : 0,
           redirectUrl: step.redirectUrl,
           customId: step.customId,
           fallbackCheckoutUrl: step.fallbackCheckoutUrl,
+          downsell: step.downsell?.name || step.downsell?.redirectUrl
+            ? {
+              name: step.downsell.name,
+              price: step.downsell.price ? step.downsell.price / 100 : 0,
+              redirectUrl: step.downsell.redirectUrl,
+              customId: step.downsell.customId,
+              fallbackCheckoutUrl: step.downsell.fallbackCheckoutUrl,
+              downsell: step.downsell.downsell?.name || step.downsell.downsell?.redirectUrl
+                ? {
+                  name: step.downsell.downsell.name,
+                  price: step.downsell.downsell.price ? step.downsell.downsell.price / 100 : 0,
+                  redirectUrl: step.downsell.downsell.redirectUrl,
+                  customId: step.downsell.downsell.customId,
+                  fallbackCheckoutUrl: step.downsell.downsell.fallbackCheckoutUrl,
+                }
+                : undefined,
+            }
+            : undefined,
         })) || [],
       }
       : {

@@ -211,6 +211,7 @@ const upsellSchema = z.object({
   price: z.coerce.number().min(0, { message: "Preço deve ser maior ou igual a 0." }).optional(),
   redirectUrl: optionalUrl,
   customId: z.string().optional(),
+  fallbackCheckoutUrl: optionalUrl,
   downsell: downsellSchema.optional(),
   paypalOneClickEnabled: z.boolean().default(false),
   steps: z.array(upsellStepSchema).optional(),
