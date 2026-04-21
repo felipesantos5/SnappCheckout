@@ -11,7 +11,7 @@ export interface UpsellStep {
   isDownsell?: boolean;
 }
 
-interface RawStep {
+interface RawDownsell {
   name: string;
   price: number;
   redirectUrl: string;
@@ -24,6 +24,15 @@ interface RawStep {
     customId?: string;
     fallbackCheckoutUrl?: string;
   };
+}
+
+interface RawStep {
+  name: string;
+  price: number;
+  redirectUrl: string;
+  customId?: string;
+  fallbackCheckoutUrl?: string;
+  downsell?: RawDownsell;
 }
 
 /**
@@ -56,6 +65,15 @@ export function getUpsellSteps(offer: IOffer): UpsellStep[] {
             redirectUrl: offer.upsell.downsell.redirectUrl,
             customId: offer.upsell.downsell.customId,
             fallbackCheckoutUrl: offer.upsell.downsell.fallbackCheckoutUrl,
+            downsell: offer.upsell.downsell.downsell?.name || offer.upsell.downsell.downsell?.redirectUrl
+              ? {
+                  name: offer.upsell.downsell.downsell.name,
+                  price: offer.upsell.downsell.downsell.price,
+                  redirectUrl: offer.upsell.downsell.downsell.redirectUrl,
+                  customId: offer.upsell.downsell.downsell.customId,
+                  fallbackCheckoutUrl: offer.upsell.downsell.downsell.fallbackCheckoutUrl,
+                }
+              : undefined,
           }
         : undefined,
     });
@@ -80,6 +98,15 @@ export function getUpsellSteps(offer: IOffer): UpsellStep[] {
               redirectUrl: step.downsell.redirectUrl,
               customId: step.downsell.customId,
               fallbackCheckoutUrl: step.downsell.fallbackCheckoutUrl,
+              downsell: step.downsell.downsell?.name || step.downsell.downsell?.redirectUrl
+                ? {
+                    name: step.downsell.downsell.name,
+                    price: step.downsell.downsell.price,
+                    redirectUrl: step.downsell.downsell.redirectUrl,
+                    customId: step.downsell.downsell.customId,
+                    fallbackCheckoutUrl: step.downsell.downsell.fallbackCheckoutUrl,
+                  }
+                : undefined,
             }
           : undefined,
       });
@@ -89,20 +116,23 @@ export function getUpsellSteps(offer: IOffer): UpsellStep[] {
   if (rawSteps.length === 0) return [];
 
   // 2. Primeira passagem: calcula os índices expandidos
-  //    Para saber o tamanho total e posições antes de construir
-  const expandedPositions: { upsellIndex: number; downsellIndex: number | null }[] = [];
+  const expandedPositions: { upsellIndex: number; downsellIndex: number | null; nestedDownsellIndex: number | null }[] = [];
   let pos = 0;
   for (const step of rawSteps) {
     const upsellIdx = pos;
     pos++;
     let downsellIdx: number | null = null;
+    let nestedDownsellIdx: number | null = null;
     if (step.downsell) {
       downsellIdx = pos;
       pos++;
+      if (step.downsell.downsell) {
+        nestedDownsellIdx = pos;
+        pos++;
+      }
     }
-    expandedPositions.push({ upsellIndex: upsellIdx, downsellIndex: downsellIdx });
+    expandedPositions.push({ upsellIndex: upsellIdx, downsellIndex: downsellIdx, nestedDownsellIndex: nestedDownsellIdx });
   }
-  const totalLength = pos;
 
   // 3. Segunda passagem: constrói o array expandido com navegação
   const expanded: UpsellStep[] = [];
@@ -111,8 +141,9 @@ export function getUpsellSteps(offer: IOffer): UpsellStep[] {
     const step = rawSteps[i];
     const positions = expandedPositions[i];
     const hasDownsell = positions.downsellIndex !== null;
+    const hasNestedDownsell = positions.nestedDownsellIndex !== null;
 
-    // Próximo upsell após este (pula o downsell se existir)
+    // Próximo upsell após este (pula downsells se existirem)
     const nextUpsellIndex = i + 1 < rawSteps.length
       ? expandedPositions[i + 1].upsellIndex
       : -1; // -1 = thank you page
@@ -139,8 +170,22 @@ export function getUpsellSteps(offer: IOffer): UpsellStep[] {
         fallbackCheckoutUrl: step.downsell.fallbackCheckoutUrl,
         isDownsell: true,
         acceptNextStep: nextUpsellIndex,
-        declineNextStep: nextUpsellIndex,
+        declineNextStep: hasNestedDownsell ? positions.nestedDownsellIndex! : nextUpsellIndex,
       });
+
+      // Downsell aninhado (downsell do downsell)
+      if (step.downsell.downsell && hasNestedDownsell) {
+        expanded.push({
+          name: step.downsell.downsell.name,
+          price: step.downsell.downsell.price,
+          redirectUrl: step.downsell.downsell.redirectUrl,
+          customId: step.downsell.downsell.customId,
+          fallbackCheckoutUrl: step.downsell.downsell.fallbackCheckoutUrl,
+          isDownsell: true,
+          acceptNextStep: nextUpsellIndex,
+          declineNextStep: nextUpsellIndex,
+        });
+      }
     }
   }
 

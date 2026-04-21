@@ -71,6 +71,13 @@ export interface IOffer extends Document {
       redirectUrl: string;
       customId?: string;
       fallbackCheckoutUrl?: string;
+      downsell?: {
+        name: string;
+        price: number;
+        redirectUrl: string;
+        customId?: string;
+        fallbackCheckoutUrl?: string;
+      };
     };
     paypalOneClickEnabled?: boolean;
     steps?: Array<{
@@ -85,6 +92,13 @@ export interface IOffer extends Document {
         redirectUrl: string;
         customId?: string;
         fallbackCheckoutUrl?: string;
+        downsell?: {
+          name: string;
+          price: number;
+          redirectUrl: string;
+          customId?: string;
+          fallbackCheckoutUrl?: string;
+        };
       };
     }>;
   };
@@ -185,6 +199,13 @@ const offerSchema = new Schema<IOffer>(
         redirectUrl: { type: String, default: "" },
         customId: { type: String, default: "" },
         fallbackCheckoutUrl: { type: String, default: "" },
+        downsell: {
+          name: { type: String, default: "" },
+          price: { type: Number, default: 0 },
+          redirectUrl: { type: String, default: "" },
+          customId: { type: String, default: "" },
+          fallbackCheckoutUrl: { type: String, default: "" },
+        },
       },
       paypalOneClickEnabled: { type: Boolean, default: false },
       steps: {
@@ -201,6 +222,13 @@ const offerSchema = new Schema<IOffer>(
               redirectUrl: { type: String, default: "" },
               customId: { type: String, default: "" },
               fallbackCheckoutUrl: { type: String, default: "" },
+              downsell: {
+                name: { type: String, default: "" },
+                price: { type: Number, default: 0 },
+                redirectUrl: { type: String, default: "" },
+                customId: { type: String, default: "" },
+                fallbackCheckoutUrl: { type: String, default: "" },
+              },
             },
           },
         ],

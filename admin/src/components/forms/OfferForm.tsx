@@ -184,12 +184,16 @@ const productSchema = z.object({
   customId: z.string().optional(),
 });
 
-const downsellSchema = z.object({
+const downsellBaseSchema = z.object({
   name: z.string().optional(),
   price: z.coerce.number().min(0, { message: "Preço deve ser maior ou igual a 0." }).optional(),
   redirectUrl: optionalUrl,
   customId: z.string().optional(),
   fallbackCheckoutUrl: optionalUrl,
+});
+
+const downsellSchema = downsellBaseSchema.extend({
+  downsell: downsellBaseSchema.optional(),
 });
 
 const upsellStepSchema = z.object({
@@ -417,18 +421,26 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
 
   // Estado local para controlar visibilidade do card de downsell (confiável para re-render)
   const [showDownsell1, setShowDownsell1] = useState(!!(initialData?.upsell?.downsell?.name || initialData?.upsell?.downsell?.redirectUrl));
+  const [showDownsell1Nested, setShowDownsell1Nested] = useState(
+    !!(initialData?.upsell?.downsell?.downsell?.name || initialData?.upsell?.downsell?.downsell?.redirectUrl),
+  );
   const [stepsDownsellVisible, setStepsDownsellVisible] = useState<boolean[]>(() =>
     (initialData?.upsell?.steps || []).map((s: any) => !!(s?.downsell?.name || s?.downsell?.redirectUrl)),
+  );
+  const [stepsNestedDownsellVisible, setStepsNestedDownsellVisible] = useState<boolean[]>(() =>
+    (initialData?.upsell?.steps || []).map((s: any) => !!(s?.downsell?.downsell?.name || s?.downsell?.downsell?.redirectUrl)),
   );
 
   const appendUpsellStep = (data: any) => {
     appendUpsellStepRaw(data);
     setStepsDownsellVisible((prev) => [...prev, false]);
+    setStepsNestedDownsellVisible((prev) => [...prev, false]);
   };
 
   const removeUpsellStep = (index: number) => {
     removeUpsellStepRaw(index);
     setStepsDownsellVisible((prev) => prev.filter((_, i) => i !== index));
+    setStepsNestedDownsellVisible((prev) => prev.filter((_, i) => i !== index));
   };
 
   async function onSubmit(values: OfferFormData) {
@@ -456,6 +468,13 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
               ? {
                   ...data.upsell.downsell,
                   price: data.upsell.downsell?.price ? Math.round(data.upsell.downsell.price * 100) : 0,
+                  downsell:
+                    data.upsell.downsell?.downsell?.name || data.upsell.downsell?.downsell?.redirectUrl
+                      ? {
+                          ...data.upsell.downsell.downsell,
+                          price: data.upsell.downsell.downsell?.price ? Math.round(data.upsell.downsell.downsell.price * 100) : 0,
+                        }
+                      : undefined,
                 }
               : undefined,
           steps:
@@ -467,6 +486,13 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   ? {
                       ...step.downsell,
                       price: step.downsell?.price ? Math.round(step.downsell.price * 100) : 0,
+                      downsell:
+                        step.downsell?.downsell?.name || step.downsell?.downsell?.redirectUrl
+                          ? {
+                              ...step.downsell.downsell,
+                              price: step.downsell.downsell?.price ? Math.round(step.downsell.downsell.price * 100) : 0,
+                            }
+                          : undefined,
                     }
                   : undefined,
             })) || [],
@@ -1192,6 +1218,80 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                             />
                           </div>
                           <CustomIdInput name={"upsell.downsell.customId" as any} />
+
+                          {/* --- Downsell aninhado do Downsell #1 --- */}
+                          {showDownsell1Nested ? (
+                            <div className="ml-8 mt-0 relative">
+                              <div className="absolute -top-1 left-4 w-px h-4 bg-orange-300" />
+                              <div className="absolute top-3 left-0 w-4 h-px bg-orange-300" />
+                              <div className="pt-4">
+                                <div className="space-y-4 p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border-2 border-orange-200 dark:border-orange-900 shadow-sm">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className="bg-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-md">DOWNSELL</span>
+                                      <span className="text-sm font-medium">Downsell Encadeado #1</span>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => {
+                                        form.setValue("upsell.downsell.downsell" as any, { name: "", price: 0, redirectUrl: "", customId: "" });
+                                        setShowDownsell1Nested(false);
+                                      }}
+                                      className="shrink-0 text-destructive hover:text-destructive h-8 w-8"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                  <p className="text-xs text-orange-600 dark:text-orange-400">Exibido quando o cliente recusar o Downsell #1</p>
+
+                                  <FormField
+                                    control={form.control}
+                                    name={"upsell.downsell.downsell.name" as any}
+                                    render={({ field }: any) => (
+                                      <FormItem>
+                                        <FormLabel>Nome da Oferta</FormLabel>
+                                        <FormControl>
+                                          <Input placeholder="Ex: Oferta mínima especial" {...field} value={field.value || ""} />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <MoneyInput form={form} name="upsell.downsell.downsell.price" label="Preço" placeholder="0,00" currency={form.watch("currency")} />
+                                    <FormField
+                                      control={form.control}
+                                      name={"upsell.downsell.downsell.redirectUrl" as any}
+                                      render={({ field }: any) => (
+                                        <FormItem>
+                                          <FormLabel>URL da Página</FormLabel>
+                                          <FormControl>
+                                            <Input placeholder="https://..." {...field} value={field.value || ""} />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                  </div>
+                                  <CustomIdInput name={"upsell.downsell.downsell.customId" as any} />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="ml-8 mt-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20 text-xs"
+                                onClick={() => setShowDownsell1Nested(true)}
+                              >
+                                <Plus className="w-3 h-3 mr-1" /> Adicionar Downsell Encadeado
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1341,6 +1441,96 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                                 />
                               </div>
                               <CustomIdInput name={`upsell.steps.${index}.downsell.customId` as any} />
+
+                              {/* --- Downsell aninhado deste step --- */}
+                              {stepsNestedDownsellVisible[index] ? (
+                                <div className="ml-8 mt-0 relative">
+                                  <div className="absolute -top-1 left-4 w-px h-4 bg-orange-300" />
+                                  <div className="absolute top-3 left-0 w-4 h-px bg-orange-300" />
+                                  <div className="pt-4">
+                                    <div className="space-y-4 p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border-2 border-orange-200 dark:border-orange-900 shadow-sm">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                          <span className="bg-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-md">DOWNSELL</span>
+                                          <span className="text-sm font-medium">Downsell Encadeado #{index + 2}</span>
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => {
+                                            form.setValue(`upsell.steps.${index}.downsell.downsell` as any, { name: "", price: 0, redirectUrl: "", customId: "" });
+                                            setStepsNestedDownsellVisible((prev) => {
+                                              const n = [...prev];
+                                              n[index] = false;
+                                              return n;
+                                            });
+                                          }}
+                                          className="shrink-0 text-destructive hover:text-destructive h-8 w-8"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                      <p className="text-xs text-orange-600 dark:text-orange-400">Exibido quando o cliente recusar o Downsell #{index + 2}</p>
+
+                                      <FormField
+                                        control={form.control}
+                                        name={`upsell.steps.${index}.downsell.downsell.name` as any}
+                                        render={({ field }: any) => (
+                                          <FormItem>
+                                            <FormLabel>Nome da Oferta</FormLabel>
+                                            <FormControl>
+                                              <Input placeholder="Ex: Oferta mínima especial" {...field} value={field.value || ""} />
+                                            </FormControl>
+                                            <FormMessage />
+                                          </FormItem>
+                                        )}
+                                      />
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <MoneyInput
+                                          form={form}
+                                          name={`upsell.steps.${index}.downsell.downsell.price`}
+                                          label="Preço"
+                                          placeholder="0,00"
+                                          currency={form.watch("currency")}
+                                        />
+                                        <FormField
+                                          control={form.control}
+                                          name={`upsell.steps.${index}.downsell.downsell.redirectUrl` as any}
+                                          render={({ field }: any) => (
+                                            <FormItem>
+                                              <FormLabel>URL da Página</FormLabel>
+                                              <FormControl>
+                                                <Input placeholder="https://..." {...field} value={field.value || ""} />
+                                              </FormControl>
+                                              <FormMessage />
+                                            </FormItem>
+                                          )}
+                                        />
+                                      </div>
+                                      <CustomIdInput name={`upsell.steps.${index}.downsell.downsell.customId` as any} />
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="ml-8 mt-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20 text-xs"
+                                    onClick={() =>
+                                      setStepsNestedDownsellVisible((prev) => {
+                                        const n = [...prev];
+                                        n[index] = true;
+                                        return n;
+                                      })
+                                    }
+                                  >
+                                    <Plus className="w-3 h-3 mr-1" /> Adicionar Downsell Encadeado
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
