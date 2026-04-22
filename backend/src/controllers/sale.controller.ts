@@ -101,9 +101,7 @@ export const getSales = async (req: Request, res: Response) => {
         query.createdAt.$gte = new Date(startDate as string);
       }
       if (endDate) {
-        const end = new Date(endDate as string);
-        end.setHours(23, 59, 59, 999); // Fim do dia
-        query.createdAt.$lte = end;
+        query.createdAt.$lt = new Date(endDate as string);
       }
     }
 

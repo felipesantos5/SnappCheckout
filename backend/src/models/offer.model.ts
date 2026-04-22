@@ -347,6 +347,21 @@ const offerSchema = new Schema<IOffer>(
   { timestamps: true }
 );
 
+offerSchema.pre("save", function (next) {
+  if (this.customDomain === "") {
+    this.customDomain = undefined;
+  }
+  next();
+});
+
+offerSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate() as Record<string, unknown>;
+  if (update && update["customDomain"] === "") {
+    update["customDomain"] = undefined;
+  }
+  next();
+});
+
 const Offer: Model<IOffer> = mongoose.models.Offer || model<IOffer>("Offer", offerSchema);
 
 export default Offer;
