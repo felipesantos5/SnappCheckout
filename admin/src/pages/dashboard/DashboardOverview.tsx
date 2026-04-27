@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
-// import { ConnectStripeCard } from "@/components/ConnectStripeCard";
+import { ConnectStripeCard } from "@/components/ConnectStripeCard";
 import { API_URL } from "@/config/BackendUrl";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DollarSign, ShoppingCart, TrendingUp, RefreshCw } from "lucide-react";
@@ -261,7 +261,7 @@ export function DashboardOverview() {
 
   return (
     <div className="flex flex-col gap-4 sm:gap-8 flex-1 mx-auto p-0 animate-in fade-in duration-500">
-      {/* <ConnectStripeCard /> */}
+      <ConnectStripeCard />
 
       {/* Header Responsivo */}
       <div className="flex flex-col gap-3 lg:gap-0">
