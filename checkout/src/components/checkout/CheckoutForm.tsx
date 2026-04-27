@@ -198,7 +198,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         setWalletLabel(label);
         setPaymentRequest(pr);
       })
-      .catch((_error) => { });
+      .catch((_error) => {});
 
     pr.on("paymentmethod", async (ev: PaymentRequestPaymentMethodEvent) => {
       try {
@@ -292,7 +292,17 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         setLoading(false);
       }
     });
-  }, [stripe, offerData.stripe_card_enabled, offerData.currency, offerData.mainProduct.name, offerData.collectPhone, selectedBumps, totalAmount, utmData, t]);
+  }, [
+    stripe,
+    offerData.stripe_card_enabled,
+    offerData.currency,
+    offerData.mainProduct.name,
+    offerData.collectPhone,
+    selectedBumps,
+    totalAmount,
+    utmData,
+    t,
+  ]);
 
   useEffect(() => {
     if (paymentRequest) {
@@ -421,15 +431,15 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
     // Coleta dados de endereço (se collectAddress estiver ativado)
     const addressData = offerData.collectAddress
       ? {
-        zipCode: (document.getElementById("address-zipCode") as HTMLInputElement)?.value || "",
-        street: (document.getElementById("address-street") as HTMLInputElement)?.value || "",
-        number: (document.getElementById("address-number") as HTMLInputElement)?.value || "",
-        complement: (document.getElementById("address-complement") as HTMLInputElement)?.value || "",
-        neighborhood: (document.getElementById("address-neighborhood") as HTMLInputElement)?.value || "",
-        city: (document.getElementById("address-city") as HTMLInputElement)?.value || "",
-        state: (document.getElementById("address-state") as HTMLInputElement)?.value || "",
-        country: (document.getElementById("address-country") as HTMLInputElement)?.value || "",
-      }
+          zipCode: (document.getElementById("address-zipCode") as HTMLInputElement)?.value || "",
+          street: (document.getElementById("address-street") as HTMLInputElement)?.value || "",
+          number: (document.getElementById("address-number") as HTMLInputElement)?.value || "",
+          complement: (document.getElementById("address-complement") as HTMLInputElement)?.value || "",
+          neighborhood: (document.getElementById("address-neighborhood") as HTMLInputElement)?.value || "",
+          city: (document.getElementById("address-city") as HTMLInputElement)?.value || "",
+          state: (document.getElementById("address-state") as HTMLInputElement)?.value || "",
+          country: (document.getElementById("address-country") as HTMLInputElement)?.value || "",
+        }
       : null;
 
     // Validações básicas
@@ -463,7 +473,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
           value: totalAmount / 100,
           currency: offerData.currency.toUpperCase(),
         },
-        { eventID: eventId }
+        { eventID: eventId },
       );
     }
 
@@ -627,7 +637,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
           {/* Formulário (Card) */}
           <form
             onSubmit={handleCardSubmit}
-            className="rounded-xl shadow-lg p-6"
+            className="rounded-xl shadow-lg p-4 md:p-6"
             style={{ backgroundColor: backgroundColor }} // Mantém consistência ou "flat" design se for igual
           >
             {/* OrderSummary no Mobile - Logo abaixo do banner */}

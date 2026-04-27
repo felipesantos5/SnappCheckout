@@ -20,6 +20,10 @@ export const OrderSummary = memo<OrderSummaryProps>(
     const { t } = useTranslation();
 
     const totalSmallText = useMemo(() => formatCurrency(totalAmountInCents, currency), [totalAmountInCents, currency]);
+    const originalPriceText = useMemo(
+      () => (originalPriceInCents ? formatCurrency(originalPriceInCents, currency) : null),
+      [originalPriceInCents, currency]
+    );
 
     return (
       <div
@@ -45,9 +49,16 @@ export const OrderSummary = memo<OrderSummaryProps>(
                 <p className="text-xs" style={{ color: textColor, opacity: 0.6 }}>
                   {t.orderSummary.total}
                 </p>
-                <p className="text-lg font-bold" style={{ color: primary }}>
-                  {totalSmallText}
-                </p>
+                <div className="flex items-center gap-2 justify-end">
+                  {originalPriceText && (
+                    <p className="text-sm line-through" style={{ color: textColor, opacity: 0.4 }}>
+                      {originalPriceText}
+                    </p>
+                  )}
+                  <p className="text-lg font-bold" style={{ color: primary }}>
+                    {totalSmallText}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
