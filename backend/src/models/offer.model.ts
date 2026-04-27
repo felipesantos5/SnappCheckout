@@ -124,6 +124,15 @@ export interface IOffer extends Document {
   group?: string; // Novo: campo para organizar ofertas em grupos
   categoryId?: Schema.Types.ObjectId; // Novo: referência ao model de Categoria/Pasta
 
+  emailNotification?: {
+    enabled: boolean;
+    subject?: string;
+    heading?: string;
+    body?: string;
+    imageUrl?: string;
+    pdfUrl?: string;
+  };
+
   createdAt?: Date;
   updatedAt?: Date;
   __v?: number;
@@ -342,6 +351,14 @@ const offerSchema = new Schema<IOffer>(
       type: Schema.Types.ObjectId,
       ref: "Category",
       index: true,
+    },
+    emailNotification: {
+      enabled: { type: Boolean, default: false },
+      subject: { type: String, default: "" },
+      heading: { type: String, default: "" },
+      body: { type: String, default: "" },
+      imageUrl: { type: String, default: "" },
+      pdfUrl: { type: String, default: "" },
     },
   },
   { timestamps: true }

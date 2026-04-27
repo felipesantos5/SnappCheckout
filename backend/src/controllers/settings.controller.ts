@@ -9,8 +9,8 @@ export const getSettings = async (req: Request, res: Response) => {
     const userId = (req as any).userId;
 
     const user = await User.findById(userId)
-      .select("+paypalClientSecret +pagarme_api_key +pagarme_encryption_key");
-    
+      .select("+paypalClientSecret +pagarme_api_key +pagarme_encryption_key +smtpPass");
+
     if (!user) {
       return res.status(404).json({ error: "Usuário não encontrado." });
     }
@@ -41,6 +41,12 @@ export const getSettings = async (req: Request, res: Response) => {
       pagarme_api_key: pagarmeApiKey,
       pagarme_encryption_key: pagarmeEncryptionKey,
       automaticNotifications: user.automaticNotifications ?? false,
+      smtpHost: user.smtpHost || "",
+      smtpPort: user.smtpPort || 587,
+      smtpUser: user.smtpUser || "",
+      smtpPass: user.smtpPass || "",
+      smtpFromEmail: user.smtpFromEmail || "",
+      smtpFromName: user.smtpFromName || "",
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -50,12 +56,18 @@ export const getSettings = async (req: Request, res: Response) => {
 export const updateSettings = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
-    const { 
-      paypalClientId, 
-      paypalClientSecret, 
+    const {
+      paypalClientId,
+      paypalClientSecret,
       pagarme_api_key,
       pagarme_encryption_key,
-      automaticNotifications 
+      automaticNotifications,
+      smtpHost,
+      smtpPort,
+      smtpUser,
+      smtpPass,
+      smtpFromEmail,
+      smtpFromName,
     } = req.body;
 
     const user = await User.findById(userId);
@@ -112,6 +124,14 @@ export const updateSettings = async (req: Request, res: Response) => {
     if (automaticNotifications !== undefined) {
       user.automaticNotifications = automaticNotifications;
     }
+
+    // Atualiza SMTP
+    if (smtpHost !== undefined) user.smtpHost = smtpHost;
+    if (smtpPort !== undefined) user.smtpPort = Number(smtpPort);
+    if (smtpUser !== undefined) user.smtpUser = smtpUser;
+    if (smtpPass !== undefined) user.smtpPass = smtpPass;
+    if (smtpFromEmail !== undefined) user.smtpFromEmail = smtpFromEmail;
+    if (smtpFromName !== undefined) user.smtpFromName = smtpFromName;
 
     await user.save();
 

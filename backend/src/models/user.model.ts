@@ -14,6 +14,13 @@ export interface IUser extends Document {
   pagarme_api_key?: string; // <-- NOVO: Pagar.me API Key (encriptada)
   pagarme_encryption_key?: string; // <-- NOVO: Pagar.me Encryption Key (encriptada)
   automaticNotifications: boolean; // <-- NOVO: Notificações automáticas de vendas
+  // SMTP para envio de emails
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPass?: string;
+  smtpFromEmail?: string;
+  smtpFromName?: string;
   // Métodos
   comparePassword(password: string): Promise<boolean>;
 }
@@ -78,6 +85,14 @@ const userSchema = new Schema<IUser>(
       type: Boolean,
       default: false, // Desativado por padrão
     },
+
+    // --- SMTP PARA EMAILS ---
+    smtpHost: { type: String, default: "" },
+    smtpPort: { type: Number, default: 587 },
+    smtpUser: { type: String, default: "" },
+    smtpPass: { type: String, default: "", select: false },
+    smtpFromEmail: { type: String, default: "" },
+    smtpFromName: { type: String, default: "" },
   },
   {
     timestamps: true, // Adiciona createdAt e updatedAt

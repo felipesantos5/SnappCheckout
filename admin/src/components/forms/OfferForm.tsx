@@ -34,6 +34,7 @@ import {
   EyeOff,
   Bell,
   LayoutTemplate,
+  Mail,
 } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 import { API_URL } from "@/config/BackendUrl";
@@ -304,6 +305,14 @@ const offerFormSchema = z.object({
   membershipWebhook: membershipWebhookSchema,
   autoNotifications: autoNotificationsSchema,
   orderBumps: z.array(productSchema).optional(),
+  emailNotification: z.object({
+    enabled: z.boolean().default(false),
+    subject: z.string().optional(),
+    heading: z.string().optional(),
+    body: z.string().optional(),
+    imageUrl: optionalUrl,
+    pdfUrl: optionalUrl,
+  }).optional(),
 });
 
 export type OfferFormInput = z.input<typeof offerFormSchema>;
@@ -385,6 +394,14 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         soundEnabled: true,
       },
       orderBumps: [],
+      emailNotification: {
+        enabled: false,
+        subject: "",
+        heading: "",
+        body: "",
+        imageUrl: "",
+        pdfUrl: "",
+      },
     },
   });
 
@@ -1986,6 +2003,136 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                     )}
                   />
                 </div>
+              </>
+            )}
+          </div>
+        </FormSection>
+
+        {/* Seção: Email de Confirmação */}
+        <FormSection
+          title="Email de Confirmação"
+          icon={<Mail className="w-5 h-5" />}
+          description="Envie um email automático ao cliente após a compra."
+        >
+          <div className="space-y-5">
+            <FormField
+              control={form.control}
+              name="emailNotification.enabled"
+              render={({ field }: any) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Ativar Email de Confirmação</FormLabel>
+                    <FormDescription>
+                      Ao ativar, um email será enviado ao cliente quando a compra for aprovada.
+                      Configure o SMTP nas{" "}
+                      <a href="/settings" className="text-primary hover:underline">
+                        Configurações da conta
+                      </a>.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value}
+                      onChange={field.onChange}
+                      className="h-5 w-5 accent-primary cursor-pointer"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {form.watch("emailNotification.enabled") && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="emailNotification.subject"
+                  render={({ field }: any) => (
+                    <FormItem>
+                      <FormLabel>Assunto do Email</FormLabel>
+                      <FormControl>
+                        <input
+                          {...field}
+                          placeholder="Ex: Sua compra foi confirmada!"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        />
+                      </FormControl>
+                      <FormDescription>Deixe em branco para usar o assunto padrão.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="emailNotification.heading"
+                  render={({ field }: any) => (
+                    <FormItem>
+                      <FormLabel>Título do Email</FormLabel>
+                      <FormControl>
+                        <input
+                          {...field}
+                          placeholder="Ex: Sua compra foi confirmada!"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="emailNotification.body"
+                  render={({ field }: any) => (
+                    <FormItem>
+                      <FormLabel>Mensagem</FormLabel>
+                      <FormControl>
+                        <textarea
+                          {...field}
+                          rows={4}
+                          placeholder="Ex: Obrigado pela sua compra! Seu acesso será enviado em breve."
+                          className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="emailNotification.imageUrl"
+                  render={({ field }: any) => (
+                    <FormItem>
+                      <FormLabel>Imagem (opcional)</FormLabel>
+                      <FormControl>
+                        <ImageUpload value={field.value || ""} onChange={field.onChange} />
+                      </FormControl>
+                      <FormDescription>Imagem exibida no topo do email.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="emailNotification.pdfUrl"
+                  render={({ field }: any) => (
+                    <FormItem>
+                      <FormLabel>Link para PDF / Material (opcional)</FormLabel>
+                      <FormControl>
+                        <input
+                          {...field}
+                          placeholder="https://..."
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        />
+                      </FormControl>
+                      <FormDescription>Um botão de download será exibido no email com este link.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </>
             )}
           </div>

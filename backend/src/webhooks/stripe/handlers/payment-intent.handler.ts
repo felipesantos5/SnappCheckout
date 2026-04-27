@@ -8,6 +8,8 @@ import stripe from "../../../lib/stripe";
 import { sendAccessWebhook } from "../../../services/integration.service";
 import { getCountryFromIP } from "../../../helper/getCountryFromIP";
 import { getUpsellSteps } from "../../../helper/getUpsellSteps";
+import User from "../../../models/user.model";
+import { sendPurchaseConfirmationEmail } from "../../../services/email.service";
 
 /**
  * Helper: Extrai informações sobre o método de pagamento do Stripe
@@ -663,6 +665,40 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       console.error(`⚠️ [Stripe] Erro ao enviar webhook UTMfy (Venda salva normalmente):`, utmfyError.message);
       console.error(`⚠️ [Stripe] Stack trace UTMfy:`, utmfyError.stack);
       sale.integrationsUtmfySent = false;
+    }
+
+    // D: Email de confirmação de compra para o cliente
+    try {
+      const emailConfig = (offer as any).emailNotification;
+      if (emailConfig?.enabled && finalCustomerEmail && finalCustomerEmail !== "email@nao.informado") {
+        const vendorUser = await User.findById(offer.ownerId).select("+smtpPass");
+        if (vendorUser?.smtpHost && vendorUser?.smtpUser && vendorUser?.smtpPass) {
+          const mainItem = items.find((i) => !i.isOrderBump) || items[0];
+          await sendPurchaseConfirmationEmail({
+            smtp: {
+              host: vendorUser.smtpHost,
+              port: vendorUser.smtpPort || 587,
+              user: vendorUser.smtpUser,
+              pass: vendorUser.smtpPass,
+              fromEmail: vendorUser.smtpFromEmail || vendorUser.smtpUser,
+              fromName: vendorUser.smtpFromName || offer.name,
+            },
+            to: finalCustomerEmail,
+            customerName: finalCustomerName,
+            offerName: offer.name,
+            productName: mainItem?.name || offer.mainProduct.name,
+            totalAmountInCents: sale.totalAmountInCents,
+            currency: offer.currency || "brl",
+            subject: emailConfig.subject || undefined,
+            heading: emailConfig.heading || undefined,
+            body: emailConfig.body || undefined,
+            imageUrl: emailConfig.imageUrl || undefined,
+            pdfUrl: emailConfig.pdfUrl || undefined,
+          });
+        }
+      }
+    } catch (emailError: any) {
+      console.error(`⚠️ [Stripe] Erro ao enviar email de confirmação:`, emailError.message);
     }
 
     // Salva as flags de integração

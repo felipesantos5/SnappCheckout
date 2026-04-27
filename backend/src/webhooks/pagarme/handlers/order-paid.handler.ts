@@ -1,8 +1,10 @@
 // src/webhooks/pagarme/handlers/order-paid.handler.ts
 import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
+import User from "../../../models/user.model";
 import { sendAccessWebhook } from "../../../services/integration.service";
 import { processUtmfyIntegrationForPayPal } from "../../../services/utmfy.service";
+import { sendPurchaseConfirmationEmail } from "../../../services/email.service";
 
 /**
  * Handler para o evento order.paid da Pagar.me
@@ -110,5 +112,39 @@ const dispatchAllIntegrations = async (sale: any, offer: any, items: any[]) => {
 
   // Salva as flags de integração
   await sale.save();
+
+  // Email de confirmação de compra para o cliente
+  try {
+    const emailConfig = offer.emailNotification;
+    if (emailConfig?.enabled && sale.customerEmail && sale.customerEmail !== "email@nao.informado") {
+      const vendorUser = await User.findById(offer.ownerId).select("+smtpPass");
+      if (vendorUser?.smtpHost && vendorUser?.smtpUser && vendorUser?.smtpPass) {
+        const mainItem = items.find((i: any) => !i.isOrderBump) || items[0];
+        await sendPurchaseConfirmationEmail({
+          smtp: {
+            host: vendorUser.smtpHost,
+            port: vendorUser.smtpPort || 587,
+            user: vendorUser.smtpUser,
+            pass: vendorUser.smtpPass,
+            fromEmail: vendorUser.smtpFromEmail || vendorUser.smtpUser,
+            fromName: vendorUser.smtpFromName || offer.name,
+          },
+          to: sale.customerEmail,
+          customerName: sale.customerName || "Cliente",
+          offerName: offer.name,
+          productName: mainItem?.name || offer.mainProduct.name,
+          totalAmountInCents: sale.totalAmountInCents,
+          currency: offer.currency || "brl",
+          subject: emailConfig.subject || undefined,
+          heading: emailConfig.heading || undefined,
+          body: emailConfig.body || undefined,
+          imageUrl: emailConfig.imageUrl || undefined,
+          pdfUrl: emailConfig.pdfUrl || undefined,
+        });
+      }
+    }
+  } catch (emailError: any) {
+    console.error(`❌ [Pagar.me] Erro ao enviar email de confirmação:`, emailError.message);
+  }
 };
 
