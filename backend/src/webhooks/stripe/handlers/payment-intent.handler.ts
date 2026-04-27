@@ -689,6 +689,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
             productName: mainItem?.name || offer.mainProduct.name,
             totalAmountInCents: sale.totalAmountInCents,
             currency: offer.currency || "brl",
+            language: offer.language || "pt",
             subject: emailConfig.subject || undefined,
             heading: emailConfig.heading || undefined,
             body: emailConfig.body || undefined,
