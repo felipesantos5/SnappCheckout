@@ -1,6 +1,5 @@
 // src/components/forms/RegisterForm.tsx
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -12,6 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { API_URL } from "@/config/BackendUrl";
+import { useAuth } from "@/context/AuthContext";
 
 // 1. Definição do Schema de validação com Zod
 const formSchema = z.object({
@@ -21,7 +21,7 @@ const formSchema = z.object({
 });
 
 export function RegisterForm() {
-  const navigate = useNavigate();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -39,16 +39,8 @@ export function RegisterForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      // 4. Chama a API de registro do backend
       await axios.post(`${API_URL}/auth/register`, values);
-
-      // 5. Sucesso!
-      toast.success("Conta criada com sucesso!", {
-        description: "Você já pode fazer login.",
-      });
-
-      // 6. Redireciona para a página de login
-      navigate("/login");
+      await login(values.email, values.password);
     } catch (error: any) {
       setIsLoading(false);
       // 7. Trata o erro (ex: e-mail já existe)
