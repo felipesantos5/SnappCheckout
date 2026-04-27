@@ -2,25 +2,32 @@
 import multer, { FileFilterCallback } from "multer";
 import { Request } from "express";
 
-// Define quais tipos de arquivo (MIME types) são permitidos
-const fileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
+const imageFileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
   if (file.mimetype === "image/jpeg" || file.mimetype === "image/png" || file.mimetype === "image/webp") {
-    cb(null, true); // Aceita o arquivo
+    cb(null, true);
   } else {
     cb(new Error("Formato de imagem inválido. Use apenas JPEG, PNG ou WebP."));
   }
 };
 
-// Configuração do Multer
-// Usamos 'memoryStorage' para manter o arquivo na memória (buffer)
-// antes de enviá-lo para um serviço de nuvem (S3, Cloudinary, etc.)
-// Isso evita salvar arquivos temporários no disco do servidor.
+const pdfFileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
+  if (file.mimetype === "application/pdf") {
+    cb(null, true);
+  } else {
+    cb(new Error("Formato inválido. Use apenas PDF."));
+  }
+};
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 1024 * 1024 * 5, // Limite de 5MB por imagem
-  },
+  fileFilter: imageFileFilter,
+  limits: { fileSize: 1024 * 1024 * 5 },
+});
+
+export const uploadPdf = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: pdfFileFilter,
+  limits: { fileSize: 1024 * 1024 * 20 }, // 20MB para PDFs
 });
 
 export default upload;

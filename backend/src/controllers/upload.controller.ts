@@ -23,6 +23,34 @@ const uploadFromBuffer = (fileBuffer: Buffer, options: object): Promise<any> => 
   });
 };
 
+export const handleUploadPdf = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: { message: "Nenhum arquivo enviado." } });
+    }
+
+    const uploadOptions = {
+      folder: "checkout_plataforma/pdfs",
+      public_id: `${Date.now()}-${req.file.originalname.replace(/\.pdf$/i, "")}`,
+      resource_type: "raw" as const,
+    };
+
+    const uploadResult = await uploadFromBuffer(req.file.buffer, uploadOptions);
+
+    if (!uploadResult?.secure_url) {
+      throw new Error("Falha ao obter a URL segura do Cloudinary.");
+    }
+
+    // Força download ao inserir fl_attachment na URL
+    const downloadUrl = uploadResult.secure_url.replace("/upload/", "/upload/fl_attachment/");
+
+    res.status(201).json({ pdfUrl: downloadUrl });
+  } catch (error) {
+    console.error("Erro no upload de PDF para Cloudinary:", error);
+    res.status(500).json({ error: { message: "Falha no upload do PDF." } });
+  }
+};
+
 /**
  * Controller para lidar com o upload de uma única imagem
  */

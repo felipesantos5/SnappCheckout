@@ -37,6 +37,7 @@ import {
   Mail,
 } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
+import { PdfUpload } from "./PdfUpload";
 import { API_URL } from "@/config/BackendUrl";
 import { MoneyInput } from "./MoneyInput";
 
@@ -2120,15 +2121,11 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   name="emailNotification.pdfUrl"
                   render={({ field }: any) => (
                     <FormItem>
-                      <FormLabel>Link para PDF / Material (opcional)</FormLabel>
+                      <FormLabel>Arquivo PDF / Material (opcional)</FormLabel>
                       <FormControl>
-                        <input
-                          {...field}
-                          placeholder="https://..."
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        />
+                        <PdfUpload value={field.value || ""} onChange={field.onChange} />
                       </FormControl>
-                      <FormDescription>Um botão de download será exibido no email com este link.</FormDescription>
+                      <FormDescription>Um botão de download será exibido no email com este arquivo.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
