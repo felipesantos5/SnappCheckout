@@ -57,10 +57,14 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
     expiresAt: string;
   } | null>(null);
 
+  const isSubscription = offerData.paymentType === "subscription";
+  const effectivePaypalEnabled = isSubscription ? false : offerData.paypalEnabled;
+  const effectivePixEnabled = isSubscription ? false : offerData.pagarme_pix_enabled;
+
   const [method, setMethod] = useState<"creditCard" | "pix" | "wallet" | "paypal">(() => {
-    if (offerData.stripe_card_enabled === false) {
-      if (offerData.pagarme_pix_enabled) return "pix";
-      if (offerData.paypalEnabled) return "paypal";
+    if (offerData.stripe_card_enabled === false && !isSubscription) {
+      if (effectivePixEnabled) return "pix";
+      if (effectivePaypalEnabled) return "paypal";
     }
     return "creditCard";
   });
@@ -111,26 +115,26 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
   // Reseta método de pagamento se PayPal não estiver habilitado
   useEffect(() => {
-    if (method === "paypal" && !offerData.paypalEnabled) {
+    if (method === "paypal" && !effectivePaypalEnabled) {
       setMethod("creditCard");
     }
-  }, [method, offerData.paypalEnabled]);
+  }, [method, effectivePaypalEnabled]);
 
   // Reseta método de pagamento se Stripe (Cartão) não estiver habilitado
   useEffect(() => {
     if (method === "creditCard" && offerData.stripe_card_enabled === false) {
       // Prioriza PIX, depois PayPal, senão mantém (não há opção)
-      if (offerData.pagarme_pix_enabled) {
+      if (effectivePixEnabled) {
         setMethod("pix");
-      } else if (offerData.paypalEnabled) {
+      } else if (effectivePaypalEnabled) {
         setMethod("paypal");
       }
     }
-  }, [method, offerData.stripe_card_enabled, offerData.pagarme_pix_enabled, offerData.paypalEnabled]);
+  }, [method, offerData.stripe_card_enabled, effectivePixEnabled, effectivePaypalEnabled]);
 
   // Busca o PayPal Client ID quando PayPal está habilitado
   useEffect(() => {
-    if (offerData.paypalEnabled && offerData._id) {
+    if (effectivePaypalEnabled && offerData._id) {
       fetch(`${API_URL}/paypal/client-id/${offerData._id}`)
         .then((res) => res.json())
         .then((data) => {
@@ -140,7 +144,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         })
         .catch((err) => console.error("Failed to fetch PayPal client ID:", err));
     }
-  }, [offerData.paypalEnabled, offerData._id]);
+  }, [effectivePaypalEnabled, offerData._id]);
 
   // Configuração simplificada da Carteira Digital - Deixa o Stripe decidir tudo
   useEffect(() => {
@@ -260,7 +264,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
         if (confirmError) {
           ev.complete("fail");
-          setErrorMessage(confirmError.message || "Erro no pagamento");
+          setErrorMessage(confirmError.message || t.messages.paymentError);
           setLoading(false);
         } else {
           ev.complete("success");
@@ -273,7 +277,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
             const { error: actionError } = await stripe!.confirmCardPayment(clientSecret);
             if (actionError) {
               ev.complete("fail");
-              setErrorMessage(actionError.message || "Erro na autenticação");
+              setErrorMessage(actionError.message || t.messages.authError);
               setLoading(false);
             } else {
               ev.complete("success");
@@ -282,13 +286,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
             }
           } else {
             ev.complete("fail");
-            setErrorMessage(`Pagamento não aprovado. Status: ${paymentIntent?.status}`);
+            setErrorMessage(t.messages.paymentNotApproved);
             setLoading(false);
           }
         }
       } catch (err: any) {
         ev.complete("fail");
-        setErrorMessage(err.message || "Erro inesperado");
+        setErrorMessage(err.message || t.messages.unexpectedError);
         setLoading(false);
       }
     });
@@ -409,7 +413,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
   const handleCardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) {
-      setErrorMessage("Sistema de pagamento não carregado. Recarregue a página.");
+      setErrorMessage(t.messages.stripeNotLoaded);
       return;
     }
 
@@ -444,14 +448,14 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
     // Validações básicas
     if (!email || !fullName) {
-      setErrorMessage("Preencha todos os campos obrigatórios.");
+      setErrorMessage(t.messages.requiredFields);
       return;
     }
 
     // Validação básica do elemento do cartão
     const cardElement = elements.getElement(CardNumberElement);
     if (method === "creditCard" && !cardElement) {
-      setErrorMessage("Erro interno: Campo de cartão não inicializado.");
+      setErrorMessage(t.messages.cardNotInitialized);
       return;
     }
 
@@ -677,8 +681,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                   setMethod={setMethod}
                   paymentRequest={paymentRequest}
                   walletLabel={walletLabel}
-                  paypalEnabled={offerData.paypalEnabled}
-                  pagarmePixEnabled={offerData.pagarme_pix_enabled}
+                  paypalEnabled={effectivePaypalEnabled}
+                  pagarmePixEnabled={effectivePixEnabled}
                   stripeCardEnabled={offerData.stripe_card_enabled}
                 />
 
@@ -695,7 +699,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                 </div>
 
                 {/* Botão PayPal - Mobile */}
-                {method === "paypal" && offerData.paypalEnabled && paypalClientId && (
+                {method === "paypal" && effectivePaypalEnabled && paypalClientId && (
                   <div className="lg:hidden mb-1">
                     {!isContactValid ? (
                       <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
@@ -757,7 +761,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                   </div>
 
                   {/* Botão PayPal - Desktop */}
-                  {method === "paypal" && offerData.paypalEnabled && paypalClientId && (
+                  {method === "paypal" && effectivePaypalEnabled && paypalClientId && (
                     <div className="mt-6">
                       {!isContactValid ? (
                         <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
@@ -835,7 +839,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                   <div className="flex-1">
                     <p className="text-red-700 text-sm font-medium">{errorMessage}</p>
                     <button onClick={() => setErrorMessage(null)} className="text-red-600 text-xs underline mt-1 hover:text-red-800">
-                      Tentar novamente
+                      {t.messages.retry}
                     </button>
                   </div>
                 </div>

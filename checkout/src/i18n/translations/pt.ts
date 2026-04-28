@@ -106,6 +106,14 @@ export const pt = {
     loading: "Carregando...",
     redirecting: "Redirecionando com segurança...",
     fillRequiredFields: "Preencha seu nome e e-mail para continuar",
+    stripeNotLoaded: "Sistema de pagamento não carregado. Recarregue a página.",
+    requiredFields: "Preencha todos os campos obrigatórios.",
+    cardNotInitialized: "Erro interno: Campo de cartão não inicializado.",
+    paymentError: "Erro no pagamento.",
+    authError: "Erro na autenticação.",
+    paymentNotApproved: "Pagamento não aprovado.",
+    unexpectedError: "Erro inesperado.",
+    retry: "Tentar novamente",
   },
 
   // Product

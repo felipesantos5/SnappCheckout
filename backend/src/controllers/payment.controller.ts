@@ -47,6 +47,11 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
     if (offer.paymentType === "subscription") {
       const interval = offer.subscriptionInterval || "month";
 
+      const stripeProduct = await stripe.products.create(
+        { name: offer.name },
+        { stripeAccount: stripeAccountId }
+      );
+
       const subscription = await stripe.subscriptions.create(
         {
           customer: customerId,
@@ -54,7 +59,7 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
             {
               price_data: {
                 currency: (offer.currency || "brl").toLowerCase(),
-                product_data: { name: offer.name } as any,
+                product: stripeProduct.id,
                 unit_amount: totalAmount,
                 recurring: { interval },
               } as any,

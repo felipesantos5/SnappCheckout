@@ -29,6 +29,8 @@ const ClassicLayout: React.FC<LayoutProps> = ({
     });
   }, [offerData.ownerId?.stripeAccountId]);
 
+  const stripeLocale = offerData.language === "en" ? "en" : offerData.language === "fr" ? "fr" : "pt-BR";
+
   if (!stripePromise) {
     return (
       <div className="p-4 text-red-500">
@@ -38,7 +40,7 @@ const ClassicLayout: React.FC<LayoutProps> = ({
   }
 
   return (
-    <Elements stripe={stripePromise}>
+    <Elements stripe={stripePromise} options={{ locale: stripeLocale }}>
       <CheckoutForm
         offerData={offerData}
         checkoutSessionId={checkoutSessionId}

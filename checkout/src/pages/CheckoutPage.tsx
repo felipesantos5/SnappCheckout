@@ -33,13 +33,15 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ offerData, checkoutSessionI
     });
   }, [offerData.ownerId?.stripeAccountId]);
 
+  const stripeLocale = offerData.language === "en" ? "en" : offerData.language === "fr" ? "fr" : "pt-BR";
+
   // Se não tiver stripePromise (por falta de ID), não renderiza o Elements para evitar crash
   if (!stripePromise) {
     return <div className="p-4 text-red-500">Erro de configuração: Conta Stripe não vinculada.</div>;
   }
 
   return (
-    <Elements stripe={stripePromise}>
+    <Elements stripe={stripePromise} options={{ locale: stripeLocale }}>
       <CheckoutForm offerData={offerData} checkoutSessionId={checkoutSessionId} generateEventId={generateEventId} abTestId={abTestId} />
     </Elements>
   );

@@ -27,6 +27,7 @@ export interface OfferData {
   paypalEnabled?: boolean;
   pagarme_pix_enabled?: boolean;
   stripe_card_enabled?: boolean;
+  paymentType?: "one_time" | "subscription";
   bannerImageUrl?: string;
   secondaryBannerImageUrl?: string;
   currency: string;

@@ -108,6 +108,14 @@ export const fr: Translation = {
     loading: "Chargement...",
     redirecting: "Redirection sécurisée...",
     fillRequiredFields: "Veuillez remplir votre nom et e-mail pour continuer",
+    stripeNotLoaded: "Système de paiement non chargé. Veuillez recharger la page.",
+    requiredFields: "Veuillez remplir tous les champs obligatoires.",
+    cardNotInitialized: "Erreur interne: champ de carte non initialisé.",
+    paymentError: "Erreur de paiement.",
+    authError: "Erreur d'authentification.",
+    paymentNotApproved: "Paiement non approuvé.",
+    unexpectedError: "Une erreur inattendue s'est produite.",
+    retry: "Réessayer",
   },
 
   // Product
