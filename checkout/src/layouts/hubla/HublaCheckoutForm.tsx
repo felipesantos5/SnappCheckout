@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  useStripe,
-  useElements,
-  CardNumberElement,
-  CardExpiryElement,
-  CardCvcElement,
-  PaymentRequestButtonElement,
-} from "@stripe/react-stripe-js";
+import { useStripe, useElements, CardNumberElement, CardExpiryElement, CardCvcElement, PaymentRequestButtonElement } from "@stripe/react-stripe-js";
 import type { PaymentRequest, PaymentRequestPaymentMethodEvent, StripeElementStyle } from "@stripe/stripe-js";
 import { Loader2, CheckCircle, ChevronDown, Plus, Lock, CreditCard } from "lucide-react";
 
@@ -25,12 +18,8 @@ import { detectPlatform } from "../../utils/platformDetection";
 import { formatCurrency } from "../../helper/formatCurrency";
 import type { LayoutProps } from "../LayoutLoader";
 
-const PayPalPayment = lazy(() =>
-  import("../../components/checkout/PayPalPayment").then((m) => ({ default: m.PayPalPayment }))
-);
-const OrderBump = lazy(() =>
-  import("../../components/checkout/OrderBump").then((m) => ({ default: m.OrderBump }))
-);
+const PayPalPayment = lazy(() => import("../../components/checkout/PayPalPayment").then((m) => ({ default: m.PayPalPayment })));
+const OrderBump = lazy(() => import("../../components/checkout/OrderBump").then((m) => ({ default: m.OrderBump })));
 
 const STRIPE_STYLE: StripeElementStyle = {
   base: {
@@ -42,18 +31,24 @@ const STRIPE_STYLE: StripeElementStyle = {
   invalid: { color: "#EF4444", iconColor: "#EF4444" },
 };
 
+const STRIPE_STYLE_CENTERED: StripeElementStyle = {
+  base: {
+    color: "#374151",
+    fontFamily: "inherit",
+    fontSize: "14px",
+    textAlign: "left",
+    "::placeholder": { color: "#9CA3AF" },
+  },
+  invalid: { color: "#EF4444", iconColor: "#EF4444" },
+};
+
 const PixIcon: React.FC<{ color?: string }> = ({ color = "#6b7280" }) => (
   <svg className="h-5 w-5" viewBox="0 0 512 512" fill={color}>
     <path d="M242.4 292.5C247.8 287.1 257.1 287.1 262.5 292.5L339.5 369.5C353.7 383.7 372.6 391.5 392.6 391.5H407.7L310.6 488.6C280.3 518.1 231.1 518.1 200.8 488.6L103.3 391.2H112.6C132.6 391.2 151.5 383.4 165.7 369.2L242.4 292.5zM262.5 218.9C257.1 224.3 247.8 224.3 242.4 218.9L165.7 142.2C151.5 127.1 132.6 120.2 112.6 120.2H103.3L200.7 22.8C231.1-7.6 280.3-7.6 310.6 22.8L407.7 119.9H392.6C372.6 119.9 353.7 127.7 339.5 141.9L262.5 218.9zM112.6 142.7C126.4 142.7 139.1 148.3 149.7 158.1L226.4 234.8C233.6 241.1 243 245.6 252.5 245.6C261.9 245.6 271.3 241.1 278.5 234.8L355.5 157.8C365.3 148.1 378.8 142.5 392.6 142.5H430.3L488.6 200.8C518.9 231.1 518.9 280.3 488.6 310.6L430.3 368.9H392.6C378.8 368.9 365.3 363.3 355.5 353.5L278.5 276.5C264.6 262.6 240.3 262.6 226.4 276.5L149.7 353.2C139.1 363 126.4 368.6 112.6 368.6H80.78L22.76 310.6C-7.586 280.3-7.586 231.1 22.76 200.8L80.78 142.7H112.6z" />
   </svg>
 );
 
-const HublaInput: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { primary: string }> = ({
-  primary,
-  className = "",
-  style,
-  ...props
-}) => (
+const HublaInput: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { primary: string }> = ({ primary, className = "", style, ...props }) => (
   <input
     {...props}
     className={`w-full px-4 py-3 border border-gray-200 rounded-md text-sm outline-none transition-colors duration-150 focus:border-[var(--hp)] ${className}`}
@@ -62,28 +57,27 @@ const HublaInput: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { prima
 );
 
 const StripeFieldWrapper: React.FC<{
-  label: string;
+  label?: string;
   children: React.ReactNode;
   primary: string;
   right?: React.ReactNode;
-}> = ({ label, children, primary, right }) => (
+  className?: string;
+}> = ({ label, children, primary, right, className = "" }) => (
   <div
-    className="border border-gray-200 rounded-md px-4 pt-2 pb-3 transition-colors duration-150 focus-within:border-[var(--hp)]"
+    className={`border border-gray-200 rounded-md mb-0 px-4 pt-2 pb-3 transition-colors duration-150 focus-within:border-[var(--hp)] ${className}`}
     style={{ "--hp": primary } as React.CSSProperties}
   >
-    <div className="flex items-center justify-between mb-1">
-      <span className="text-xs text-gray-400">{label}</span>
-      {right}
-    </div>
+    {(label || right) && (
+      <div className="flex items-center justify-between mb-1">
+        {label && <span className="text-xs text-gray-400">{label}</span>}
+        {right}
+      </div>
+    )}
     {children}
   </div>
 );
 
-export const HublaCheckoutForm: React.FC<LayoutProps> = ({
-  offerData,
-  checkoutSessionId,
-  abTestId,
-}) => {
+export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSessionId, abTestId }) => {
   const stripe = useStripe();
   const elements = useElements();
   const navigate = useNavigate();
@@ -146,7 +140,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
       utm_term: urlParams.get("utm_term") || null,
       utm_content: urlParams.get("utm_content") || null,
     }),
-    [urlParams]
+    [urlParams],
   );
 
   const isContactValid = useMemo(() => {
@@ -162,13 +156,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
     if (effectivePaypalEnabled) count++;
     if (paymentRequest && walletLabel) count++;
     return count;
-  }, [
-    offerData.stripe_card_enabled,
-    effectivePixEnabled,
-    effectivePaypalEnabled,
-    paymentRequest,
-    walletLabel,
-  ]);
+  }, [offerData.stripe_card_enabled, effectivePixEnabled, effectivePaypalEnabled, paymentRequest, walletLabel]);
 
   // Update total based on bumps
   useEffect(() => {
@@ -285,10 +273,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
           return;
         }
 
-        const { error: confirmError, paymentIntent } = await stripe!.confirmCardPayment(
-          clientSecret,
-          { payment_method: ev.paymentMethod.id }
-        );
+        const { error: confirmError, paymentIntent } = await stripe!.confirmCardPayment(clientSecret, { payment_method: ev.paymentMethod.id });
 
         if (confirmError) {
           ev.complete("fail");
@@ -349,12 +334,18 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
 
     const timer = setTimeout(async () => {
       if (saleId && !paymentIntentId) {
-        if (paypalRedirectUrl) { window.location.href = paypalRedirectUrl; return; }
+        if (paypalRedirectUrl) {
+          window.location.href = paypalRedirectUrl;
+          return;
+        }
         if (offerData.upsell?.enabled && offerData.upsell?.redirectUrl) {
           window.location.href = offerData.upsell.redirectUrl;
           return;
         }
-        if (offerData.thankYouPageUrl) { window.location.href = offerData.thankYouPageUrl; return; }
+        if (offerData.thankYouPageUrl) {
+          window.location.href = offerData.thankYouPageUrl;
+          return;
+        }
         const p = new URLSearchParams();
         p.append("offerName", offerData.mainProduct.name);
         p.append("lang", offerData.language || "pt");
@@ -370,11 +361,17 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
             body: JSON.stringify({ paymentIntentId, offerSlug: offerData.slug }),
           });
           const data = await response.json();
-          if (data.redirectUrl) { window.location.href = data.redirectUrl; return; }
+          if (data.redirectUrl) {
+            window.location.href = data.redirectUrl;
+            return;
+          }
         } catch {}
       }
 
-      if (offerData.thankYouPageUrl) { window.location.href = offerData.thankYouPageUrl; return; }
+      if (offerData.thankYouPageUrl) {
+        window.location.href = offerData.thankYouPageUrl;
+        return;
+      }
 
       const p = new URLSearchParams();
       p.append("offerName", offerData.mainProduct.name);
@@ -468,9 +465,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
   };
 
   const handleToggleBump = (bumpId: string) => {
-    setSelectedBumps((prev) =>
-      prev.includes(bumpId) ? prev.filter((id) => id !== bumpId) : [...prev, bumpId]
-    );
+    setSelectedBumps((prev) => (prev.includes(bumpId) ? prev.filter((id) => id !== bumpId) : [...prev, bumpId]));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -510,7 +505,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
           value: totalAmount / 100,
           currency: offerData.currency.toUpperCase(),
         },
-        { eventID: eventId }
+        { eventID: eventId },
       );
     }
 
@@ -621,10 +616,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
   // --- Render: PIX QR ---
   if (pixData) {
     return (
-      <div
-        className="min-h-screen w-full flex items-center justify-center p-4 animate-in fade-in duration-500"
-        style={{ backgroundColor }}
-      >
+      <div className="min-h-screen w-full flex items-center justify-center p-4 animate-in fade-in duration-500" style={{ backgroundColor }}>
         <div className="w-full max-w-md">
           <PixDisplay
             qrCode={pixData.qrCode}
@@ -646,10 +638,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
     <>
       {/* Loading overlay */}
       {loading && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm"
-          style={{ backgroundColor: `${backgroundColor}CC` }}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm" style={{ backgroundColor: `${backgroundColor}CC` }}>
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-14 w-14 animate-spin" style={{ color: primary }} />
             <p className="text-sm font-medium animate-pulse" style={{ color: textColor }}>
@@ -662,25 +651,15 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
       {/* Full-width banner */}
       {offerData.bannerImageUrl && (
         <div className="w-full overflow-hidden" style={{ maxHeight: "260px" }}>
-          <img
-            src={offerData.bannerImageUrl}
-            alt="Banner da oferta"
-            className="w-full h-full object-cover"
-            fetchPriority="high"
-            loading="eager"
-          />
+          <img src={offerData.bannerImageUrl} alt="Banner da oferta" className="w-full h-full object-cover" fetchPriority="high" loading="eager" />
         </div>
       )}
 
       {/* Main content */}
       <div className="min-h-screen pb-10" style={{ backgroundColor, color: textColor }}>
         <div className="max-w-md mx-auto px-4 pt-4 space-y-4">
-
           {/* Product card */}
-          <div
-            className="border rounded-lg p-3 shadow-sm"
-            style={{ borderColor: `${textColor}18`, backgroundColor: "white" }}
-          >
+          <div className="border rounded-lg p-3 shadow-sm" style={{ borderColor: `${textColor}18`, backgroundColor: "white" }}>
             <div className="flex items-start gap-3">
               {offerData.mainProduct.imageUrl && (
                 <img
@@ -691,18 +670,14 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold leading-snug text-gray-800 line-clamp-2">
-                    {offerData.mainProduct.name}
-                  </p>
+                  <p className="text-sm font-semibold leading-snug text-gray-800 line-clamp-2">{offerData.mainProduct.name}</p>
                   <button
                     type="button"
                     onClick={() => setShowDetails(!showDetails)}
                     className="flex items-center gap-0.5 text-xs text-gray-400 shrink-0 hover:text-gray-600 transition-colors"
                   >
                     Detalhes
-                    <ChevronDown
-                      className={`h-3.5 w-3.5 transition-transform duration-200 ${showDetails ? "rotate-180" : ""}`}
-                    />
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${showDetails ? "rotate-180" : ""}`} />
                   </button>
                 </div>
                 <p className="text-sm font-bold mt-1" style={{ color: primary }}>
@@ -714,9 +689,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
             {showDetails && (
               <div className="mt-2 pt-2 border-t border-gray-100">
                 {offerData.mainProduct.description ? (
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    {offerData.mainProduct.description}
-                  </p>
+                  <p className="text-xs text-gray-500 leading-relaxed">{offerData.mainProduct.description}</p>
                 ) : (
                   <p className="text-xs text-gray-400">Sem descricao disponivel.</p>
                 )}
@@ -757,18 +730,12 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
           {/* Order bumps */}
           {offerData.orderBumps.length > 0 && (
             <Suspense fallback={null}>
-              <OrderBump
-                bumps={offerData.orderBumps}
-                selectedBumps={selectedBumps}
-                onToggleBump={handleToggleBump}
-                currency={offerData.currency}
-              />
+              <OrderBump bumps={offerData.orderBumps} selectedBumps={selectedBumps} onToggleBump={handleToggleBump} currency={offerData.currency} />
             </Suspense>
           )}
 
           {/* Main form */}
           <form onSubmit={handleSubmit} className="space-y-5">
-
             {/* Contact section */}
             <div>
               <h2 className="text-sm font-semibold mb-3" style={{ color: textColor }}>
@@ -829,21 +796,15 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
                     <button
                       type="button"
                       onClick={() => setMethod("creditCard")}
-                      className="flex-1 flex flex-col items-center gap-1.5 py-3 px-2 border rounded-md transition-all duration-200"
+                      className="flex-1 flex flex-col gap-1.5 py-3 px-2 border rounded-md transition-all duration-200 text-left"
                       style={{
                         borderColor: method === "creditCard" ? primary : "#e5e7eb",
                         borderWidth: method === "creditCard" ? "2px" : "1px",
                         backgroundColor: method === "creditCard" ? `${primary}0d` : "white",
                       }}
                     >
-                      <CreditCard
-                        className="h-5 w-5"
-                        style={{ color: method === "creditCard" ? primary : "#9ca3af" }}
-                      />
-                      <span
-                        className="text-xs font-medium"
-                        style={{ color: method === "creditCard" ? primary : "#6b7280" }}
-                      >
+                      <CreditCard className="h-5 w-5" style={{ color: method === "creditCard" ? primary : "#9ca3af" }} />
+                      <span className="text-xs font-medium" style={{ color: method === "creditCard" ? primary : "#6b7280" }}>
                         {t.payment.creditCard}
                       </span>
                     </button>
@@ -854,7 +815,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
                     <button
                       type="button"
                       onClick={() => setMethod("pix")}
-                      className="flex-1 flex flex-col items-center gap-1.5 py-3 px-2 border rounded-md transition-all duration-200"
+                      className="flex-1 flex flex-col text-left gap-1.5 py-3 px-2 border items-baseline rounded-md transition-all duration-200"
                       style={{
                         borderColor: method === "pix" ? primary : "#e5e7eb",
                         borderWidth: method === "pix" ? "2px" : "1px",
@@ -862,10 +823,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
                       }}
                     >
                       <PixIcon color={method === "pix" ? primary : "#9ca3af"} />
-                      <span
-                        className="text-xs font-medium"
-                        style={{ color: method === "pix" ? primary : "#6b7280" }}
-                      >
+                      <span className="text-xs font-medium" style={{ color: method === "pix" ? primary : "#6b7280" }}>
                         Pix
                       </span>
                     </button>
@@ -876,7 +834,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
                     <button
                       type="button"
                       onClick={() => setMethod("paypal")}
-                      className="flex-1 flex flex-col items-center gap-1.5 py-3 px-2 border rounded-md transition-all duration-200"
+                      className="flex-1 flex flex-col text-left gap-1.5 py-3 px-2 border items-baseline rounded-md transition-all duration-200"
                       style={{
                         borderColor: method === "paypal" ? primary : "#e5e7eb",
                         borderWidth: method === "paypal" ? "2px" : "1px",
@@ -886,10 +844,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
                       <div style={{ opacity: method === "paypal" ? 1 : 0.5 }}>
                         <PayPalIcon className="h-5 w-auto" />
                       </div>
-                      <span
-                        className="text-xs font-medium"
-                        style={{ color: method === "paypal" ? primary : "#6b7280" }}
-                      >
+                      <span className="text-xs font-medium" style={{ color: method === "paypal" ? primary : "#6b7280" }}>
                         PayPal
                       </span>
                     </button>
@@ -900,28 +855,15 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
                     <button
                       type="button"
                       onClick={() => setMethod("wallet")}
-                      className="flex-1 flex flex-col items-center gap-1.5 py-3 px-2 border rounded-md transition-all duration-200"
+                      className="flex-1 flex flex-col text-left gap-1.5 py-3 px-2 border items-baseline rounded-md transition-all duration-200"
                       style={{
                         borderColor: method === "wallet" ? primary : "#e5e7eb",
                         borderWidth: method === "wallet" ? "2px" : "1px",
                         backgroundColor: method === "wallet" ? `${primary}0d` : "white",
                       }}
                     >
-                      {walletLabel === t.payment.applePay ? (
-                        <AppleyPayIcon
-                          className="h-5 w-auto"
-                          style={{ opacity: method === "wallet" ? 1 : 0.5 }}
-                        />
-                      ) : (
-                        <GooglePayIcon
-                          className="h-5 w-auto"
-                          style={{ opacity: method === "wallet" ? 1 : 0.5 }}
-                        />
-                      )}
-                      <span
-                        className="text-xs font-medium"
-                        style={{ color: method === "wallet" ? primary : "#6b7280" }}
-                      >
+                      {walletLabel === t.payment.applePay ? <AppleyPayIcon className="h-6 w-auto" /> : <GooglePayIcon className="h-6 w-auto" />}
+                      <span className="text-xs font-medium" style={{ color: method === "wallet" ? primary : "#6b7280" }}>
                         {walletLabel}
                       </span>
                     </button>
@@ -937,13 +879,10 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
                 <StripeFieldWrapper
                   label={t.creditCard.cardNumber}
                   primary={primary}
+                  className="rounded-b-none"
                   right={
                     <div className="flex gap-1 items-center">
-                      <img
-                        src="https://assets.mycartpanda.com/cartx-ecomm-ui-assets/images/payment/visa.svg"
-                        className="h-4"
-                        alt="Visa"
-                      />
+                      <img src="https://assets.mycartpanda.com/cartx-ecomm-ui-assets/images/payment/visa.svg" className="h-4" alt="Visa" />
                       <img
                         src="https://assets.mycartpanda.com/cartx-ecomm-ui-assets/images/payment/mastercard.svg"
                         className="h-4"
@@ -956,22 +895,17 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
                 </StripeFieldWrapper>
 
                 {/* Expiry + CVV side by side */}
-                <div className="grid grid-cols-2 gap-2">
-                  <StripeFieldWrapper label={t.creditCard.expiry} primary={primary}>
-                    <CardExpiryElement id="card-expiry" options={{ style: STRIPE_STYLE }} />
+                <div className="grid grid-cols-2">
+                  <StripeFieldWrapper primary={primary} className="border-t-0 rounded-b-none rounded-t-none border-r-0">
+                    <CardExpiryElement id="card-expiry" options={{ style: STRIPE_STYLE_CENTERED }} />
                   </StripeFieldWrapper>
-                  <StripeFieldWrapper label={t.creditCard.cvc} primary={primary}>
-                    <CardCvcElement id="card-cvv" options={{ style: STRIPE_STYLE }} />
+                  <StripeFieldWrapper primary={primary} className="border-t-0 rounded-b-none rounded-t-none">
+                    <CardCvcElement id="card-cvv" options={{ style: STRIPE_STYLE_CENTERED }} />
                   </StripeFieldWrapper>
                 </div>
 
                 {/* Cardholder name */}
-                <HublaInput
-                  id="hubla-card-name"
-                  type="text"
-                  placeholder={t.creditCard.cardholderNamePlaceholder}
-                  primary={primary}
-                />
+                <HublaInput id="hubla-card-name" type="text" placeholder={t.creditCard.cardholderNamePlaceholder} primary={primary} />
 
                 {/* Document */}
                 {offerData.collectDocument && (
@@ -992,25 +926,22 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
             {method === "pix" && (
               <div className="p-4 bg-gray-50 rounded-md border border-gray-100 text-center space-y-1">
                 <PixIcon color={primary} />
-                <p className="text-sm text-gray-600 mt-2">
-                  Ao clicar em continuar, um QR Code PIX sera gerado para voce escanear.
-                </p>
+                <p className="text-sm text-gray-600 mt-2">Ao clicar em continuar, um QR Code PIX sera gerado para voce escanear.</p>
               </div>
             )}
 
             {/* Wallet button */}
             {method === "wallet" && paymentRequest && (
               <div className="h-12 w-full">
-                <PaymentRequestButtonElement
-                  options={{ paymentRequest }}
-                  className="w-full h-full"
-                />
+                <PaymentRequestButtonElement options={{ paymentRequest }} className="w-full h-full" />
               </div>
             )}
 
             {/* PayPal */}
-            {method === "paypal" && effectivePaypalEnabled && paypalClientId && (
-              !isContactValid ? (
+            {method === "paypal" &&
+              effectivePaypalEnabled &&
+              paypalClientId &&
+              (!isContactValid ? (
                 <div className="p-4 bg-amber-50 border border-amber-200 rounded-md text-center">
                   <p className="text-amber-700 text-sm font-medium">
                     {t.messages?.fillRequiredFields || "Preencha seu nome e e-mail para continuar"}
@@ -1037,18 +968,16 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
                     onSwitchPaymentMethod={() => setMethod("creditCard")}
                   />
                 </Suspense>
-              )
-            )}
+              ))}
 
             {/* Submit button */}
             {method !== "wallet" && method !== "paypal" && (
               <button
                 type="submit"
                 disabled={!stripe || loading || paymentSucceeded || !isContactValid}
-                className="w-full font-bold py-4 px-6 text-base rounded-sm transition-all duration-200 disabled:cursor-not-allowed relative overflow-hidden group"
+                className="w-full font-bold py-4 px-6 text-base rounded-xs transition-all duration-200 disabled:cursor-not-allowed relative overflow-hidden group"
                 style={{
-                  backgroundColor:
-                    loading || paymentSucceeded || !isContactValid ? "#d1d5db" : button,
+                  backgroundColor: loading || paymentSucceeded || !isContactValid ? "#d1d5db" : button,
                   color: loading || paymentSucceeded || !isContactValid ? "#9ca3af" : buttonForeground,
                 }}
               >
@@ -1062,9 +991,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
                   ) : (
                     <>
                       <Lock className="h-4 w-4" />
-                      {method === "pix"
-                        ? t.buttons.submitPix
-                        : `${t.buttons.submit} - ${formatCurrency(totalAmount, offerData.currency)}`}
+                      {method === "pix" ? t.buttons.submitPix : `${t.buttons.submit} - ${formatCurrency(totalAmount, offerData.currency)}`}
                     </>
                   )}
                 </span>
@@ -1075,26 +1002,12 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({
             {errorMessage && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-md">
                 <div className="flex items-start gap-2">
-                  <svg
-                    className="h-4 w-4 text-red-500 shrink-0 mt-0.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
+                  <svg className="h-4 w-4 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div>
                     <p className="text-red-700 text-sm">{errorMessage}</p>
-                    <button
-                      type="button"
-                      onClick={() => setErrorMessage(null)}
-                      className="text-red-600 text-xs underline mt-1 hover:text-red-800"
-                    >
+                    <button type="button" onClick={() => setErrorMessage(null)} className="text-red-600 text-xs underline mt-1 hover:text-red-800">
                       {t.messages.retry}
                     </button>
                   </div>
