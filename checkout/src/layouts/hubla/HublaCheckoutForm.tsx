@@ -650,8 +650,14 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
 
       {/* Full-width banner */}
       {offerData.bannerImageUrl && (
-        <div className="w-full overflow-hidden" style={{ maxHeight: "260px" }}>
-          <img src={offerData.bannerImageUrl} alt="Banner da oferta" className="w-full h-full object-cover" fetchPriority="high" loading="eager" />
+        <div className="w-full overflow-hidden" style={{ maxHeight: "192px" }}>
+          <img
+            src={offerData.bannerImageUrl}
+            alt="Banner da oferta"
+            className="w-full h-full object-fill max-h-48"
+            fetchPriority="high"
+            loading="eager"
+          />
         </div>
       )}
 
