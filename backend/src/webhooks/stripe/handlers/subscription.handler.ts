@@ -16,13 +16,14 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice): Pr
       return;
     }
 
-    const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : (invoice.subscription as any)?.id;
+    const invoiceAny = invoice as any;
+    const subscriptionId = typeof invoiceAny.subscription === "string" ? invoiceAny.subscription : invoiceAny.subscription?.id;
     if (!subscriptionId) {
       console.error("❌ [Subscription] invoice sem subscription ID");
       return;
     }
 
-    const piId = typeof invoice.payment_intent === "string" ? invoice.payment_intent : (invoice.payment_intent as any)?.id;
+    const piId = typeof invoiceAny.payment_intent === "string" ? invoiceAny.payment_intent : invoiceAny.payment_intent?.id;
     if (!piId) {
       console.error("❌ [Subscription] invoice sem payment_intent ID");
       return;

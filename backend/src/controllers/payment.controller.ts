@@ -54,10 +54,10 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
             {
               price_data: {
                 currency: (offer.currency || "brl").toLowerCase(),
-                product_data: { name: offer.name },
+                product_data: { name: offer.name } as any,
                 unit_amount: totalAmount,
                 recurring: { interval },
-              },
+              } as any,
             },
           ],
           payment_behavior: "default_incomplete",

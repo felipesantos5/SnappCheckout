@@ -714,7 +714,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
             imageUrl: emailConfig.imageUrl || undefined,
             pdfUrl: emailConfig.pdfUrl || undefined,
             ownerId: offer.ownerId.toString(),
-            offerId: offer._id.toString(),
+            offerId: (offer._id as any).toString(),
           });
         }
       }
