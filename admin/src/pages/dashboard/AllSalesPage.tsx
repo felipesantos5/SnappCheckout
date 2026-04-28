@@ -190,6 +190,7 @@ export function AllSalesPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [serverTotalRevenue, setServerTotalRevenue] = useState<number | null>(null);
 
   // Carrega estado do filtro do localStorage
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -201,6 +202,7 @@ export function AllSalesPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [searchEmail, setSearchEmail] = useState("");
+  const [searchName, setSearchName] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["succeeded", "failed", "pending", "refunded"]);
   const [selectedOffers, setSelectedOffers] = useState<string[]>([]);
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
@@ -249,6 +251,7 @@ export function AllSalesPage() {
     }
 
     if (searchEmail) params.append("email", searchEmail);
+    if (searchName) params.append("name", searchName);
 
     // Calcular datas baseado no filtro de período
     if (periodFilter !== "all") {
@@ -281,7 +284,7 @@ export function AllSalesPage() {
     return params;
   };
 
-  // Buscar TODAS as vendas para cálculo de métricas (sem paginação)
+  // Buscar TODAS as vendas para cálculo de métricas de contagem/aprovação (sem paginação)
   const fetchAllSalesForMetrics = async () => {
     try {
       const params = buildFilterParams();
@@ -296,8 +299,9 @@ export function AllSalesPage() {
   };
 
   // Buscar vendas paginadas
-  const fetchSales = async () => {
+  const fetchSales = async (resetRevenue = false) => {
     setIsLoading(true);
+    if (resetRevenue) setServerTotalRevenue(null);
     try {
       const params = buildFilterParams();
       params.set("page", page.toString());
@@ -309,6 +313,9 @@ export function AllSalesPage() {
 
       setSales(Array.isArray(salesData) ? salesData : []);
       setTotal(metaData.total || 0);
+      if (metaData.totalRevenue !== undefined) {
+        setServerTotalRevenue(metaData.totalRevenue);
+      }
     } catch (error) {
       toast.error("Erro ao buscar vendas", {
         description: (error as Error).message,
@@ -327,18 +334,21 @@ export function AllSalesPage() {
   useEffect(() => {
     fetchAllSalesForMetrics();
     setPage(1); // Voltar para página 1 quando filtros mudarem
-    fetchSales();
-  }, [selectedStatuses, selectedOffers, selectedPaymentMethods, selectedWallets, periodFilter, startDate, endDate, searchEmail]);
+    fetchSales(true); // true = reset serverTotalRevenue para evitar valor desatualizado
+  }, [selectedStatuses, selectedOffers, selectedPaymentMethods, selectedWallets, periodFilter, startDate, endDate, searchEmail, searchName]);
 
   // Métricas calculadas (sempre em BRL) - baseadas em TODAS as vendas do filtro
   const metrics = useMemo(() => {
     const succeededSales = allSalesForMetrics.filter((s) => s.status === "succeeded");
 
-    // Converte todas as vendas para BRL antes de somar
-    const totalRevenue = succeededSales.reduce((acc, sale) => {
-      const amountInBRL = convertToBRL(sale.totalAmountInCents, sale.currency);
-      return acc + amountInBRL;
-    }, 0);
+    // Usa o totalRevenue do servidor (mesmas taxas do dashboard) se disponível,
+    // caso contrário faz o cálculo local como fallback
+    const totalRevenue = serverTotalRevenue !== null
+      ? serverTotalRevenue
+      : succeededSales.reduce((acc, sale) => {
+          const amountInBRL = convertToBRL(sale.totalAmountInCents, sale.currency);
+          return acc + amountInBRL;
+        }, 0);
 
     const totalSales = succeededSales.length;
     const averageTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
@@ -350,7 +360,7 @@ export function AllSalesPage() {
       averageTicket,
       approvalRate,
     };
-  }, [allSalesForMetrics]);
+  }, [allSalesForMetrics, serverTotalRevenue]);
 
   // Exportar para CSV
   const handleExport = () => {
@@ -400,6 +410,7 @@ export function AllSalesPage() {
 
   const clearAllFilters = () => {
     setSearchEmail("");
+    setSearchName("");
     setSelectedStatuses(["succeeded", "failed", "pending", "refunded"]);
     setSelectedOffers([]);
     setSelectedPaymentMethods([]);
@@ -551,6 +562,22 @@ export function AllSalesPage() {
                   />
                 </div>
               )}
+            </div>
+
+            {/* Buscar por Nome */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Nome do Cliente</Label>
+              <Input
+                placeholder="Buscar por nome..."
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") {
+                    setPage(1);
+                    fetchSales();
+                  }
+                }}
+              />
             </div>
 
             {/* Buscar por Email */}

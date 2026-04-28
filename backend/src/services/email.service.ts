@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import EmailLog from "../models/email-log.model";
 
 interface SmtpConfig {
   host: string;
@@ -23,6 +24,8 @@ interface SendPurchaseEmailParams {
   body?: string;
   imageUrl?: string;
   pdfUrl?: string;
+  ownerId?: string;
+  offerId?: string;
 }
 
 const EMAIL_TRANSLATIONS: Record<string, {
@@ -242,6 +245,227 @@ const buildEmailHtml = (params: SendPurchaseEmailParams): string => {
 </html>`;
 };
 
+// ---------------------------------------------------------------------------
+// CART ABANDONMENT EMAIL
+// ---------------------------------------------------------------------------
+
+interface SendCartAbandonmentEmailParams {
+  to: string;
+  customerName: string;
+  offerName: string;
+  productName: string;
+  priceInCents: number;
+  currency: string;
+  language?: string;
+  checkoutUrl: string;
+  ownerId?: string;
+  offerId?: string;
+}
+
+const CART_ABANDONMENT_TRANSLATIONS: Record<string, {
+  subject: (productName: string) => string;
+  preheader: string;
+  headline: string;
+  body: (productName: string) => string;
+  cta: string;
+  footer: string;
+}> = {
+  pt: {
+    subject: (p) => `Você esqueceu algo: ${p}`,
+    preheader: "Seu carrinho ainda está esperando por você.",
+    headline: "Você deixou algo para trás",
+    body: (p) => `Percebemos que você iniciou a compra de <strong>${p}</strong> mas não finalizou. Não se preocupe, salvamos tudo para você!`,
+    cta: "Finalizar Compra",
+    footer: "Este email foi enviado automaticamente pelo Snapp. Por favor, não responda.",
+  },
+  en: {
+    subject: (p) => `You left something behind: ${p}`,
+    preheader: "Your cart is still waiting for you.",
+    headline: "You left something behind",
+    body: (p) => `We noticed you started purchasing <strong>${p}</strong> but didn't complete it. Don't worry, we saved everything for you!`,
+    cta: "Complete Purchase",
+    footer: "This email was sent automatically by Snapp. Please do not reply.",
+  },
+  es: {
+    subject: (p) => `Olvidaste algo: ${p}`,
+    preheader: "Tu carrito todavía te está esperando.",
+    headline: "Dejaste algo atrás",
+    body: (p) => `Notamos que comenzaste a comprar <strong>${p}</strong> pero no lo completaste. ¡No te preocupes, guardamos todo para ti!`,
+    cta: "Finalizar Compra",
+    footer: "Este correo fue enviado automáticamente por Snapp. Por favor, no respondas.",
+  },
+  fr: {
+    subject: (p) => `Vous avez oublié quelque chose : ${p}`,
+    preheader: "Votre panier vous attend encore.",
+    headline: "Vous avez laissé quelque chose derrière",
+    body: (p) => `Nous avons remarqué que vous avez commencé à acheter <strong>${p}</strong> mais n'avez pas finalisé. Ne vous inquiétez pas, nous avons tout sauvegardé pour vous !`,
+    cta: "Finaliser l'achat",
+    footer: "Cet e-mail a été envoyé automatiquement par Snapp. Merci de ne pas répondre.",
+  },
+  de: {
+    subject: (p) => `Sie haben etwas vergessen: ${p}`,
+    preheader: "Ihr Warenkorb wartet noch auf Sie.",
+    headline: "Sie haben etwas zurückgelassen",
+    body: (p) => `Wir haben bemerkt, dass Sie <strong>${p}</strong> kaufen wollten, aber nicht abgeschlossen haben. Keine Sorge, wir haben alles für Sie gespeichert!`,
+    cta: "Kauf abschließen",
+    footer: "Diese E-Mail wurde automatisch von Snapp gesendet. Bitte nicht antworten.",
+  },
+  it: {
+    subject: (p) => `Hai dimenticato qualcosa: ${p}`,
+    preheader: "Il tuo carrello ti sta ancora aspettando.",
+    headline: "Hai lasciato qualcosa indietro",
+    body: (p) => `Abbiamo notato che hai iniziato ad acquistare <strong>${p}</strong> ma non hai completato l'acquisto. Non preoccuparti, abbiamo salvato tutto per te!`,
+    cta: "Completa l'acquisto",
+    footer: "Questa email è stata inviata automaticamente da Snapp. Si prega di non rispondere.",
+  },
+};
+
+const getCartAbandonmentTranslation = (language?: string) => {
+  const lang = (language || "pt").toLowerCase().split("-")[0];
+  return CART_ABANDONMENT_TRANSLATIONS[lang] || CART_ABANDONMENT_TRANSLATIONS["pt"];
+};
+
+const buildCartAbandonmentHtml = (params: SendCartAbandonmentEmailParams): string => {
+  const { customerName, productName, priceInCents, currency, language, checkoutUrl } = params;
+  const t = getCartAbandonmentTranslation(language);
+  const firstName = customerName ? customerName.split(" ")[0] : "";
+  const formattedPrice = formatCurrency(priceInCents, currency);
+  const htmlLang = (language || "pt").toLowerCase().split("-")[0];
+
+  return `<!DOCTYPE html>
+<html lang="${htmlLang}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${t.subject(productName)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <!-- Preheader (hidden) -->
+  <span style="display:none;max-height:0;overflow:hidden;">${t.preheader}</span>
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+          <!-- Header com logo Snapp -->
+          <tr>
+            <td style="background-color:#0a0a0a;padding:28px 40px;text-align:center;">
+              <p style="margin:0;font-size:32px;font-weight:800;letter-spacing:-1px;color:#ffffff;">Snap<span style="color:#fdbf08;">p</span></p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px 40px 0;">
+              ${firstName ? `<p style="margin:0 0 12px;font-size:16px;color:#6b7280;">Olá, <strong style="color:#111827;">${firstName}</strong></p>` : ""}
+              <h1 style="margin:0 0 16px;font-size:26px;font-weight:700;color:#111827;line-height:1.25;">${t.headline}</h1>
+              <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:#4b5563;">${t.body(productName)}</p>
+            </td>
+          </tr>
+
+          <!-- Card do produto -->
+          <tr>
+            <td style="padding:0 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="font-size:15px;font-weight:600;color:#111827;">${productName}</td>
+                        <td align="right" style="font-size:20px;font-weight:800;color:#111827;white-space:nowrap;">${formattedPrice}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- CTA Button -->
+          <tr>
+            <td style="padding:28px 40px 40px;text-align:center;">
+              <a href="${checkoutUrl}" target="_blank"
+                style="display:inline-block;background-color:#fdbf08;color:#0a0a0a;font-size:16px;font-weight:700;padding:16px 40px;border-radius:8px;text-decoration:none;letter-spacing:0.2px;">
+                ${t.cta} →
+              </a>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 40px 24px;background-color:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">${t.footer}</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+};
+
+export const sendCartAbandonmentEmail = async (params: SendCartAbandonmentEmailParams): Promise<void> => {
+  const smtpHost = process.env.SNAPP_SMTP_HOST;
+  const smtpPort = parseInt(process.env.SNAPP_SMTP_PORT || "587", 10);
+  const smtpUser = process.env.SNAPP_SMTP_USER;
+  const smtpPass = process.env.SNAPP_SMTP_PASS;
+  const fromEmail = process.env.SNAPP_FROM_EMAIL || "noreply@snappcheckout.com";
+  const fromName = process.env.SNAPP_FROM_NAME || "Snapp";
+
+  if (!smtpHost || !smtpUser || !smtpPass) {
+    throw new Error("Variáveis SNAPP_SMTP_* não configuradas para email de abandono.");
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpPort === 465,
+    auth: { user: smtpUser, pass: smtpPass },
+  });
+
+  const t = getCartAbandonmentTranslation(params.language);
+  const subject = t.subject(params.productName);
+  const html = buildCartAbandonmentHtml(params);
+
+  let status: "sent" | "failed" = "sent";
+  let errorMessage: string | undefined;
+
+  try {
+    await transporter.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: params.to,
+      subject,
+      html,
+    });
+  } catch (err: any) {
+    status = "failed";
+    errorMessage = err.message;
+    throw err;
+  } finally {
+    if (params.ownerId) {
+      EmailLog.create({
+        ownerId: params.ownerId,
+        offerId: params.offerId || undefined,
+        type: "cart_abandonment",
+        to: params.to,
+        customerName: params.customerName,
+        subject,
+        htmlContent: html,
+        status,
+        errorMessage,
+        sentAt: new Date(),
+      }).catch(() => {});
+    }
+  }
+};
+
+// ---------------------------------------------------------------------------
+// PURCHASE CONFIRMATION EMAIL
+// ---------------------------------------------------------------------------
+
 export const sendPurchaseConfirmationEmail = async (params: SendPurchaseEmailParams): Promise<void> => {
   const { smtp, to, customerName, productName, language, subject } = params;
 
@@ -263,10 +487,34 @@ export const sendPurchaseConfirmationEmail = async (params: SendPurchaseEmailPar
   const emailSubject = subject || t.defaultSubject(productName);
   const html = buildEmailHtml(params);
 
-  await transporter.sendMail({
-    from: `"${smtp.fromName || smtp.fromEmail}" <${smtp.fromEmail}>`,
-    to,
-    subject: emailSubject,
-    html,
-  });
+  let status: "sent" | "failed" = "sent";
+  let errorMessage: string | undefined;
+
+  try {
+    await transporter.sendMail({
+      from: `"${smtp.fromName || smtp.fromEmail}" <${smtp.fromEmail}>`,
+      to,
+      subject: emailSubject,
+      html,
+    });
+  } catch (err: any) {
+    status = "failed";
+    errorMessage = err.message;
+    throw err;
+  } finally {
+    if (params.ownerId) {
+      EmailLog.create({
+        ownerId: params.ownerId,
+        offerId: params.offerId || undefined,
+        type: "purchase_confirmation",
+        to,
+        customerName,
+        subject: emailSubject,
+        htmlContent: html,
+        status,
+        errorMessage,
+        sentAt: new Date(),
+      }).catch(() => {});
+    }
+  }
 };

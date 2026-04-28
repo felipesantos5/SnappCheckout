@@ -1,6 +1,7 @@
 // src/webhooks/pagarme/handlers/order-paid.handler.ts
 import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
+import AbandonedCart from "../../../models/abandoned-cart.model";
 import User from "../../../models/user.model";
 import { sendAccessWebhook } from "../../../services/integration.service";
 import { processUtmfyIntegrationForPayPal } from "../../../services/utmfy.service";
@@ -34,6 +35,14 @@ export const handleOrderPaid = async (eventData: any) => {
     // Facebook Purchase consolidado: envia após 10 minutos para agrupar com upsell
     sale.facebookPurchaseSendAfter = new Date(Date.now() + 10 * 60 * 1000);
     await sale.save();
+
+    // Marca carrinho abandonado como convertido
+    if (sale.customerEmail && sale.customerEmail !== "email@nao.informado") {
+      AbandonedCart.findOneAndUpdate(
+        { customerEmail: sale.customerEmail.toLowerCase().trim(), offerId: sale.offerId },
+        { $set: { convertedAt: new Date() } }
+      ).catch(() => {});
+    }
 
 
     // Busca a oferta para obter configurações de integração
@@ -141,6 +150,8 @@ const dispatchAllIntegrations = async (sale: any, offer: any, items: any[]) => {
           body: emailConfig.body || undefined,
           imageUrl: emailConfig.imageUrl || undefined,
           pdfUrl: emailConfig.pdfUrl || undefined,
+          ownerId: offer.ownerId.toString(),
+          offerId: offer._id.toString(),
         });
       }
     }

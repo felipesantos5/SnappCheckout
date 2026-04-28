@@ -18,10 +18,14 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, show
   const { textColor } = useTheme(); // Hook do tema
   const [phone, setPhone] = useState("");
   const [document, setDocument] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const checkoutStartedSent = useRef(false); // Flag para evitar múltiplas chamadas
+  const nameUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleEmailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const email = e.target.value;
+    setCustomerEmail(email);
 
     // Notifica o parent sobre a mudança do email
     onEmailChange?.(email);
@@ -40,12 +44,15 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, show
         }).catch((err) => console.error("Erro tracking offer:", err));
 
         // Tracking de métrica initiate_checkout (para o dashboard de analytics)
+        // Inclui o email para que o backend possa salvar o carrinho abandonado
         fetch(`${API_URL}/metrics/track`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             offerId: offerID,
             type: "initiate_checkout",
+            email,
+            name: customerName,
           }),
         }).catch((err) => console.error("Erro tracking initiate_checkout:", err));
 
@@ -131,7 +138,27 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, show
           type="text"
           required
           placeholder={t.contact.namePlaceholder}
-          onChange={(e) => onNameChange?.(e.target.value)}
+          onChange={(e) => {
+            const name = e.target.value;
+            setCustomerName(name);
+            onNameChange?.(name);
+            // Atualiza o nome no carrinho abandonado (debounced 1s)
+            if (checkoutStartedSent.current && customerEmail && name.length >= 2) {
+              if (nameUpdateTimer.current) clearTimeout(nameUpdateTimer.current);
+              nameUpdateTimer.current = setTimeout(() => {
+                fetch(`${API_URL}/metrics/track`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    offerId: offerID,
+                    type: "initiate_checkout",
+                    email: customerEmail,
+                    name,
+                  }),
+                }).catch(() => {});
+              }, 1000);
+            }
+          }}
         />
         {showPhone && (
           <Input

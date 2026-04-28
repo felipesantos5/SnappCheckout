@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import Sale from "../models/sale.model";
 import CheckoutMetric from "../models/checkout-metric.model";
+import AbandonedCart from "../models/abandoned-cart.model";
 import mongoose from "mongoose";
 import Offer from "../models/offer.model";
 import { sendFacebookEvent, createFacebookUserData } from "../services/facebook.service";
@@ -170,7 +171,35 @@ export const handleTrackMetric = async (req: Request, res: Response) => {
         }
       }
     }
-    // -------------------------------
+
+    // --- ABANDONO DE CARRINHO ---
+    // Salva o email do cliente para envio de email de recuperação
+    if (type === "initiate_checkout" && email) {
+      try {
+        const offerForCart = await Offer.findById(offerId, "ownerId cartAbandonmentEnabled").lean();
+        if (offerForCart) {
+          await AbandonedCart.findOneAndUpdate(
+            { customerEmail: email.toLowerCase().trim(), offerId },
+            {
+              $set: {
+                ownerId: offerForCart.ownerId,
+                ...(name ? { customerName: name } : {}),
+                emailSent: false,
+                emailSentAt: null,
+                convertedAt: null,
+                // Atualiza createdAt para reiniciar o timer de 30 min a cada nova tentativa
+                createdAt: new Date(),
+              },
+            },
+            { upsert: true, new: true, timestamps: false }
+          );
+        }
+      } catch (err: any) {
+        // Não bloqueia o fluxo em caso de erro
+        console.error("[Cart Abandonment] Erro ao salvar:", err.message);
+      }
+    }
+    // ----------------------------
   } catch (error) {
     console.error("Erro tracking:", error);
     // Não precisa responder res.status, pois já respondemos no início

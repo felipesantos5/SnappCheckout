@@ -35,6 +35,7 @@ import {
   Bell,
   LayoutTemplate,
   Mail,
+  RefreshCw,
 } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 import { PdfUpload } from "./PdfUpload";
@@ -248,6 +249,8 @@ const layoutTypeSchema = z.enum(["classic", "modern", "minimal"]).default("class
 
 const offerFormSchema = z.object({
   name: z.string().min(3, { message: "Nome do link é obrigatório." }),
+  paymentType: z.enum(["one_time", "subscription"]).default("one_time"),
+  subscriptionInterval: z.enum(["day", "week", "month", "year"]).default("month"),
   group: z.string().optional(),
   categoryId: z.string().optional().nullable(),
   layoutType: layoutTypeSchema,
@@ -314,6 +317,7 @@ const offerFormSchema = z.object({
     imageUrl: optionalUrl,
     pdfUrl: optionalUrl,
   }).optional(),
+  cartAbandonmentEnabled: z.boolean().default(false).optional(),
 });
 
 export type OfferFormInput = z.input<typeof offerFormSchema>;
@@ -342,6 +346,8 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
     resolver: zodResolver(offerFormSchema),
     defaultValues: initialData || {
       name: "",
+      paymentType: "one_time" as const,
+      subscriptionInterval: "month" as const,
       group: "",
       categoryId: "none",
       layoutType: "classic",
@@ -403,6 +409,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         imageUrl: "",
         pdfUrl: "",
       },
+      cartAbandonmentEnabled: false,
     },
   });
 
@@ -949,6 +956,77 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
           defaultOpen={true}
         >
           <div className="grid gap-6">
+            {/* Tipo de Cobrança */}
+            <FormField
+              control={form.control}
+              name="paymentType"
+              render={({ field }: any) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4" />
+                    Tipo de Cobrança
+                  </FormLabel>
+                  <div className="grid grid-cols-2 gap-3 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => field.onChange("one_time")}
+                      className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-sm font-medium transition-colors ${
+                        field.value === "one_time"
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border bg-card text-muted-foreground hover:border-primary/50"
+                      }`}
+                    >
+                      <CreditCard className="w-5 h-5" />
+                      Pagamento Único
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => field.onChange("subscription")}
+                      className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-sm font-medium transition-colors ${
+                        field.value === "subscription"
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border bg-card text-muted-foreground hover:border-primary/50"
+                      }`}
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                      Assinatura Recorrente
+                    </button>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Intervalo de cobrança — visível apenas para assinatura */}
+            {form.watch("paymentType") === "subscription" && (
+              <FormField
+                control={form.control}
+                name="subscriptionInterval"
+                render={({ field }: any) => (
+                  <FormItem>
+                    <FormLabel>Frequência de Cobrança</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value || "month"}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a frequência" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="day">Diária</SelectItem>
+                        <SelectItem value="week">Semanal</SelectItem>
+                        <SelectItem value="month">Mensal</SelectItem>
+                        <SelectItem value="year">Anual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>O cliente será cobrado automaticamente nessa frequência.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            <Separator />
+
             <FormField
               control={form.control}
               name="mainProduct.name"
@@ -2133,6 +2211,37 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
               </>
             )}
           </div>
+        </FormSection>
+
+        {/* Seção: Recuperação de Carrinho */}
+        <FormSection
+          title="Recuperação de Carrinho"
+          icon={<Mail className="w-5 h-5" />}
+          description="Envie um email automático para clientes que iniciaram o checkout mas não finalizaram a compra."
+        >
+          <FormField
+            control={form.control}
+            name="cartAbandonmentEnabled"
+            render={({ field }: any) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Ativar Email de Recuperação</FormLabel>
+                  <FormDescription>
+                    Quando ativado, um email é enviado automaticamente 30 minutos após o cliente preencher o email
+                    no checkout sem finalizar a compra. O email é enviado pelo Snapp e inclui um botão para voltar ao checkout.
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <input
+                    type="checkbox"
+                    checked={field.value ?? false}
+                    onChange={field.onChange}
+                    className="h-5 w-5 accent-primary cursor-pointer"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
         </FormSection>
 
         {/* Botão Flutuante Fixo */}

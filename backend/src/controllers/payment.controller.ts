@@ -24,6 +24,69 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
     const totalAmount = await calculateTotalAmount(offerSlug, selectedOrderBumps);
     const applicationFee = Math.round(totalAmount * 0.05);
 
+    const sharedMetadata: Record<string, string> = {
+      offerSlug,
+      selectedOrderBumps: JSON.stringify(selectedOrderBumps || []),
+      customerEmail: contactInfo.email,
+      customerName: contactInfo.name,
+      customerPhone: contactInfo.phone || "",
+      ...(addressInfo && {
+        addressZipCode: addressInfo.zipCode || "",
+        addressStreet: addressInfo.street || "",
+        addressNumber: addressInfo.number || "",
+        addressComplement: addressInfo.complement || "",
+        addressNeighborhood: addressInfo.neighborhood || "",
+        addressCity: addressInfo.city || "",
+        addressState: addressInfo.state || "",
+        addressCountry: addressInfo.country || "",
+      }),
+      ...metadata,
+    };
+
+    // --- ASSINATURA ---
+    if (offer.paymentType === "subscription") {
+      const interval = offer.subscriptionInterval || "month";
+
+      const subscription = await stripe.subscriptions.create(
+        {
+          customer: customerId,
+          items: [
+            {
+              price_data: {
+                currency: (offer.currency || "brl").toLowerCase(),
+                product_data: { name: offer.name },
+                unit_amount: totalAmount,
+                recurring: { interval },
+              },
+            },
+          ],
+          payment_behavior: "default_incomplete",
+          payment_settings: { payment_method_types: ["card"], save_default_payment_method: "on_subscription" },
+          application_fee_percent: 5,
+          metadata: sharedMetadata,
+          expand: ["latest_invoice.payment_intent"],
+        },
+        { stripeAccount: stripeAccountId }
+      );
+
+      const invoice = subscription.latest_invoice as any;
+      const pi = invoice?.payment_intent as any;
+
+      if (!pi?.client_secret) {
+        return res.status(500).json({ error: { message: "Falha ao criar assinatura: PaymentIntent não encontrado." } });
+      }
+
+      // Atualiza metadata do PI para que o webhook existente funcione normalmente
+      await stripe.paymentIntents.update(
+        pi.id,
+        { metadata: { ...sharedMetadata, stripeSubscriptionId: subscription.id } },
+        { stripeAccount: stripeAccountId }
+      );
+
+      return res.status(200).json({ clientSecret: pi.client_secret });
+    }
+
+    // --- PAGAMENTO ÚNICO (fluxo original, sem alterações) ---
     const paymentIntent = await stripe.paymentIntents.create(
       {
         amount: totalAmount,
@@ -33,24 +96,7 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
         payment_method_types: ["card"],
         application_fee_amount: applicationFee,
         description: offer.name,
-        metadata: {
-          offerSlug,
-          selectedOrderBumps: JSON.stringify(selectedOrderBumps || []),
-          customerEmail: contactInfo.email,
-          customerName: contactInfo.name,
-          customerPhone: contactInfo.phone || "",
-          ...(addressInfo && {
-            addressZipCode: addressInfo.zipCode || "",
-            addressStreet: addressInfo.street || "",
-            addressNumber: addressInfo.number || "",
-            addressComplement: addressInfo.complement || "",
-            addressNeighborhood: addressInfo.neighborhood || "",
-            addressCity: addressInfo.city || "",
-            addressState: addressInfo.state || "",
-            addressCountry: addressInfo.country || "",
-          }),
-          ...metadata,
-        },
+        metadata: sharedMetadata,
       },
       { stripeAccount: stripeAccountId }
     );

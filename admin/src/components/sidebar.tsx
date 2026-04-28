@@ -1,4 +1,4 @@
-import { ChartNoAxesCombined, User, ChartColumnIncreasing, Moon, Sun, Settings, FlaskConical, Wallet, Receipt } from "lucide-react";
+import { ChartNoAxesCombined, User, ChartColumnIncreasing, Moon, Sun, Settings, FlaskConical, Wallet, Receipt, MailOpen } from "lucide-react";
 import logo from "../assets/logo.png";
 import logoWhite from "../assets/logo-white.png";
 import { useEffect, useState } from "react";
@@ -53,6 +53,11 @@ const items = [
     title: "Pagamentos",
     url: "/payments",
     icon: Wallet,
+  },
+  {
+    title: "Emails",
+    url: "/emails",
+    icon: MailOpen,
   },
 
   {

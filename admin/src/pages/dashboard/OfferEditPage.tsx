@@ -114,6 +114,8 @@ interface ApiOfferData {
   };
   group?: string;
   categoryId?: string;
+  paymentType?: 'one_time' | 'subscription';
+  subscriptionInterval?: 'day' | 'week' | 'month' | 'year';
 }
 
 // 3. Esta função transforma os dados da API (cents) para o formato do formulário (reais)
@@ -246,6 +248,9 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
         priceInCents: bump.priceInCents / 100,
         customId: bump.customId, // <--- NOVO
       })) || [],
+
+    paymentType: data.paymentType ?? "one_time",
+    subscriptionInterval: data.subscriptionInterval ?? "month",
 
     // Mapear Auto Notifications
     autoNotifications: data.autoNotifications

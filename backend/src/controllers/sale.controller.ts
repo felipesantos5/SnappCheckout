@@ -1,7 +1,9 @@
 // src/controllers/sale.controller.ts
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import Sale from "../models/sale.model";
 import * as saleService from "../services/sale.service";
+import { convertToBRL } from "../services/currency-conversion.service";
 
 export const getSales = async (req: Request, res: Response) => {
   try {
@@ -14,6 +16,7 @@ export const getSales = async (req: Request, res: Response) => {
       paymentMethod,
       walletType,
       email,
+      name,
       startDate,
       endDate
     } = req.query;
@@ -94,6 +97,11 @@ export const getSales = async (req: Request, res: Response) => {
       query.customerEmail = { $regex: email, $options: "i" };
     }
 
+    // 6b. Busca por Nome do Cliente
+    if (name) {
+      query.customerName = { $regex: name, $options: "i" };
+    }
+
     // 7. Filtro por Data
     if (startDate || endDate) {
       query.createdAt = {};
@@ -106,20 +114,34 @@ export const getSales = async (req: Request, res: Response) => {
     }
 
     // Busca com paginação e ordenação por mais recente
-    const sales = await Sale.find(query)
-      .select("-updatedAt -__v") // Performance: remove campos inúteis
-      .populate({
-        path: "offerId",
-        select: "name slug isActive",
-        // Removido filtro match: { isActive: true } para mostrar vendas de todas as ofertas
-      })
-      .sort({ createdAt: -1 })
-      .limit(Number(limit))
-      .skip((Number(page) - 1) * Number(limit))
-      .lean(); // Converte para objeto JS puro para melhor performance
+    const [sales, total, revenueByCurrency] = await Promise.all([
+      Sale.find(query)
+        .select("-updatedAt -__v") // Performance: remove campos inúteis
+        .populate({
+          path: "offerId",
+          select: "name slug isActive",
+          // Removido filtro match: { isActive: true } para mostrar vendas de todas as ofertas
+        })
+        .sort({ createdAt: -1 })
+        .limit(Number(limit))
+        .skip((Number(page) - 1) * Number(limit))
+        .lean(), // Converte para objeto JS puro para melhor performance
 
-    // Conta o total de vendas (sem filtro de ofertas ativas)
-    const total = await Sale.countDocuments(query);
+      // Conta o total de vendas (sem filtro de ofertas ativas)
+      Sale.countDocuments(query),
+
+      // Agrega o total de receita por moeda (apenas vendas aprovadas, ignorando filtro de status)
+      Sale.aggregate([
+        { $match: { ...query, ownerId: new mongoose.Types.ObjectId(userId), status: "succeeded" } },
+        { $group: { _id: "$currency", totalCents: { $sum: "$totalAmountInCents" } } },
+      ] as any[]),
+    ]);
+
+    // Converte cada moeda para BRL usando as taxas do backend (mesmas do dashboard)
+    let totalRevenue = 0;
+    for (const { _id: currency, totalCents } of revenueByCurrency) {
+      totalRevenue += await convertToBRL(totalCents, currency || "BRL");
+    }
 
     return res.json({
       data: sales,
@@ -127,6 +149,7 @@ export const getSales = async (req: Request, res: Response) => {
         total,
         page: Number(page),
         pages: Math.ceil(total / Number(limit)),
+        totalRevenue, // em centavos BRL
       },
     });
   } catch (error) {

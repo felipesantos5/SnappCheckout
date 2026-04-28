@@ -15,6 +15,8 @@ import abTestRoutes from "./abtest.routes";
 import domainRoutes from "./domain.routes";
 import pagarmeRoutes from "./pagarme.routes";
 import categoryRoutes from "./category.routes";
+import superAdminRoutes from "./superadmin.routes";
+import emailLogRoutes from "./email-log.routes";
 import { getUpsellScript } from "../controllers/script.controller";
 
 const router = Router();
@@ -57,6 +59,9 @@ router.use("/payments/pagarme", pagarmeRoutes);
 
 // Rotas para Categorias (Pastas)
 router.use("/categories", categoryRoutes);
+
+router.use("/superadmin", superAdminRoutes);
+router.use("/email-logs", emailLogRoutes);
 
 router.get("/v1/upsell.js", getUpsellScript);
 

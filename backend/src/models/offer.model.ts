@@ -26,6 +26,8 @@ export interface IProductSubDocument {
 }
 
 export type LayoutType = 'classic' | 'modern' | 'minimal';
+export type PaymentType = 'one_time' | 'subscription';
+export type SubscriptionInterval = 'day' | 'week' | 'month' | 'year';
 
 export interface IOffer extends Document {
   ownerId: Schema.Types.ObjectId;
@@ -38,6 +40,7 @@ export interface IOffer extends Document {
   currency: string;
   language: string;
   collectAddress: boolean;
+  cartAbandonmentEnabled?: boolean;
   thankYouPageUrl?: string;
   backRedirectUrl?: string; // URL para redirecionar quando o cliente tentar voltar
   autoNotifications?: {
@@ -132,6 +135,9 @@ export interface IOffer extends Document {
     imageUrl?: string;
     pdfUrl?: string;
   };
+
+  paymentType: PaymentType;
+  subscriptionInterval: SubscriptionInterval;
 
   createdAt?: Date;
   updatedAt?: Date;
@@ -306,6 +312,10 @@ const offerSchema = new Schema<IOffer>(
       type: Boolean,
       default: false,
     },
+    cartAbandonmentEnabled: {
+      type: Boolean,
+      default: false,
+    },
     paypalEnabled: {
       type: Boolean,
       default: false,
@@ -359,6 +369,16 @@ const offerSchema = new Schema<IOffer>(
       body: { type: String, default: "" },
       imageUrl: { type: String, default: "" },
       pdfUrl: { type: String, default: "" },
+    },
+    paymentType: {
+      type: String,
+      enum: ['one_time', 'subscription'],
+      default: 'one_time',
+    },
+    subscriptionInterval: {
+      type: String,
+      enum: ['day', 'week', 'month', 'year'],
+      default: 'month',
     },
   },
   { timestamps: true }

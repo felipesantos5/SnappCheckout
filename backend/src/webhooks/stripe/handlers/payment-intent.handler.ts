@@ -2,6 +2,7 @@
 import { Stripe } from "stripe";
 import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
+import AbandonedCart from "../../../models/abandoned-cart.model";
 import UpsellSession from "../../../models/upsell-session.model";
 import { processUtmfyIntegration, sendPurchaseToUTMfyWebhook } from "../../../services/utmfy.service";
 import stripe from "../../../lib/stripe";
@@ -559,6 +560,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       sale.utm_campaign = metadata.utm_campaign || sale.utm_campaign || "";
       sale.utm_term = metadata.utm_term || sale.utm_term || "";
       sale.utm_content = metadata.utm_content || sale.utm_content || "";
+      if (metadata.stripeSubscriptionId) sale.stripeSubscriptionId = metadata.stripeSubscriptionId;
 
       // Facebook Purchase consolidado: configura envio agendado ou vincula ao parent
       if (isUpsell) {
@@ -576,6 +578,14 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       }
 
       await sale.save();
+
+      // Marca carrinho abandonado como convertido
+      if (finalCustomerEmail && finalCustomerEmail !== "email@nao.informado") {
+        AbandonedCart.findOneAndUpdate(
+          { customerEmail: finalCustomerEmail.toLowerCase().trim(), offerId: offer._id },
+          { $set: { convertedAt: new Date() } }
+        ).catch(() => {});
+      }
     } else {
 
       // 6. Cria nova venda se não existir (fallback para compatibilidade)
@@ -624,6 +634,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
             utm_campaign: metadata.utm_campaign || "",
             utm_term: metadata.utm_term || "",
             utm_content: metadata.utm_content || "",
+            stripeSubscriptionId: metadata.stripeSubscriptionId || "",
           },
         },
         { upsert: true, new: true }
@@ -633,6 +644,13 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
         throw new Error(`Falha ao criar/atualizar Sale para PaymentIntent ${paymentIntent.id}`);
       }
 
+      // Marca carrinho abandonado como convertido (fallback)
+      if (finalCustomerEmail && finalCustomerEmail !== "email@nao.informado") {
+        AbandonedCart.findOneAndUpdate(
+          { customerEmail: finalCustomerEmail.toLowerCase().trim(), offerId: offer._id },
+          { $set: { convertedAt: new Date() } }
+        ).catch(() => {});
+      }
     }
 
     // =================================================================
@@ -695,6 +713,8 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
             body: emailConfig.body || undefined,
             imageUrl: emailConfig.imageUrl || undefined,
             pdfUrl: emailConfig.pdfUrl || undefined,
+            ownerId: offer.ownerId.toString(),
+            offerId: offer._id.toString(),
           });
         }
       }

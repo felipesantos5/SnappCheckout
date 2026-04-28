@@ -1,0 +1,87 @@
+// src/webhooks/stripe/handlers/subscription.handler.ts
+import { Stripe } from "stripe";
+import Sale from "../../../models/sale.model";
+import Offer from "../../../models/offer.model";
+import stripe from "../../../lib/stripe";
+
+/**
+ * Handler para invoice.payment_succeeded em renovações de assinatura.
+ * O pagamento inicial já é coberto pelo payment_intent.succeeded (com metadata do PI).
+ * Este handler cuida apenas das cobranças recorrentes (subscription_cycle).
+ */
+export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice): Promise<void> => {
+  try {
+    // Processa apenas renovações automáticas — o pagamento inicial é coberto pelo payment_intent.succeeded
+    if (invoice.billing_reason !== "subscription_cycle") {
+      return;
+    }
+
+    const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : (invoice.subscription as any)?.id;
+    if (!subscriptionId) {
+      console.error("❌ [Subscription] invoice sem subscription ID");
+      return;
+    }
+
+    const piId = typeof invoice.payment_intent === "string" ? invoice.payment_intent : (invoice.payment_intent as any)?.id;
+    if (!piId) {
+      console.error("❌ [Subscription] invoice sem payment_intent ID");
+      return;
+    }
+
+    // Idempotência
+    const existing = await Sale.findOne({ stripePaymentIntentId: piId });
+    if (existing) return;
+
+    // Busca uma venda anterior dessa assinatura para obter oferta e dono
+    const previousSale = await Sale.findOne({ stripeSubscriptionId: subscriptionId }).populate("offerId").populate("ownerId");
+    if (!previousSale) {
+      console.error(`❌ [Subscription] Nenhuma venda anterior encontrada para sub ${subscriptionId}`);
+      return;
+    }
+
+    const offer = previousSale.offerId as any;
+    const owner = previousSale.ownerId as any;
+    if (!owner?.stripeAccountId) {
+      console.error("❌ [Subscription] Vendedor sem stripeAccountId");
+      return;
+    }
+
+    await Sale.create({
+      ownerId: owner._id,
+      offerId: offer._id,
+      stripePaymentIntentId: piId,
+      stripeSubscriptionId: subscriptionId,
+      customerName: previousSale.customerName,
+      customerEmail: previousSale.customerEmail,
+      customerPhone: previousSale.customerPhone || "",
+      ip: previousSale.ip || "",
+      country: previousSale.country || "BR",
+      totalAmountInCents: invoice.amount_paid,
+      platformFeeInCents: Math.round(invoice.amount_paid * 0.05),
+      currency: invoice.currency || "brl",
+      status: "succeeded",
+      paymentMethod: "stripe",
+      gateway: "stripe",
+      paymentMethodType: "card",
+      isUpsell: false,
+      isDownsell: false,
+      items: [
+        {
+          name: offer.mainProduct?.name || offer.name || "Assinatura",
+          priceInCents: invoice.amount_paid,
+          isOrderBump: false,
+        },
+      ],
+      utm_source: previousSale.utm_source || "",
+      utm_medium: previousSale.utm_medium || "",
+      utm_campaign: previousSale.utm_campaign || "",
+      utm_term: previousSale.utm_term || "",
+      utm_content: previousSale.utm_content || "",
+      facebookPurchaseSendAfter: new Date(Date.now() + 10 * 60 * 1000),
+    });
+
+    console.log(`✅ [Subscription] Renovação registrada: sub ${subscriptionId}, pi ${piId}`);
+  } catch (error: any) {
+    console.error(`❌ [Subscription] Erro ao processar renovação: ${error.message}`);
+  }
+};
