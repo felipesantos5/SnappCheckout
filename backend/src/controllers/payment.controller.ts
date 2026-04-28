@@ -75,7 +75,15 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
         { stripeAccount: stripeAccountId }
       );
 
-      const invoice = subscription.latest_invoice as any;
+      let invoice = subscription.latest_invoice as any;
+
+      // Se latest_invoice veio como string (não expandido), busca explicitamente
+      if (typeof invoice === "string") {
+        invoice = await stripe.invoices.retrieve(invoice, {
+          expand: ["payment_intent"],
+        } as any, { stripeAccount: stripeAccountId });
+      }
+
       let pi = invoice?.payment_intent as any;
 
       // Se o payment_intent veio como string (não expandido), busca explicitamente
