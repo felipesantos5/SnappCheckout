@@ -8,20 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import {
-  Loader2,
-  RefreshCw,
-  Mail,
-  ShoppingCart,
-  CheckCircle,
-  XCircle,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  Send,
-  AlertCircle,
-} from "lucide-react";
+import { Loader2, RefreshCw, Mail, ShoppingCart, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight, X, Send, AlertCircle } from "lucide-react";
 import { formatDate } from "@/helper/formatDate";
 
 interface EmailLog {
@@ -95,9 +82,12 @@ export function EmailsPage() {
   const [metrics, setMetrics] = useState({ total: 0, sent: 0, failed: 0, abandonment: 0, confirmation: 0 });
 
   useEffect(() => {
-    axios.get(`${API_URL}/offers`).then((r) => {
-      setOffers(Array.isArray(r.data) ? r.data : []);
-    }).catch(() => {});
+    axios
+      .get(`${API_URL}/offers`)
+      .then((r) => {
+        setOffers(Array.isArray(r.data) ? r.data : []);
+      })
+      .catch(() => {});
   }, []);
 
   const buildParams = useCallback(() => {
@@ -127,7 +117,9 @@ export function EmailsPage() {
       setTotal(meta.total || 0);
 
       // Métricas rápidas a partir dos dados carregados (sem paginação, só da página atual para overview)
-      const allRes = await axios.get(`${API_URL}/email-logs?limit=10000&page=1${selectedType !== "all" ? `&type=${selectedType}` : ""}${selectedStatus !== "all" ? `&status=${selectedStatus}` : ""}${selectedOffer !== "all" ? `&offerId=${selectedOffer}` : ""}`);
+      const allRes = await axios.get(
+        `${API_URL}/email-logs?limit=10000&page=1${selectedType !== "all" ? `&type=${selectedType}` : ""}${selectedStatus !== "all" ? `&status=${selectedStatus}` : ""}${selectedOffer !== "all" ? `&offerId=${selectedOffer}` : ""}`,
+      );
       const allData: EmailLog[] = allRes.data?.data || [];
       setMetrics({
         total: allData.length,
@@ -182,9 +174,7 @@ export function EmailsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Emails Enviados</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Histórico de todos os emails enviados pela plataforma
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">Histórico de todos os emails enviados pela plataforma</p>
         </div>
         <Button variant="outline" size="sm" onClick={fetchLogs} disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
@@ -248,12 +238,7 @@ export function EmailsPage() {
 
           <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Buscar</Label>
-            <Input
-              placeholder="Email ou nome..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-8 text-sm"
-            />
+            <Input placeholder="Email ou nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-sm" />
           </div>
 
           <div className="space-y-2">
@@ -268,9 +253,7 @@ export function EmailsPage() {
                   key={opt.value}
                   onClick={() => setSelectedType(opt.value)}
                   className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${
-                    selectedType === opt.value
-                      ? "bg-[#fdbf08] text-black font-medium"
-                      : "hover:bg-muted text-muted-foreground"
+                    selectedType === opt.value ? "bg-[#fdbf08] text-black font-medium" : "hover:bg-muted text-muted-foreground"
                   }`}
                 >
                   {opt.label}
@@ -291,9 +274,7 @@ export function EmailsPage() {
                   key={opt.value}
                   onClick={() => setSelectedStatus(opt.value)}
                   className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${
-                    selectedStatus === opt.value
-                      ? "bg-[#fdbf08] text-black font-medium"
-                      : "hover:bg-muted text-muted-foreground"
+                    selectedStatus === opt.value ? "bg-[#fdbf08] text-black font-medium" : "hover:bg-muted text-muted-foreground"
                   }`}
                 >
                   {opt.label}
@@ -309,9 +290,7 @@ export function EmailsPage() {
                 <button
                   onClick={() => setSelectedOffer("all")}
                   className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${
-                    selectedOffer === "all"
-                      ? "bg-[#fdbf08] text-black font-medium"
-                      : "hover:bg-muted text-muted-foreground"
+                    selectedOffer === "all" ? "bg-[#fdbf08] text-black font-medium" : "hover:bg-muted text-muted-foreground"
                   }`}
                 >
                   Todas
@@ -321,9 +300,7 @@ export function EmailsPage() {
                     key={o._id}
                     onClick={() => setSelectedOffer(o._id)}
                     className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors truncate ${
-                      selectedOffer === o._id
-                        ? "bg-[#fdbf08] text-black font-medium"
-                        : "hover:bg-muted text-muted-foreground"
+                      selectedOffer === o._id ? "bg-[#fdbf08] text-black font-medium" : "hover:bg-muted text-muted-foreground"
                     }`}
                   >
                     {o.name}
@@ -335,18 +312,8 @@ export function EmailsPage() {
 
           <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Período</Label>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="h-8 text-sm"
-            />
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="h-8 text-sm"
-            />
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 text-sm" />
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 text-sm" />
           </div>
         </aside>
 
@@ -393,20 +360,14 @@ export function EmailsPage() {
                       const sc = statusConfig[log.status];
                       return (
                         <TableRow key={log._id} className="hover:bg-muted/50">
-                          <TableCell className="text-sm text-muted-foreground">
-                            {formatDate(log.sentAt)}
-                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{formatDate(log.sentAt)}</TableCell>
                           <TableCell>
                             <div className="font-medium text-sm">{log.customerName || "—"}</div>
                             <div className="text-xs text-muted-foreground">{log.to}</div>
                           </TableCell>
                           <TableCell>
                             <div className="text-sm truncate max-w-[220px]">{log.subject}</div>
-                            {log.offerId && (
-                              <div className="text-xs text-muted-foreground truncate max-w-[220px]">
-                                {log.offerId.name}
-                              </div>
-                            )}
+                            {log.offerId && <div className="text-xs text-muted-foreground truncate max-w-[220px]">{log.offerId.name}</div>}
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={`gap-1 ${tc.color}`}>
@@ -430,13 +391,7 @@ export function EmailsPage() {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => openPreview(log)}
-                              disabled={isLoadingPreview}
-                            >
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openPreview(log)} disabled={isLoadingPreview}>
                               <Eye className="h-4 w-4" />
                             </Button>
                           </TableCell>
@@ -471,7 +426,7 @@ export function EmailsPage() {
       {/* Modal de preview */}
       {previewLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-background rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+          <div className="bg-background rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col h-full">
             {/* Header do modal */}
             <div className="flex items-start justify-between p-4 border-b shrink-0">
               <div className="space-y-1 min-w-0 pr-4">
@@ -488,9 +443,8 @@ export function EmailsPage() {
                 <p className="font-semibold text-sm truncate">{previewLog.subject}</p>
                 <div className="flex flex-col sm:flex-row sm:gap-4 text-xs text-muted-foreground">
                   <span>
-                    <span className="font-medium">Para:</span> {previewLog.customerName
-                      ? `${previewLog.customerName} <${previewLog.to}>`
-                      : previewLog.to}
+                    <span className="font-medium">Para:</span>{" "}
+                    {previewLog.customerName ? `${previewLog.customerName} <${previewLog.to}>` : previewLog.to}
                   </span>
                   <span>
                     <span className="font-medium">Em:</span> {formatDate(previewLog.sentAt)}
@@ -510,12 +464,7 @@ export function EmailsPage() {
 
             {/* iframe com o HTML do email */}
             <div className="flex-1 overflow-hidden rounded-b-xl">
-              <iframe
-                title="preview-email"
-                srcDoc={previewLog.htmlContent}
-                className="w-full h-full border-0"
-                sandbox="allow-same-origin"
-              />
+              <iframe title="preview-email" srcDoc={previewLog.htmlContent} className="w-full h-full border-0" sandbox="allow-same-origin" />
             </div>
           </div>
         </div>

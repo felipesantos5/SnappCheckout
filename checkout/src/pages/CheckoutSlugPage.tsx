@@ -11,7 +11,7 @@ import { useFacebookPixel } from "../hooks/useFacebookPixel";
 import { PurchaseNotification } from "../components/ui/PurchaseNotification";
 import { getCookie } from "../helper/getCookie";
 
-export type LayoutType = 'classic' | 'modern' | 'minimal';
+export type LayoutType = 'classic' | 'modern' | 'minimal' | 'hubla';
 
 export interface OfferData {
   _id: string;

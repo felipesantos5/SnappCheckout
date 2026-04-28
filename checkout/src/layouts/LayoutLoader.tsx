@@ -8,6 +8,7 @@ const layouts: Record<LayoutType, React.LazyExoticComponent<React.FC<LayoutProps
   classic: lazy(() => import('./classic/ClassicLayout')),
   modern: lazy(() => import('./modern/ModernLayout')),
   minimal: lazy(() => import('./minimal/MinimalLayout')),
+  hubla: lazy(() => import('./hubla/HublaLayout')),
 };
 
 export interface LayoutProps {

@@ -245,7 +245,7 @@ const facebookPixelSchema = z.object({
   accessToken: z.string().min(1, { message: "Token de acesso é obrigatório." }),
 });
 
-const layoutTypeSchema = z.enum(["classic", "modern", "minimal"]).default("classic");
+const layoutTypeSchema = z.enum(["classic", "modern", "minimal", "hubla"]).default("classic");
 
 const offerFormSchema = z.object({
   name: z.string().min(3, { message: "Nome do link é obrigatório." }),
@@ -780,6 +780,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                       <SelectItem value="classic">Classic (Padrao)</SelectItem>
                       <SelectItem value="modern">Modern</SelectItem>
                       <SelectItem value="minimal">Minimal</SelectItem>
+                      <SelectItem value="hubla">Hubla</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormDescription>Escolha o estilo visual do seu checkout.</FormDescription>

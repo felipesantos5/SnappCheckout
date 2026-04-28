@@ -25,7 +25,7 @@ export interface IProductSubDocument {
   customId?: string;
 }
 
-export type LayoutType = 'classic' | 'modern' | 'minimal';
+export type LayoutType = 'classic' | 'modern' | 'minimal' | 'hubla';
 export type PaymentType = 'one_time' | 'subscription';
 export type SubscriptionInterval = 'day' | 'week' | 'month' | 'year';
 
@@ -164,7 +164,7 @@ const offerSchema = new Schema<IOffer>(
     },
     layoutType: {
       type: String,
-      enum: ['classic', 'modern', 'minimal'],
+      enum: ['classic', 'modern', 'minimal', 'hubla'],
       default: 'classic',
     },
     customDomain: {
