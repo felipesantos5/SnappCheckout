@@ -2,6 +2,7 @@
 import { Request, Response } from "express";
 import Offer, { IOffer } from "../models/offer.model";
 import Sale from "../models/sale.model";
+import AbandonedCart from "../models/abandoned-cart.model";
 import stripe from "../lib/stripe";
 import UpsellSession from "../models/upsell-session.model";
 import { v4 as uuidv4 } from "uuid";
@@ -75,7 +76,12 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
       );
 
       const invoice = subscription.latest_invoice as any;
-      const pi = invoice?.payment_intent as any;
+      let pi = invoice?.payment_intent as any;
+
+      // Se o payment_intent veio como string (não expandido), busca explicitamente
+      if (typeof pi === "string") {
+        pi = await stripe.paymentIntents.retrieve(pi, { stripeAccount: stripeAccountId });
+      }
 
       if (!pi?.client_secret) {
         return res.status(500).json({ error: { message: "Falha ao criar assinatura: PaymentIntent não encontrado." } });
@@ -224,6 +230,68 @@ export const handleRefuseUpsell = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error(`Erro ao recusar upsell:`, error.message);
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Registra ou atualiza um carrinho abandonado.
+ * Chamado pelo checkout quando o cliente preenche o email mas não paga.
+ */
+export const handleTrackCart = async (req: Request, res: Response) => {
+  try {
+    const { offerSlug, email, name } = req.body;
+
+    if (!offerSlug || !email) {
+      return res.status(400).json({ error: "offerSlug e email são obrigatórios." });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const offer = await Offer.findOne({ slug: offerSlug }).select("_id ownerId cartAbandonmentEnabled").lean();
+    if (!offer) {
+      return res.status(404).json({ error: "Oferta não encontrada." });
+    }
+
+    if (!offer.cartAbandonmentEnabled) {
+      // Oferta sem abandono habilitado — aceita silenciosamente
+      return res.status(200).json({ ok: true });
+    }
+
+    const tag = `[Cart Abandonment][Track]`;
+    console.log(`${tag} Email capturado — oferta: ${offerSlug} | email: ${normalizedEmail}`);
+
+    // Upsert: cria ou atualiza (preservando o createdAt original para não resetar a fila)
+    const result = await AbandonedCart.findOneAndUpdate(
+      { customerEmail: normalizedEmail, offerId: offer._id },
+      {
+        $setOnInsert: {
+          customerEmail: normalizedEmail,
+          offerId: offer._id,
+          ownerId: offer.ownerId,
+          customerName: name || "",
+          emailSent: false,
+          reminder1SentAt: null,
+          reminder2SentAt: null,
+          convertedAt: null,
+        },
+        $set: {
+          ...(name ? { customerName: name } : {}),
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    const isNew = result.createdAt.getTime() === result.updatedAt.getTime();
+    console.log(`${tag} Carrinho ${isNew ? "criado" : "já existente"} — id: ${result._id} | email: ${normalizedEmail}`);
+
+    res.status(200).json({ ok: true });
+  } catch (error: any) {
+    // Ignora erros de duplicate key (E11000) — significa que o registro já existe
+    if (error.code === 11000) {
+      return res.status(200).json({ ok: true });
+    }
+    console.error(`[Cart Abandonment][Track] Erro ao registrar carrinho: ${error.message}`);
+    res.status(500).json({ error: "Erro interno." });
   }
 };
 

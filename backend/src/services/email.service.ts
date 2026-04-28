@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import EmailLog from "../models/email-log.model";
 
 interface SmtpConfig {
@@ -408,23 +409,15 @@ const buildCartAbandonmentHtml = (params: SendCartAbandonmentEmailParams): strin
 };
 
 export const sendCartAbandonmentEmail = async (params: SendCartAbandonmentEmailParams): Promise<void> => {
-  const smtpHost = process.env.SNAPP_SMTP_HOST;
-  const smtpPort = parseInt(process.env.SNAPP_SMTP_PORT || "587", 10);
-  const smtpUser = process.env.SNAPP_SMTP_USER;
-  const smtpPass = process.env.SNAPP_SMTP_PASS;
+  const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.SNAPP_FROM_EMAIL || "noreply@snappcheckout.com";
   const fromName = process.env.SNAPP_FROM_NAME || "Snapp";
 
-  if (!smtpHost || !smtpUser || !smtpPass) {
-    throw new Error("Variáveis SNAPP_SMTP_* não configuradas para email de abandono.");
+  if (!resendApiKey) {
+    throw new Error("Variável RESEND_API_KEY não configurada para email de abandono.");
   }
 
-  const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure: smtpPort === 465,
-    auth: { user: smtpUser, pass: smtpPass },
-  });
+  const resend = new Resend(resendApiKey);
 
   const t = getCartAbandonmentTranslation(params.language);
   const subject = t.subject(params.productName);
@@ -434,12 +427,15 @@ export const sendCartAbandonmentEmail = async (params: SendCartAbandonmentEmailP
   let errorMessage: string | undefined;
 
   try {
-    await transporter.sendMail({
-      from: `"${fromName}" <${fromEmail}>`,
+    const { error } = await resend.emails.send({
+      from: `${fromName} <${fromEmail}>`,
       to: params.to,
       subject,
       html,
     });
+    if (error) {
+      throw new Error(error.message);
+    }
   } catch (err: any) {
     status = "failed";
     errorMessage = err.message;
