@@ -21,16 +21,26 @@ export const superAdminLogin = async (req: Request, res: Response) => {
   return res.json({ token });
 };
 
-export const getSuperAdminStats = async (_req: Request, res: Response) => {
+export const getSuperAdminStats = async (req: Request, res: Response) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+
+    const revenueMatch: Record<string, unknown> = { status: "succeeded" };
+    if (startDate || endDate) {
+      const dateFilter: Record<string, Date> = {};
+      if (startDate) dateFilter.$gte = new Date(startDate);
+      if (endDate) dateFilter.$lte = new Date(endDate);
+      revenueMatch.createdAt = dateFilter;
+    }
+
     const [revenueAgg, todayAccesses, usersCount] = await Promise.all([
       Sale.aggregate([
-        { $match: { status: "succeeded" } },
+        { $match: revenueMatch },
         {
           $group: {
             _id: null,
@@ -55,28 +65,29 @@ export const getSuperAdminStats = async (_req: Request, res: Response) => {
   }
 };
 
-export const getSuperAdminUsers = async (_req: Request, res: Response) => {
+export const getSuperAdminUsers = async (req: Request, res: Response) => {
   try {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
 
-    const [users, offersByUser, allTimeSales, weeklySales] = await Promise.all([
+    const periodMatch: Record<string, unknown> = { status: "succeeded" };
+    if (startDate || endDate) {
+      const dateFilter: Record<string, Date> = {};
+      if (startDate) dateFilter.$gte = new Date(startDate);
+      if (endDate) dateFilter.$lte = new Date(endDate);
+      periodMatch.createdAt = dateFilter;
+    }
+
+    const [users, offersByUser, periodSales] = await Promise.all([
       User.find().select("name email createdAt").lean(),
       Offer.aggregate([{ $group: { _id: "$ownerId", count: { $sum: 1 } } }]),
       Sale.aggregate([
-        { $match: { status: "succeeded" } },
+        { $match: periodMatch },
         { $group: { _id: "$ownerId", totalRevenue: { $sum: "$totalAmountInCents" } } },
-      ]),
-      Sale.aggregate([
-        { $match: { status: "succeeded", createdAt: { $gte: sevenDaysAgo } } },
-        { $group: { _id: "$ownerId", weeklyRevenue: { $sum: "$totalAmountInCents" } } },
       ]),
     ]);
 
     const offersMap = new Map(offersByUser.map((o) => [o._id.toString(), o.count as number]));
-    const salesMap = new Map(allTimeSales.map((s) => [s._id.toString(), s.totalRevenue as number]));
-    const weeklyMap = new Map(weeklySales.map((s) => [s._id.toString(), s.weeklyRevenue as number]));
+    const salesMap = new Map(periodSales.map((s) => [s._id.toString(), s.totalRevenue as number]));
 
     const result = users.map((user) => {
       const id = (user._id as { toString(): string }).toString();
@@ -87,11 +98,9 @@ export const getSuperAdminUsers = async (_req: Request, res: Response) => {
         createdAt: (user as unknown as { createdAt: Date }).createdAt,
         offersCount: offersMap.get(id) ?? 0,
         totalRevenue: salesMap.get(id) ?? 0,
-        weeklyRevenue: weeklyMap.get(id) ?? 0,
       };
     });
 
-    // Sort by total revenue desc
     result.sort((a, b) => b.totalRevenue - a.totalRevenue);
 
     return res.json(result);

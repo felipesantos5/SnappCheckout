@@ -2,6 +2,9 @@ import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { API_URL } from "@/config/BackendUrl";
 import { DollarSign, Users, Eye, TrendingUp, LogOut, RefreshCw, ChevronUp, ChevronDown } from "lucide-react";
+import { subDays, startOfDay, endOfDay } from "date-fns";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
 
 const TOKEN_KEY = "superadmin_token";
 
@@ -19,10 +22,9 @@ interface UserRow {
   createdAt: string;
   offersCount: number;
   totalRevenue: number;
-  weeklyRevenue: number;
 }
 
-type SortKey = "name" | "offersCount" | "totalRevenue" | "weeklyRevenue";
+type SortKey = "name" | "offersCount" | "totalRevenue";
 
 function formatBRL(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -123,6 +125,17 @@ function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
   );
 }
 
+function periodLabel(period: string) {
+  switch (period) {
+    case "1": return "Hoje";
+    case "yesterday": return "Ontem";
+    case "7": return "Últ. 7 dias";
+    case "30": return "Últ. 30 dias";
+    case "custom": return "Personalizado";
+    default: return "Tempo Total";
+  }
+}
+
 // ---------- Dashboard Screen ----------
 
 function Dashboard({ token, onLogout }: { token: string; onLogout: () => void }) {
@@ -131,15 +144,42 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("totalRevenue");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [period, setPeriod] = useState("all");
+  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(undefined);
 
   const headers = { Authorization: `Bearer ${token}` };
+
+  const getDateRange = (days: string) => {
+    const now = new Date();
+    if (days === "all") return {};
+    if (days === "custom") {
+      if (!customDateRange?.from || !customDateRange?.to) return {};
+      return {
+        startDate: startOfDay(customDateRange.from).toISOString(),
+        endDate: endOfDay(customDateRange.to).toISOString(),
+      };
+    }
+    const endDate = endOfDay(now).toISOString();
+    if (days === "1") return { startDate: startOfDay(now).toISOString(), endDate };
+    if (days === "yesterday") {
+      const yesterday = subDays(now, 1);
+      return { startDate: startOfDay(yesterday).toISOString(), endDate: endOfDay(yesterday).toISOString() };
+    }
+    if (days === "7") return { startDate: startOfDay(subDays(now, 6)).toISOString(), endDate };
+    if (days === "30") return { startDate: startOfDay(subDays(now, 29)).toISOString(), endDate };
+    return {};
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      const dateParams = getDateRange(period);
+      const params = new URLSearchParams(dateParams as Record<string, string>).toString();
+      const query = params ? `?${params}` : "";
+
       const [statsRes, usersRes] = await Promise.all([
-        axios.get(`${API_URL}/superadmin/stats`, { headers }),
-        axios.get(`${API_URL}/superadmin/users`, { headers }),
+        axios.get(`${API_URL}/superadmin/stats${query}`, { headers }),
+        axios.get(`${API_URL}/superadmin/users${query}`, { headers }),
       ]);
       setStats(statsRes.data);
       setUsers(usersRes.data);
@@ -151,7 +191,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, period, customDateRange]);
 
   useEffect(() => {
     fetchData();
@@ -194,7 +234,24 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
               <p className="text-xs text-muted-foreground mt-0.5">Visão geral da plataforma</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="text-sm border border-border rounded-lg px-3 py-1.5 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400"
+            >
+              <option value="1">Hoje</option>
+              <option value="yesterday">Ontem</option>
+              <option value="7">Últimos 7 dias</option>
+              <option value="30">Últimos 30 dias</option>
+              <option value="all">Tempo Total</option>
+              <option value="custom">Personalizado</option>
+            </select>
+            {period === "custom" && (
+              <div className="w-[220px]">
+                <DateRangePicker value={customDateRange} onChange={setCustomDateRange} />
+              </div>
+            )}
             <button
               onClick={fetchData}
               disabled={loading}
@@ -227,7 +284,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
             <StatCard
               title="Total Faturado"
               value={formatBRL(stats.totalRevenue)}
-              sub="todas as contas"
+              sub={periodLabel(period)}
               icon={DollarSign}
               accent
             />
@@ -280,13 +337,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                     className="text-right px-5 py-3 font-medium text-muted-foreground cursor-pointer select-none whitespace-nowrap hover:text-foreground"
                     onClick={() => handleSort("totalRevenue")}
                   >
-                    Faturado Total <SortIcon col="totalRevenue" />
-                  </th>
-                  <th
-                    className="text-right px-5 py-3 font-medium text-muted-foreground cursor-pointer select-none whitespace-nowrap hover:text-foreground"
-                    onClick={() => handleSort("weeklyRevenue")}
-                  >
-                    Faturado (7d) <SortIcon col="weeklyRevenue" />
+                    Faturado ({periodLabel(period)}) <SortIcon col="totalRevenue" />
                   </th>
                   <th className="text-right px-5 py-3 font-medium text-muted-foreground whitespace-nowrap">Ações</th>
                 </tr>
@@ -295,7 +346,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                 {loading && users.length === 0
                   ? [...Array(5)].map((_, i) => (
                       <tr key={i} className="border-b border-border">
-                        {[...Array(6)].map((_, j) => (
+                        {[...Array(5)].map((_, j) => (
                           <td key={j} className="px-5 py-4">
                             <div className="h-4 bg-muted rounded animate-pulse" />
                           </td>
@@ -308,17 +359,6 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                         <td className="px-5 py-3.5 text-muted-foreground">{user.email}</td>
                         <td className="px-5 py-3.5 text-right tabular-nums">{user.offersCount}</td>
                         <td className="px-5 py-3.5 text-right tabular-nums font-medium">{formatBRL(user.totalRevenue)}</td>
-                        <td className="px-5 py-3.5 text-right tabular-nums">
-                          <span
-                            className={
-                              user.weeklyRevenue > 0
-                                ? "text-green-600 dark:text-green-400 font-medium"
-                                : "text-muted-foreground"
-                            }
-                          >
-                            {formatBRL(user.weeklyRevenue)}
-                          </span>
-                        </td>
                         <td className="px-5 py-3.5 text-right">
                           <a
                             href={`mailto:${user.email}`}
