@@ -76,22 +76,26 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
       );
 
       let invoice = subscription.latest_invoice as any;
+      console.log("[subscription] latest_invoice type:", typeof invoice, "value:", typeof invoice === "string" ? invoice : invoice?.id);
 
       // Se latest_invoice veio como string (não expandido), busca explicitamente
       if (typeof invoice === "string") {
-        invoice = await stripe.invoices.retrieve(invoice, {
-          expand: ["payment_intent"],
-        } as any, { stripeAccount: stripeAccountId });
+        invoice = await stripe.invoices.retrieve(invoice, { expand: ["payment_intent"] } as any, { stripeAccount: stripeAccountId });
+        console.log("[subscription] invoice retrieved, payment_intent type:", typeof invoice?.payment_intent, "value:", typeof invoice?.payment_intent === "string" ? invoice.payment_intent : invoice?.payment_intent?.id);
       }
 
       let pi = invoice?.payment_intent as any;
 
       // Se o payment_intent veio como string (não expandido), busca explicitamente
       if (typeof pi === "string") {
+        console.log("[subscription] fetching PI explicitly:", pi);
         pi = await stripe.paymentIntents.retrieve(pi, { stripeAccount: stripeAccountId });
       }
 
+      console.log("[subscription] pi id:", pi?.id, "has client_secret:", !!pi?.client_secret);
+
       if (!pi?.client_secret) {
+        console.error("[subscription] PI debug - invoice:", JSON.stringify(invoice?.id), "pi:", JSON.stringify(pi));
         return res.status(500).json({ error: { message: "Falha ao criar assinatura: PaymentIntent não encontrado." } });
       }
 
