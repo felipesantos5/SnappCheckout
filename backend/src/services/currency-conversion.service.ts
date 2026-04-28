@@ -86,7 +86,7 @@ async function fetchExchangeRates(): Promise<void> {
 /**
  * Retorna as taxas de câmbio, atualizando se necessário
  */
-async function getExchangeRates(): Promise<ExchangeRates> {
+export async function getExchangeRates(): Promise<ExchangeRates> {
   const now = new Date();
 
   // Atualiza se nunca foi atualizado ou se passou do tempo de cache

@@ -4,6 +4,7 @@ import Sale from "../models/sale.model";
 import User from "../models/user.model";
 import Offer from "../models/offer.model";
 import CheckoutMetric from "../models/checkout-metric.model";
+import { getExchangeRates } from "../services/currency-conversion.service";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -21,6 +22,37 @@ export const superAdminLogin = async (req: Request, res: Response) => {
   return res.json({ token });
 };
 
+// Builds a MongoDB $switch expression that multiplies amountExpr by the BRL rate for each currency
+function buildBRLConvertExpr(amountExpr: string, rates: Record<string, number>) {
+  return {
+    $multiply: [
+      amountExpr,
+      {
+        $switch: {
+          branches: Object.entries(rates)
+            .filter(([cur]) => cur !== "BRL")
+            .map(([cur, rate]) => ({
+              case: { $eq: [{ $toUpper: "$currency" }, cur] },
+              then: rate,
+            })),
+          default: 1.0,
+        },
+      },
+    ],
+  };
+}
+
+function buildDateMatch(startDate?: string, endDate?: string): Record<string, unknown> {
+  const match: Record<string, unknown> = { status: "succeeded" };
+  if (startDate || endDate) {
+    const dateFilter: Record<string, Date> = {};
+    if (startDate) dateFilter.$gte = new Date(startDate);
+    if (endDate) dateFilter.$lte = new Date(endDate);
+    match.createdAt = dateFilter;
+  }
+  return match;
+}
+
 export const getSuperAdminStats = async (req: Request, res: Response) => {
   try {
     const today = new Date();
@@ -29,14 +61,8 @@ export const getSuperAdminStats = async (req: Request, res: Response) => {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
-
-    const revenueMatch: Record<string, unknown> = { status: "succeeded" };
-    if (startDate || endDate) {
-      const dateFilter: Record<string, Date> = {};
-      if (startDate) dateFilter.$gte = new Date(startDate);
-      if (endDate) dateFilter.$lte = new Date(endDate);
-      revenueMatch.createdAt = dateFilter;
-    }
+    const revenueMatch = buildDateMatch(startDate, endDate);
+    const rates = await getExchangeRates();
 
     const [revenueAgg, todayAccesses, usersCount] = await Promise.all([
       Sale.aggregate([
@@ -44,8 +70,8 @@ export const getSuperAdminStats = async (req: Request, res: Response) => {
         {
           $group: {
             _id: null,
-            totalRevenue: { $sum: "$totalAmountInCents" },
-            totalPlatformFee: { $sum: "$platformFeeInCents" },
+            totalRevenue: { $sum: buildBRLConvertExpr("$totalAmountInCents", rates) },
+            totalPlatformFee: { $sum: buildBRLConvertExpr("$platformFeeInCents", rates) },
           },
         },
       ]),
@@ -54,8 +80,8 @@ export const getSuperAdminStats = async (req: Request, res: Response) => {
     ]);
 
     return res.json({
-      totalRevenue: revenueAgg[0]?.totalRevenue ?? 0,
-      totalPlatformFee: revenueAgg[0]?.totalPlatformFee ?? 0,
+      totalRevenue: Math.round(revenueAgg[0]?.totalRevenue ?? 0),
+      totalPlatformFee: Math.round(revenueAgg[0]?.totalPlatformFee ?? 0),
       todayCheckoutAccesses: todayAccesses,
       usersCount,
     });
@@ -68,26 +94,25 @@ export const getSuperAdminStats = async (req: Request, res: Response) => {
 export const getSuperAdminUsers = async (req: Request, res: Response) => {
   try {
     const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
-
-    const periodMatch: Record<string, unknown> = { status: "succeeded" };
-    if (startDate || endDate) {
-      const dateFilter: Record<string, Date> = {};
-      if (startDate) dateFilter.$gte = new Date(startDate);
-      if (endDate) dateFilter.$lte = new Date(endDate);
-      periodMatch.createdAt = dateFilter;
-    }
+    const periodMatch = buildDateMatch(startDate, endDate);
+    const rates = await getExchangeRates();
 
     const [users, offersByUser, periodSales] = await Promise.all([
       User.find().select("name email createdAt").lean(),
       Offer.aggregate([{ $group: { _id: "$ownerId", count: { $sum: 1 } } }]),
       Sale.aggregate([
         { $match: periodMatch },
-        { $group: { _id: "$ownerId", totalRevenue: { $sum: "$totalAmountInCents" } } },
+        {
+          $group: {
+            _id: "$ownerId",
+            totalRevenue: { $sum: buildBRLConvertExpr("$totalAmountInCents", rates) },
+          },
+        },
       ]),
     ]);
 
     const offersMap = new Map(offersByUser.map((o) => [o._id.toString(), o.count as number]));
-    const salesMap = new Map(periodSales.map((s) => [s._id.toString(), s.totalRevenue as number]));
+    const salesMap = new Map(periodSales.map((s) => [s._id.toString(), Math.round(s.totalRevenue as number)]));
 
     const result = users.map((user) => {
       const id = (user._id as { toString(): string }).toString();
