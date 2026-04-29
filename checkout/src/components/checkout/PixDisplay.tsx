@@ -27,7 +27,7 @@ export const PixDisplay: React.FC<PixDisplayProps> = ({
   onSuccess,
 }) => {
   const { t } = useTranslation();
-  const { textColor, backgroundColor, primary } = useTheme();
+  const { foregroundColor, backgroundColor, primary } = useTheme();
   const [copied, setCopied] = useState(false);
   const [timeLeft, setTimeLeft] = useState("");
 
@@ -95,7 +95,7 @@ export const PixDisplay: React.FC<PixDisplayProps> = ({
     <div className="w-full max-w-2xl mx-auto p-8 flex flex-col items-center justify-center" style={{ backgroundColor }}>
       {/* Título */}
       <div className="text-center mb-8">
-        <h2 className="text-2xl md:text-3xl font-bold mb-2" style={{ color: textColor }}>
+        <h2 className="text-2xl md:text-3xl font-bold mb-2" style={{ color: foregroundColor }}>
           {t.pix?.title || "Pagamento via PIX"}
         </h2>
         <p className="text-4xl md:text-5xl font-black" style={{ color: primary }}>
@@ -119,21 +119,21 @@ export const PixDisplay: React.FC<PixDisplayProps> = ({
 
       {/* Instruções Simplificadas */}
       <div className="mb-8 w-full max-w-md text-center">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] mb-6 opacity-60" style={{ color: textColor }}>
+        <p className="text-sm font-medium uppercase tracking-[0.2em] mb-6 opacity-60" style={{ color: foregroundColor }}>
           {t.pix?.instruction || "Escaneie o QR Code abaixo"}
         </p>
         <div className="grid grid-cols-3 gap-4">
           <div className="flex flex-col items-center gap-2">
             <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: `${primary}20`, color: primary }}>1</span>
-            <span className="text-xs leading-tight font-medium" style={{ color: textColor }}>Abra o app do seu banco</span>
+            <span className="text-xs leading-tight font-medium" style={{ color: foregroundColor }}>Abra o app do seu banco</span>
           </div>
           <div className="flex flex-col items-center gap-2">
             <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: `${primary}20`, color: primary }}>2</span>
-            <span className="text-xs leading-tight font-medium" style={{ color: textColor }}>Pagar via PIX (QR Code)</span>
+            <span className="text-xs leading-tight font-medium" style={{ color: foregroundColor }}>Pagar via PIX (QR Code)</span>
           </div>
           <div className="flex flex-col items-center gap-2">
             <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: `${primary}20`, color: primary }}>3</span>
-            <span className="text-xs leading-tight font-medium" style={{ color: textColor }}>Pronto! Aguarde a tela</span>
+            <span className="text-xs leading-tight font-medium" style={{ color: foregroundColor }}>Pronto! Aguarde a tela</span>
           </div>
         </div>
       </div>
@@ -147,7 +147,7 @@ export const PixDisplay: React.FC<PixDisplayProps> = ({
             readOnly
             onClick={(e) => (e.target as HTMLInputElement).select()}
             className="w-full pl-4 pr-24 py-4 border-2 rounded-2xl text-sm font-mono bg-gray-50 focus:outline-none transition-all"
-            style={{ borderColor: `${primary}20`, color: textColor }}
+            style={{ borderColor: `${primary}20`, color: foregroundColor }}
           />
           <button
             onClick={handleCopy}
@@ -180,7 +180,7 @@ export const PixDisplay: React.FC<PixDisplayProps> = ({
 
       {/* Informação adicional */}
       <div className="mt-8">
-        <p className="text-[10px] text-center opacity-40 uppercase tracking-[0.3em] font-bold" style={{ color: textColor }}>
+        <p className="text-[10px] text-center opacity-40 uppercase tracking-[0.3em] font-bold" style={{ color: foregroundColor }}>
           Confirmamos seu pedido instantaneamente
         </p>
       </div>

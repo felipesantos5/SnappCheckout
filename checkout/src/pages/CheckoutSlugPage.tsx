@@ -11,7 +11,7 @@ import { useFacebookPixel } from "../hooks/useFacebookPixel";
 import { PurchaseNotification } from "../components/ui/PurchaseNotification";
 import { getCookie } from "../helper/getCookie";
 
-export type LayoutType = 'classic' | 'modern' | 'minimal' | 'hubla';
+export type LayoutType = "classic" | "modern" | "minimal" | "hubla";
 
 export interface OfferData {
   _id: string;
@@ -71,8 +71,8 @@ export interface OfferData {
   };
   autoNotifications?: {
     enabled: boolean;
-    genderFilter: 'all' | 'male' | 'female';
-    region: 'pt' | 'en' | 'es' | 'fr';
+    genderFilter: "all" | "male" | "female";
+    region: "pt" | "en" | "es" | "fr";
     intervalSeconds: number;
     soundEnabled: boolean;
   };
@@ -102,7 +102,7 @@ export function CheckoutSlugPage() {
       const newId = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
       sessionStorage.setItem(storageKey, newId);
       return newId;
-    })()
+    })(),
   );
 
   // Carrega os Facebook Pixels se estiverem configurados
@@ -175,7 +175,7 @@ export function CheckoutSlugPage() {
         data = await response.json();
         setOfferData(data);
 
-        console.log('data', data)
+        console.log("data", data);
 
         // Só dispara o tracking se o slug atual for diferente do último rastreado
         if (trackedSlugRef.current !== slug) {
@@ -238,7 +238,7 @@ export function CheckoutSlugPage() {
           currency: offerData.currency.toUpperCase(),
           num_items: 1,
         },
-        { eventID: eventId }
+        { eventID: eventId },
       );
     }
 
@@ -303,14 +303,16 @@ export function CheckoutSlugPage() {
   const buttonColor = offerData?.buttonColor || "#2563eb";
   const buttonTextColor = getContrast(buttonColor, "#FFF") > 2.5 ? "#FFFFFF" : "#000000";
 
+  const bgColor = offerData?.backgroundColor || "#ffffff";
+  const foregroundColor = bgColor === "#141414" ? "#ffffff" : "#000000";
+
   const themeValues: ThemeColors = {
     primary: primaryColor,
     button: buttonColor,
     buttonForeground: buttonTextColor,
-    // --- NOVO ---
-    backgroundColor: offerData?.backgroundColor || "#ffffff",
+    backgroundColor: bgColor,
+    foregroundColor,
     textColor: offerData?.textColor || "#374151",
-    // ------------
   };
 
   if (error) {
@@ -346,12 +348,9 @@ export function CheckoutSlugPage() {
   return (
     <I18nProvider language={offerData.language || "pt"}>
       <ThemeContext.Provider value={themeValues}>
-        <PurchaseNotification
-          config={offerData.autoNotifications}
-          productName={offerData.mainProduct.name}
-        />
+        <PurchaseNotification config={offerData.autoNotifications} productName={offerData.mainProduct.name} />
         <LayoutLoader
-          layoutType={offerData.layoutType || 'classic'}
+          layoutType={offerData.layoutType || "classic"}
           offerData={offerData}
           checkoutSessionId={checkoutSessionId.current}
           generateEventId={generateEventId}

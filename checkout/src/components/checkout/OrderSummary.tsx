@@ -16,7 +16,7 @@ interface OrderSummaryProps {
 
 export const OrderSummary = memo<OrderSummaryProps>(
   ({ productName, productImageUrl, currency, totalAmountInCents, basePriceInCents, originalPriceInCents }) => {
-    const { primary, backgroundColor, textColor } = useTheme();
+    const { textColor, backgroundColor, foregroundColor } = useTheme();
     const { t } = useTranslation();
 
     const totalSmallText = useMemo(() => formatCurrency(totalAmountInCents, currency), [totalAmountInCents, currency]);
@@ -28,7 +28,7 @@ export const OrderSummary = memo<OrderSummaryProps>(
     return (
       <div
         className="w-full rounded-lg shadow border p-4"
-        style={{ backgroundColor: backgroundColor, borderColor: `${textColor}20` }}
+        style={{ backgroundColor: backgroundColor, borderColor: `${foregroundColor}20` }}
       >
         <div className="flex items-start gap-3">
           {productImageUrl && (
@@ -41,21 +41,21 @@ export const OrderSummary = memo<OrderSummaryProps>(
             />
           )}
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold line-clamp-2" style={{ color: textColor }}>
+            <h3 className="text-sm font-semibold line-clamp-2" style={{ color: foregroundColor }}>
               {productName}
             </h3>
             <div className="flex items-center justify-end">
               <div className="text-right">
-                <p className="text-xs" style={{ color: textColor, opacity: 0.6 }}>
+                <p className="text-xs" style={{ color: foregroundColor, opacity: 0.6 }}>
                   {t.orderSummary.total}
                 </p>
                 <div className="flex items-center gap-2 justify-end">
                   {originalPriceText && (
-                    <p className="text-sm line-through" style={{ color: textColor, opacity: 0.4 }}>
+                    <p className="text-sm line-through" style={{ color: foregroundColor, opacity: 0.4 }}>
                       {originalPriceText}
                     </p>
                   )}
-                  <p className="text-lg font-bold" style={{ color: primary }}>
+                  <p className="text-lg font-bold" style={{ color: textColor }}>
                     {totalSmallText}
                   </p>
                 </div>

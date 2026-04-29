@@ -15,7 +15,7 @@ interface ContactInfoProps {
 
 export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, showDocument = false, offerID, abTestId, onEmailChange, onNameChange }) => {
   const { t } = useTranslation();
-  const { textColor } = useTheme(); // Hook do tema
+  const { foregroundColor } = useTheme();
   const [phone, setPhone] = useState("");
   const [document, setDocument] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -119,7 +119,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, show
     <div className="w-full mt-4">
       <h2
         className="text-lg font-semibold mb-4"
-        style={{ color: textColor }} // Cor do texto dinâmica
+        style={{ color: foregroundColor }}
       >
         {t.contact.title}
       </h2>

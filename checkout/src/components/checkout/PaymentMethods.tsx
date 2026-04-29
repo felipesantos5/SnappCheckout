@@ -31,7 +31,7 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({
   stripeCardEnabled = true,
 }) => {
   const { t } = useTranslation();
-  const { textColor, backgroundColor, primary } = useTheme();
+  const { foregroundColor, backgroundColor, primary } = useTheme();
 
   const PaymentOption: React.FC<{
     value: PaymentMethodType;
@@ -46,7 +46,7 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({
         onClick={() => setMethod(value)}
         className="border rounded-lg p-4 cursor-pointer transition-all duration-200 min-h-[56px] flex items-center"
         style={{
-          borderColor: isSelected ? primary : `${textColor}30`,
+          borderColor: isSelected ? primary : `${foregroundColor}30`,
           backgroundColor: isSelected ? `${primary}10` : backgroundColor,
           borderWidth: isSelected ? "2px" : "1px",
         }}
@@ -61,7 +61,7 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({
               className="h-4 w-4 cursor-pointer"
               style={{ accentColor: primary }}
             />
-            <label className="ml-3 block text-sm font-medium cursor-pointer" style={{ color: textColor }}>
+            <label className="ml-3 block text-sm font-medium cursor-pointer" style={{ color: foregroundColor }}>
               {title}
             </label>
           </div>
@@ -73,7 +73,7 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({
 
   return (
     <div className="w-full mt-6">
-      <h2 className="text-lg font-semibold mb-4" style={{ color: textColor }}>
+      <h2 className="text-lg font-semibold mb-4" style={{ color: foregroundColor }}>
         {t.payment.title}
       </h2>
       <div className="space-y-3">

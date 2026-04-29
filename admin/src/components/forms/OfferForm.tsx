@@ -310,22 +310,30 @@ const offerFormSchema = z.object({
   membershipWebhook: membershipWebhookSchema,
   autoNotifications: autoNotificationsSchema,
   orderBumps: z.array(productSchema).optional(),
-  emailNotification: z.object({
-    enabled: z.boolean().default(false),
-    subject: z.string().optional(),
-    heading: z.string().optional(),
-    body: z.string().optional(),
-    imageUrl: optionalUrl,
-    pdfUrl: optionalUrl,
-  }).optional(),
+  emailNotification: z
+    .object({
+      enabled: z.boolean().default(false),
+      subject: z.string().optional(),
+      heading: z.string().optional(),
+      body: z.string().optional(),
+      imageUrl: optionalUrl,
+      pdfUrl: optionalUrl,
+    })
+    .optional(),
   cartAbandonmentEnabled: z.boolean().default(false).optional(),
-  coupons: z.object({
-    enabled: z.boolean().default(false),
-    codes: z.array(z.object({
-      code: z.string().min(1, "Codigo obrigatorio"),
-      discountPercent: z.number().min(1).max(100),
-    })).default([]),
-  }).default({ enabled: false, codes: [] }),
+  coupons: z
+    .object({
+      enabled: z.boolean().default(false),
+      codes: z
+        .array(
+          z.object({
+            code: z.string().min(1, "Codigo obrigatorio"),
+            discountPercent: z.number().min(1).max(100),
+          }),
+        )
+        .default([]),
+    })
+    .default({ enabled: false, codes: [] }),
 });
 
 export type OfferFormInput = z.input<typeof offerFormSchema>;
@@ -832,14 +840,32 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   </FormItem>
                 )}
               />
-              {/* --- NOVOS CAMPOS --- */}
               <FormField
                 control={form.control}
                 name="backgroundColor"
                 render={({ field }: any) => (
                   <FormItem>
-                    <FormLabel>Cor do Fundo</FormLabel>
-                    <ColorInput field={field} />
+                    <FormLabel>Tema de Fundo</FormLabel>
+                    <FormControl>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => field.onChange("#ffffff")}
+                          className={`flex-1 border rounded-lg p-3 flex items-center gap-2 transition-all ${field.value !== "#141414" ? "border-primary ring-2 ring-primary bg-primary/5" : "border-border"}`}
+                        >
+                          <div className="w-5 h-5 rounded border border-gray-300 bg-white shrink-0" />
+                          <span className="text-sm font-medium">Claro</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => field.onChange("#141414")}
+                          className={`flex-1 border rounded-lg p-3 flex items-center gap-2 transition-all ${field.value === "#141414" ? "border-primary ring-2 ring-primary bg-primary/5" : "border-border"}`}
+                        >
+                          <div className="w-5 h-5 rounded border border-gray-600 bg-[#141414] shrink-0" />
+                          <span className="text-sm font-medium">Escuro</span>
+                        </button>
+                      </div>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -849,13 +875,12 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                 name="textColor"
                 render={({ field }: any) => (
                   <FormItem>
-                    <FormLabel>Cor do Texto</FormLabel>
+                    <FormLabel>Cor do Preço</FormLabel>
                     <ColorInput field={field} />
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              {/* --------------------- */}
             </div>
 
             <Separator />
@@ -1376,7 +1401,13 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                                     )}
                                   />
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <MoneyInput form={form} name="upsell.downsell.downsell.price" label="Preço" placeholder="0,00" currency={form.watch("currency")} />
+                                    <MoneyInput
+                                      form={form}
+                                      name="upsell.downsell.downsell.price"
+                                      label="Preço"
+                                      placeholder="0,00"
+                                      currency={form.watch("currency")}
+                                    />
                                     <FormField
                                       control={form.control}
                                       name={"upsell.downsell.downsell.redirectUrl" as any}
@@ -1575,7 +1606,12 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                                           variant="ghost"
                                           size="icon"
                                           onClick={() => {
-                                            form.setValue(`upsell.steps.${index}.downsell.downsell` as any, { name: "", price: 0, redirectUrl: "", customId: "" });
+                                            form.setValue(`upsell.steps.${index}.downsell.downsell` as any, {
+                                              name: "",
+                                              price: 0,
+                                              redirectUrl: "",
+                                              customId: "",
+                                            });
                                             setStepsNestedDownsellVisible((prev) => {
                                               const n = [...prev];
                                               n[index] = false;
@@ -1587,7 +1623,9 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                                           <Trash2 className="w-4 h-4" />
                                         </Button>
                                       </div>
-                                      <p className="text-xs text-orange-600 dark:text-orange-400">Exibido quando o cliente recusar o Downsell #{index + 2}</p>
+                                      <p className="text-xs text-orange-600 dark:text-orange-400">
+                                        Exibido quando o cliente recusar o Downsell #{index + 2}
+                                      </p>
 
                                       <FormField
                                         control={form.control}
@@ -2121,20 +2159,15 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   <div className="space-y-0.5">
                     <FormLabel className="text-base">Ativar Email de Confirmação</FormLabel>
                     <FormDescription>
-                      Ao ativar, um email será enviado ao cliente quando a compra for aprovada.
-                      Configure o SMTP nas{" "}
+                      Ao ativar, um email será enviado ao cliente quando a compra for aprovada. Configure o SMTP nas{" "}
                       <a href="/settings" className="text-primary hover:underline">
                         Configurações da conta
-                      </a>.
+                      </a>
+                      .
                     </FormDescription>
                   </div>
                   <FormControl>
-                    <input
-                      type="checkbox"
-                      checked={field.value}
-                      onChange={field.onChange}
-                      className="h-5 w-5 accent-primary cursor-pointer"
-                    />
+                    <input type="checkbox" checked={field.value} onChange={field.onChange} className="h-5 w-5 accent-primary cursor-pointer" />
                   </FormControl>
                 </FormItem>
               )}
@@ -2246,17 +2279,12 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                 <div className="space-y-0.5">
                   <FormLabel className="text-base">Ativar Email de Recuperação</FormLabel>
                   <FormDescription>
-                    Quando ativado, um email é enviado automaticamente 30 minutos após o cliente preencher o email
-                    no checkout sem finalizar a compra. O email é enviado pelo Snapp e inclui um botão para voltar ao checkout.
+                    Quando ativado, um email é enviado automaticamente 30 minutos após o cliente preencher o email no checkout sem finalizar a compra.
+                    O email é enviado pelo Snapp e inclui um botão para voltar ao checkout.
                   </FormDescription>
                 </div>
                 <FormControl>
-                  <input
-                    type="checkbox"
-                    checked={field.value ?? false}
-                    onChange={field.onChange}
-                    className="h-5 w-5 accent-primary cursor-pointer"
-                  />
+                  <input type="checkbox" checked={field.value ?? false} onChange={field.onChange} className="h-5 w-5 accent-primary cursor-pointer" />
                 </FormControl>
               </FormItem>
             )}
@@ -2276,17 +2304,10 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
                   <FormLabel className="text-base">Ativar Cupons</FormLabel>
-                  <FormDescription>
-                    Quando ativado, o cliente vê um campo "Adicionar cupom" no checkout Hubla.
-                  </FormDescription>
+                  <FormDescription>Quando ativado, o cliente vê um campo "Adicionar cupom" no checkout Hubla.</FormDescription>
                 </div>
                 <FormControl>
-                  <input
-                    type="checkbox"
-                    checked={field.value ?? false}
-                    onChange={field.onChange}
-                    className="h-5 w-5 accent-primary cursor-pointer"
-                  />
+                  <input type="checkbox" checked={field.value ?? false} onChange={field.onChange} className="h-5 w-5 accent-primary cursor-pointer" />
                 </FormControl>
               </FormItem>
             )}

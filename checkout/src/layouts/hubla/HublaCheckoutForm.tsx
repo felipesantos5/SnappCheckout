@@ -89,7 +89,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
   const stripe = useStripe();
   const elements = useElements();
   const navigate = useNavigate();
-  const { button, buttonForeground, backgroundColor, textColor, primary } = useTheme();
+  const { button, buttonForeground, backgroundColor, foregroundColor, primary } = useTheme();
   const { t } = useTranslation();
 
   // Payment state
@@ -702,7 +702,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
         <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm" style={{ backgroundColor: `${backgroundColor}CC` }}>
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-14 w-14 animate-spin" style={{ color: primary }} />
-            <p className="text-sm font-medium animate-pulse" style={{ color: textColor }}>
+            <p className="text-sm font-medium animate-pulse" style={{ color: foregroundColor }}>
               {t.buttons.processing}
             </p>
           </div>
@@ -723,7 +723,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
       )}
 
       {/* Main content */}
-      <div className="pb-4" style={{ backgroundColor, color: textColor }}>
+      <div className="pb-4" style={{ backgroundColor, color: foregroundColor }}>
         <div className="max-w-md mx-auto px-4 pt-4 space-y-4">
           {/* Product card */}
           {(() => {
@@ -742,7 +742,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
             const savings = originalTotal - totalAmount;
 
             return (
-              <div className="border rounded-lg shadow-sm overflow-hidden" style={{ borderColor: `${textColor}18`, backgroundColor: "white" }}>
+              <div className="border rounded-lg shadow-sm overflow-hidden" style={{ borderColor: `${foregroundColor}18`, backgroundColor: "white" }}>
                 {showDetails ? (
                   /* EXPANDED: details open at the top, no product header above */
                   <div className="p-3">
@@ -908,7 +908,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
             <div>
               <h2
                 className="mb-2 text-[15px] md:text-sm font-medium text-zinc-700 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-gray-300"
-                style={{ color: textColor }}
+                style={{ color: foregroundColor }}
               >
                 {t.contact.title}
               </h2>
@@ -942,7 +942,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                     placeholder={t.contact.phonePlaceholder}
                     primary={primary}
                     className="rounded-t-none"
-                    textColor={textColor}
+                    textColor={foregroundColor}
                   />
                 )}
               </div>
@@ -951,7 +951,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
             {/* Payment method tabs — only shown when more than 1 method */}
             {availableMethodsCount > 1 && (
               <div>
-                <h2 className="text-lg md:text-base font-medium my-1.5 text-zinc-800 dark:text-zinc-100" style={{ color: textColor }}>
+                <h2 className="text-lg md:text-base font-medium my-1.5 text-zinc-800 dark:text-zinc-100" style={{ color: foregroundColor }}>
                   {t.payment.title}
                 </h2>
                 <div className="flex gap-2">
@@ -1125,7 +1125,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                 {/* Cardholder name */}
                 <h2
                   className="mb-2 mt-5 text-[15px] md:text-sm font-medium text-zinc-700 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-gray-300"
-                  style={{ color: textColor }}
+                  style={{ color: foregroundColor }}
                 >
                   {t.creditCard.cardholderName}
                 </h2>
@@ -1136,7 +1136,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                   <div>
                     <h2
                       className="mb-2 mt-[11px] text-[15px] md:text-sm font-medium text-zinc-700 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-gray-300"
-                      style={{ color: textColor }}
+                      style={{ color: foregroundColor }}
                     >
                       {t.creditCard.document}
                     </h2>

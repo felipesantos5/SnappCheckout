@@ -28,7 +28,7 @@ interface OrderBumpProps {
 // Componente individual de bump memoizado
 const BumpItem = memo<{ bump: Bump; isSelected: boolean; onToggle: () => void; currency: string; primary: string; t: any }>(
   ({ bump, isSelected, onToggle, currency, primary, t }) => {
-    const { textColor } = useTheme();
+    const { foregroundColor } = useTheme();
 
     const handleCheckboxClick = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
@@ -55,7 +55,7 @@ const BumpItem = memo<{ bump: Bump; isSelected: boolean; onToggle: () => void; c
                   <OptimizedImage src={bump.imageUrl} alt={bump.name} className="w-16 h-16 border border-gray-200" width={80} aspectRatio="1/1" />
                 </div>
               )}
-              <div className="flex flex-col gap-1.5 flex-1 min-w-0" style={{ color: textColor }}>
+              <div className="flex flex-col gap-1.5 flex-1 min-w-0" style={{ color: foregroundColor }}>
                 {!bump.headline ? (
                   <></>
                 ) : (

@@ -33,11 +33,11 @@ const ELEMENT_OPTIONS = {
 
 // Wrapper customizado para aplicar o estilo do Tailwind
 const StripeElementWrapper: React.FC<{ children: React.ReactNode; label: string; id: string }> = ({ children, label, id }) => {
-  const { primary, textColor } = useTheme();
+  const { primary, foregroundColor } = useTheme();
 
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium" style={{ color: textColor }}>
+      <label htmlFor={id} className="block text-sm font-medium" style={{ color: foregroundColor }}>
         {label}
       </label>
       <div className="mt-1">
@@ -59,10 +59,10 @@ const StripeElementWrapper: React.FC<{ children: React.ReactNode; label: string;
 
 export const CreditCardForm: React.FC = () => {
   const { t } = useTranslation();
-  const { textColor } = useTheme();
+  const { foregroundColor } = useTheme();
 
   return (
-    <div className="space-y-4 p-4 border rounded-lg" style={{ color: textColor }}>
+    <div className="space-y-4 p-4 border rounded-lg" style={{ color: foregroundColor }}>
       {/* 1. Número do Cartão (Real) */}
       <StripeElementWrapper label={t.creditCard.cardNumber} id="card-number">
         <CardNumberElement id="card-number" options={ELEMENT_OPTIONS} />

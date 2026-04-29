@@ -94,6 +94,10 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
       if (typeof invoice === "string") {
         invoice = await stripe.invoices.retrieve(invoice, { expand: ["payment_intent"] } as any, { stripeAccount: stripeAccountId });
         console.log("[subscription] invoice retrieved, payment_intent type:", typeof invoice?.payment_intent, "value:", typeof invoice?.payment_intent === "string" ? invoice.payment_intent : invoice?.payment_intent?.id);
+      } else if (invoice && !invoice.payment_intent) {
+        // Expand aninhado falhou em conta conectada — busca invoice explicitamente
+        invoice = await stripe.invoices.retrieve(invoice.id, { expand: ["payment_intent"] } as any, { stripeAccount: stripeAccountId });
+        console.log("[subscription] invoice re-fetched, payment_intent type:", typeof invoice?.payment_intent, "value:", typeof invoice?.payment_intent === "string" ? invoice.payment_intent : invoice?.payment_intent?.id);
       }
 
       let pi = invoice?.payment_intent as any;

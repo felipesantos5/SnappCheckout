@@ -8,11 +8,11 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input: React.FC<InputProps> = ({ label, id, ...props }) => {
-  const { primary, textColor } = useTheme();
+  const { primary, foregroundColor } = useTheme();
 
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-900" style={{ color: textColor }}>
+      <label htmlFor={id} className="block text-sm font-medium text-gray-900" style={{ color: foregroundColor }}>
         {label}
       </label>
       <div className="mt-1">

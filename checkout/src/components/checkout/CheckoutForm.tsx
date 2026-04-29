@@ -36,7 +36,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
   const elements = useElements();
   const navigate = useNavigate();
   // --- NOVO: Pega cores do tema ---
-  const { button, buttonForeground, backgroundColor, textColor } = useTheme();
+  const { button, buttonForeground, backgroundColor, foregroundColor } = useTheme();
   const { t } = useTranslation();
 
   const [loading, setLoading] = useState(false);
@@ -626,7 +626,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         >
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-16 w-16 text-blue-600 animate-spin" />
-            <p className="font-medium animate-pulse" style={{ color: textColor }}>
+            <p className="font-medium animate-pulse" style={{ color: foregroundColor }}>
               {t.buttons.processing}
             </p>
           </div>
@@ -635,7 +635,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
       <Banner imageUrl={offerData.bannerImageUrl} secondaryBannerImageUrl={offerData.secondaryBannerImageUrl} />
 
       {/* Container Principal com Fundo e Texto Customizados */}
-      <div className="min-h-screen pb-4 md:py-8" style={{ backgroundColor: backgroundColor, color: textColor }}>
+      <div className="min-h-screen pb-4 md:py-8" style={{ backgroundColor: backgroundColor, color: foregroundColor }}>
         {/* Container centralizado */}
         <div className="max-w-7xl mx-auto px-4">
           {/* Formulário (Card) */}

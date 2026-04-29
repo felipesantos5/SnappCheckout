@@ -5,8 +5,9 @@ export interface ThemeColors {
   primary: string;
   button: string;
   buttonForeground: string;
-  backgroundColor: string; // NOVO
-  textColor: string; // NOVO
+  backgroundColor: string;
+  foregroundColor: string; // auto-computed from backgroundColor
+  textColor: string; // cor do preço (customizável)
 }
 
 // Valores padrão caso algo falhe
@@ -14,8 +15,9 @@ const defaultTheme: ThemeColors = {
   primary: "#000000",
   button: "#2563eb",
   buttonForeground: "#ffffff",
-  backgroundColor: "#ffffff", // NOVO - Padrão branco
-  textColor: "#374151", // NOVO - Padrão cinza escuro (gray-700)
+  backgroundColor: "#ffffff",
+  foregroundColor: "#000000",
+  textColor: "#374151",
 };
 
 export const ThemeContext = createContext<ThemeColors>(defaultTheme);
