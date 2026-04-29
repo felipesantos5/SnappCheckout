@@ -571,17 +571,22 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     if (!offerSlug) {
       // PI sem offerSlug = possivelmente assinatura (Stripe gera PI interno sem metadata)
       const piAny = paymentIntent as any;
-      console.log(`[Stripe/Sub] PI ${paymentIntentId} sem offerSlug | account=${stripeAccountId} | description="${paymentIntent.description}" | payment_details=${JSON.stringify(piAny.payment_details ?? null)}`);
 
-      if (!stripeAccountId) {
-        console.warn(`[Stripe/Sub] event.account não disponível — não é possível processar PI de assinatura`);
+      // event.account pode ser undefined em webhooks diretos da conta conectada.
+      // Fallback: o próprio objeto PI tem um campo "account" com o ID da conta conectada.
+      const resolvedAccountId: string | undefined = stripeAccountId ?? piAny.account;
+
+      console.log(`[Stripe/Sub] PI ${paymentIntentId} sem offerSlug | account=${resolvedAccountId} | description="${paymentIntent.description}" | payment_details=${JSON.stringify(piAny.payment_details ?? null)}`);
+
+      if (!resolvedAccountId) {
+        console.warn(`[Stripe/Sub] stripeAccountId não disponível — não é possível processar PI de assinatura`);
         return;
       }
 
-      // Tentativa 1: payment_details.order_reference (nova API)
+      // Tentativa 1: payment_details.order_reference (campo direto no PI — nova API)
       const invoiceRef: string | undefined = piAny.payment_details?.order_reference;
       if (invoiceRef?.startsWith("in_")) {
-        await handleSubscriptionInitialPayment(paymentIntent, paymentIntentId, invoiceRef, stripeAccountId);
+        await handleSubscriptionInitialPayment(paymentIntent, paymentIntentId, invoiceRef, resolvedAccountId);
         return;
       }
 
@@ -594,7 +599,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
         try {
           const subs = await stripe.subscriptions.list(
             { customer: customerId, limit: 5, status: "active" },
-            { stripeAccount: stripeAccountId }
+            { stripeAccount: resolvedAccountId }
           );
           const matchingSub = subs.data.find(s => s.metadata?.offerSlug);
           if (matchingSub) {
