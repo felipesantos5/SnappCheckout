@@ -108,6 +108,17 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
         pi = await stripe.paymentIntents.retrieve(pi, { stripeAccount: stripeAccountId });
       }
 
+      // Fallback: invoice.payment_intent ainda undefined — busca PI via lista (PI de invoice tem campo invoice=invoiceId)
+      if (!pi?.client_secret && invoice?.id) {
+        console.log("[subscription] fallback: listing PIs for customer to find invoice PI");
+        const piList = await stripe.paymentIntents.list(
+          { customer: customerId, limit: 5 },
+          { stripeAccount: stripeAccountId }
+        );
+        pi = piList.data.find((p: any) => p.invoice === invoice.id);
+        console.log("[subscription] fallback pi id:", pi?.id, "has client_secret:", !!pi?.client_secret);
+      }
+
       console.log("[subscription] pi id:", pi?.id, "has client_secret:", !!pi?.client_secret);
 
       if (!pi?.client_secret) {
