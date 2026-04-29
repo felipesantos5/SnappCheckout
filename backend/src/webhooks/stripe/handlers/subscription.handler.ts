@@ -7,13 +7,21 @@ import { getCountryFromIP } from "../../../helper/getCountryFromIP";
 export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, _stripeAccountId?: string): Promise<void> => {
   try {
     const invoiceAny = invoice as any;
-    const subscriptionId = typeof invoiceAny.subscription === "string" ? invoiceAny.subscription : invoiceAny.subscription?.id;
+
+    // API >=2025-10-29: subscription e metadata ficam em invoice.parent.subscription_details
+    // API antiga: subscription em invoice.subscription, metadata em invoice.subscription_details.metadata
+    const subDetails = invoiceAny.parent?.subscription_details ?? invoiceAny.subscription_details;
+    const subscriptionId: string | undefined =
+      subDetails?.subscription
+      ?? (typeof invoiceAny.subscription === "string" ? invoiceAny.subscription : invoiceAny.subscription?.id);
+
     if (!subscriptionId) {
       console.error("❌ [Subscription] invoice sem subscription ID");
       return;
     }
 
-    const piId = typeof invoiceAny.payment_intent === "string" ? invoiceAny.payment_intent : invoiceAny.payment_intent?.id;
+    const piId: string | undefined =
+      typeof invoiceAny.payment_intent === "string" ? invoiceAny.payment_intent : invoiceAny.payment_intent?.id;
     if (!piId) {
       console.error("❌ [Subscription] invoice sem payment_intent ID");
       return;
@@ -22,7 +30,6 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, _st
     // Idempotência
     const existing = await Sale.findOne({ stripePaymentIntentId: piId });
     if (existing) {
-      // Garante que a venda inicial tem o subscriptionId vinculado
       if (!existing.stripeSubscriptionId) {
         existing.stripeSubscriptionId = subscriptionId;
         if (!existing.subscriptionCycle) existing.subscriptionCycle = 1;
@@ -32,9 +39,8 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, _st
     }
 
     // --- PAGAMENTO INICIAL DA ASSINATURA ---
-    // O metadata da Subscription é copiado para invoice.subscription_details.metadata pelo Stripe
     if (invoice.billing_reason === "subscription_create") {
-      const meta: Record<string, string> = invoiceAny.subscription_details?.metadata || {};
+      const meta: Record<string, string> = subDetails?.metadata || {};
       const offerSlug = meta.offerSlug;
 
       if (!offerSlug) {
