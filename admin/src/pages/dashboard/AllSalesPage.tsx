@@ -51,6 +51,8 @@ interface Sale {
   failureMessage?: string;
   createdAt: string;
   isUpsell?: boolean;
+  stripeSubscriptionId?: string;
+  subscriptionCycle?: number;
   items?: Array<{
     name: string;
     priceInCents: number;
@@ -121,6 +123,25 @@ const convertToBRL = (amountInCents: number, currency: string | undefined): numb
 
 // Helper para determinar o tipo de venda
 const getSaleTypeIcon = (sale: Sale) => {
+  // Renovação de assinatura (ciclo 2+)
+  if (sale.stripeSubscriptionId && sale.subscriptionCycle && sale.subscriptionCycle > 1) {
+    const label = `Renovação (${sale.subscriptionCycle}º mês)`;
+    return (
+      <Badge variant="outline" className="border-teal-200 text-teal-700 bg-teal-50">
+        <RefreshCw className="w-3 h-3 mr-1" /> {label}
+      </Badge>
+    );
+  }
+
+  // Venda inicial de assinatura (ciclo 1)
+  if (sale.stripeSubscriptionId && (!sale.subscriptionCycle || sale.subscriptionCycle === 1)) {
+    return (
+      <Badge variant="outline" className="border-teal-200 text-teal-700 bg-teal-50">
+        <RefreshCw className="w-3 h-3 mr-1" /> Plano (1º mês)
+      </Badge>
+    );
+  }
+
   if (sale.isUpsell) {
     const upsellItems = sale.items?.filter((i) => !i.isOrderBump) || [];
     const badge = (
@@ -374,7 +395,9 @@ export function AllSalesPage() {
         ["Data", "Cliente", "Email", "Oferta", "Tipo", "Status", "Valor", "Moeda", "País", "Método", "UTM Source", "UTM Medium", "UTM Campaign"].join(","),
         ...sales.map((sale) => {
           let tipo = "Venda";
-          if (sale.isUpsell) tipo = "Upsell";
+          if (sale.stripeSubscriptionId && sale.subscriptionCycle && sale.subscriptionCycle > 1) tipo = `Renovação (${sale.subscriptionCycle}º mês)`;
+          else if (sale.stripeSubscriptionId) tipo = "Plano (1º mês)";
+          else if (sale.isUpsell) tipo = "Upsell";
           else if (sale.items?.some((i) => i.isOrderBump)) tipo = "+ Bump";
 
           return [

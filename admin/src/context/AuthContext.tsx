@@ -12,6 +12,8 @@ interface User {
   email: string;
   stripeAccountId?: string;
   stripeOnboardingComplete: boolean;
+  createdAt?: string;
+  acknowledgedMilestones?: string[];
 }
 
 interface AuthContextType {
@@ -21,6 +23,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  acknowledgeMilestone: (milestone: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -90,6 +93,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [fetchUser, location, navigate]
   ); // Dependências: fetchUser, location, navigate
 
+  const acknowledgeMilestone = useCallback(
+    async (milestone: string) => {
+      if (!token) return;
+      try {
+        const response = await axios.post(`${API_URL}/auth/acknowledge-milestone`, { milestone });
+        setUser((prev) => prev ? { ...prev, acknowledgedMilestones: response.data.acknowledgedMilestones } : prev);
+      } catch (error) {
+        console.error("Erro ao reconhecer milestone:", error);
+      }
+    },
+    [token]
+  );
+
   // 5. Estabilize 'logout' com useCallback
   const logout = useCallback(() => {
     destroyCookie(null, "auth_token", { path: "/" });
@@ -126,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchUser]); // Dependência: fetchUser (agora estável)
 
-  return <AuthContext.Provider value={{ user, token, isLoading, login, logout, refreshUser }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, token, isLoading, login, logout, refreshUser, acknowledgeMilestone }}>{children}</AuthContext.Provider>;
 }
 
 // Hook customizado

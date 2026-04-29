@@ -2,7 +2,7 @@ import AbandonedCart from "../models/abandoned-cart.model";
 import Offer from "../models/offer.model";
 import { sendCartAbandonmentEmail } from "../services/email.service";
 
-const JOB_INTERVAL_MS = 5 * 60 * 1000;   // roda a cada 5 minutos
+const JOB_INTERVAL_MS = 60 * 60 * 1000;  // roda a cada 1 hora
 const REMINDER_1_DELAY_MS = 30 * 60 * 1000; // 1º lembrete: 30 min após abandono
 const REMINDER_2_DELAY_MS = 60 * 60 * 1000; // 2º lembrete: 1 hora após abandono
 
@@ -20,18 +20,11 @@ async function processReminder1(): Promise<void> {
     createdAt: { $lte: cutoff },
   }).lean();
 
-  if (carts.length === 0) {
-    console.log(`[Cart Abandonment] Wave 1 — nenhum carrinho elegível`);
-    return;
-  }
-
-  console.log(`[Cart Abandonment] Wave 1 — ${carts.length} carrinho(s) elegível(is) para 1º lembrete`);
+  if (carts.length === 0) return;
 
   for (const cart of carts) {
     const tag = `[Cart Abandonment][Wave 1][${cart._id}]`;
     try {
-      console.log(`${tag} Processando carrinho — email: ${cart.customerEmail}`);
-
       const offer = await Offer.findOne({
         _id: cart.offerId,
         cartAbandonmentEnabled: true,
@@ -39,15 +32,10 @@ async function processReminder1(): Promise<void> {
         .select("name mainProduct currency language slug")
         .lean();
 
-      if (!offer) {
-        console.log(`${tag} Oferta ${cart.offerId} não encontrada ou abandono desabilitado — pulando`);
-        continue;
-      }
+      if (!offer) continue;
 
       const baseUrl = (process.env.CHECKOUT_BASE_URL || "").replace(/\/$/, "");
       const checkoutUrl = `${baseUrl}/c/${offer.slug}`;
-
-      console.log(`${tag} Disparando 1º lembrete para ${cart.customerEmail} — oferta: ${offer.name}`);
 
       await sendCartAbandonmentEmail({
         to: cart.customerEmail,
@@ -67,8 +55,6 @@ async function processReminder1(): Promise<void> {
         { _id: cart._id },
         { reminder1SentAt: now, emailSent: true, emailSentAt: now }
       );
-
-      console.log(`${tag} 1º lembrete enviado com sucesso para ${cart.customerEmail}`);
     } catch (err: any) {
       console.error(`${tag} Erro ao enviar 1º lembrete para ${cart.customerEmail}: ${err.message}`);
     }
@@ -88,18 +74,11 @@ async function processReminder2(): Promise<void> {
     createdAt: { $lte: cutoff },
   }).lean();
 
-  if (carts.length === 0) {
-    console.log(`[Cart Abandonment] Wave 2 — nenhum carrinho elegível`);
-    return;
-  }
-
-  console.log(`[Cart Abandonment] Wave 2 — ${carts.length} carrinho(s) elegível(is) para 2º lembrete`);
+  if (carts.length === 0) return;
 
   for (const cart of carts) {
     const tag = `[Cart Abandonment][Wave 2][${cart._id}]`;
     try {
-      console.log(`${tag} Processando carrinho — email: ${cart.customerEmail}`);
-
       const offer = await Offer.findOne({
         _id: cart.offerId,
         cartAbandonmentEnabled: true,
@@ -107,15 +86,10 @@ async function processReminder2(): Promise<void> {
         .select("name mainProduct currency language slug")
         .lean();
 
-      if (!offer) {
-        console.log(`${tag} Oferta ${cart.offerId} não encontrada ou abandono desabilitado — pulando`);
-        continue;
-      }
+      if (!offer) continue;
 
       const baseUrl = (process.env.CHECKOUT_BASE_URL || "").replace(/\/$/, "");
       const checkoutUrl = `${baseUrl}/c/${offer.slug}`;
-
-      console.log(`${tag} Disparando 2º lembrete para ${cart.customerEmail} — oferta: ${offer.name}`);
 
       await sendCartAbandonmentEmail({
         to: cart.customerEmail,
@@ -134,8 +108,6 @@ async function processReminder2(): Promise<void> {
         { _id: cart._id },
         { reminder2SentAt: new Date() }
       );
-
-      console.log(`${tag} 2º lembrete enviado com sucesso para ${cart.customerEmail}`);
     } catch (err: any) {
       console.error(`${tag} Erro ao enviar 2º lembrete para ${cart.customerEmail}: ${err.message}`);
     }
@@ -143,15 +115,11 @@ async function processReminder2(): Promise<void> {
 }
 
 async function processAbandonedCarts(): Promise<void> {
-  console.log(`[Cart Abandonment] Iniciando ciclo — ${new Date().toISOString()}`);
   await processReminder1();
   await processReminder2();
-  console.log(`[Cart Abandonment] Ciclo concluído`);
 }
 
 export const startCartAbandonmentJob = (): void => {
-  console.log(`[Cart Abandonment] Job iniciado — intervalo: ${JOB_INTERVAL_MS / 60000} min | Wave 1: ${REMINDER_1_DELAY_MS / 60000} min | Wave 2: ${REMINDER_2_DELAY_MS / 60000} min`);
-
   processAbandonedCarts().catch((err) => {
     console.error(`[Cart Abandonment] Erro no processamento inicial: ${err.message}`);
   });
@@ -167,6 +135,5 @@ export const stopCartAbandonmentJob = (): void => {
   if (jobInterval) {
     clearInterval(jobInterval);
     jobInterval = null;
-    console.log(`[Cart Abandonment] Job parado`);
   }
 };

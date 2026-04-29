@@ -21,27 +21,6 @@ import { PhoneInput } from "../../components/checkout/PhoneInput";
 
 const PayPalPayment = lazy(() => import("../../components/checkout/PayPalPayment").then((m) => ({ default: m.PayPalPayment })));
 
-const STRIPE_STYLE: StripeElementStyle = {
-  base: {
-    color: "#374151",
-    fontFamily: "inherit",
-    fontSize: "14px",
-    "::placeholder": { color: "#9CA3AF" },
-  },
-  invalid: { color: "#EF4444", iconColor: "#EF4444" },
-};
-
-const STRIPE_STYLE_CENTERED: StripeElementStyle = {
-  base: {
-    color: "#374151",
-    fontFamily: "inherit",
-    fontSize: "14px",
-    lineHeight: "48px",
-    textAlign: "left",
-    "::placeholder": { color: "#9CA3AF" },
-  },
-  invalid: { color: "#EF4444", iconColor: "#EF4444" },
-};
 
 const PixIcon: React.FC<{ color?: string }> = ({ color = "#6b7280" }) => (
   <svg className="h-5 w-5" viewBox="0 0 512 512" fill={color}>
@@ -49,11 +28,19 @@ const PixIcon: React.FC<{ color?: string }> = ({ color = "#6b7280" }) => (
   </svg>
 );
 
-const HublaInput: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { primary: string }> = ({ primary, className = "", style, ...props }) => (
+const HublaInput: React.FC<
+  React.InputHTMLAttributes<HTMLInputElement> & {
+    primary: string;
+    borderColor?: string;
+    focusBorderColor?: string;
+  }
+> = ({ primary, borderColor = "#e5e7eb", focusBorderColor, className = "", style, onFocus, onBlur, ...props }) => (
   <input
     {...props}
-    className={`w-full px-4 border border-gray-200 rounded-md text-sm outline-none transition-colors duration-150 focus:border-[var(--hp)] focus:relative focus:z-10 ${className}`}
-    style={{ "--hp": primary, height: "48px", ...style } as React.CSSProperties}
+    className={`w-full px-4 border rounded-md text-sm outline-none transition-colors duration-150 focus:relative focus:z-10 placeholder:text-[#6b7280] ${className}`}
+    style={{ borderColor, height: "48px", ...style } as React.CSSProperties}
+    onFocus={(e) => { e.currentTarget.style.borderColor = focusBorderColor ?? primary; onFocus?.(e); }}
+    onBlur={(e) => { e.currentTarget.style.borderColor = borderColor; onBlur?.(e); }}
   />
 );
 
@@ -63,21 +50,23 @@ const StripeFieldWrapper: React.FC<{
   primary: string;
   right?: React.ReactNode;
   className?: string;
-}> = ({ label, children, primary, right, className = "" }) => (
+  isFocused?: boolean;
+  borderColor?: string;
+  focusBorderColor?: string;
+  labelColor?: string;
+}> = ({ label, children, primary, right, className = "", isFocused = false, borderColor = "#e5e7eb", focusBorderColor, labelColor = "#9ca3af" }) => (
   <div
-    className={`border border-gray-200 rounded-md mb-0 px-4 transition-colors duration-150 focus-within:border-[var(--hp)] ${className}`}
-    style={
-      {
-        "--hp": primary,
-        minHeight: "48px",
-        paddingTop: label || right ? "6px" : "0px",
-        paddingBottom: label || right ? "6px" : "0px",
-      } as React.CSSProperties
-    }
+    className={`border rounded-md mb-0 px-4 transition-colors duration-150 ${className}`}
+    style={{
+      borderColor: isFocused ? (focusBorderColor ?? primary) : borderColor,
+      minHeight: "48px",
+      paddingTop: label || right ? "6px" : "0px",
+      paddingBottom: label || right ? "6px" : "0px",
+    } as React.CSSProperties}
   >
     {(label || right) && (
       <div className="flex items-center justify-between mb-1">
-        {label && <span className="text-xs text-gray-400">{label}</span>}
+        {label && <span className="text-xs" style={{ color: labelColor }}>{label}</span>}
         {right}
       </div>
     )}
@@ -91,6 +80,32 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
   const navigate = useNavigate();
   const { button, buttonForeground, backgroundColor, foregroundColor, primary } = useTheme();
   const { t } = useTranslation();
+
+  const isDark = useMemo(() => {
+    try {
+      const hex = backgroundColor.replace("#", "");
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return (r * 299 + g * 587 + b * 114) / 1000 < 128;
+    } catch { return false; }
+  }, [backgroundColor]);
+
+  const inputBorder = isDark ? "#2c2c2c" : "#e5e7eb";
+  const inputFocusBorder = isDark ? "#ffffff" : primary;
+  const cardBg = isDark ? "#1a1a1a" : "#ffffff";
+  const cardBorder = isDark ? "#2c2c2c" : "#e5e7eb";
+  const mutedColor = isDark ? "#9ca3af" : "#6b7280";
+
+  const stripeStyle = useMemo((): StripeElementStyle => ({
+    base: { color: foregroundColor, fontFamily: "inherit", fontSize: "14px", "::placeholder": { color: "#6b7280" } },
+    invalid: { color: "#EF4444", iconColor: "#EF4444" },
+  }), [foregroundColor]);
+
+  const stripeStyleCentered = useMemo((): StripeElementStyle => ({
+    base: { color: foregroundColor, fontFamily: "inherit", fontSize: "14px", lineHeight: "48px", textAlign: "left", "::placeholder": { color: "#6b7280" } },
+    invalid: { color: "#EF4444", iconColor: "#EF4444" },
+  }), [foregroundColor]);
 
   // Payment state
   const [loading, setLoading] = useState(false);
@@ -140,6 +155,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
 
   const [selectedBumps, setSelectedBumps] = useState<string[]>([]);
   const [totalAmount, setTotalAmount] = useState(offerData.mainProduct.priceInCents);
+  const [focusedStripeField, setFocusedStripeField] = useState<string | null>(null);
   const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
   const [walletLabel, setWalletLabel] = useState<string | null>(null);
   const [paypalClientId, setPaypalClientId] = useState<string | null>(null);
@@ -742,17 +758,20 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
             const savings = originalTotal - totalAmount;
 
             return (
-              <div className="border rounded-lg shadow-sm overflow-hidden" style={{ borderColor: `${foregroundColor}18`, backgroundColor: "white" }}>
+              <div className="border rounded-lg shadow-sm overflow-hidden" style={{ borderColor: cardBorder, backgroundColor: cardBg }}>
                 {showDetails ? (
-                  /* EXPANDED: details open at the top, no product header above */
+                  /* EXPANDED */
                   <div className="p-3">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-semibold text-gray-800">{t.orderSummary.purchaseDetails}</span>
+                      <span className="text-sm font-semibold" style={{ color: foregroundColor }}>
+                        {t.orderSummary.purchaseDetails}
+                      </span>
                       <button
                         type="button"
                         onClick={() => setShowDetails(false)}
-                        className="flex items-center gap-1 text-xs text-gray-800 hover:text-gray-900 transition-colors"
+                        className="flex items-center gap-1 text-xs transition-colors"
+                        style={{ color: foregroundColor }}
                       >
                         {t.orderSummary.hide}
                         <ChevronDown className="h-3.5 w-3.5 rotate-180" />
@@ -760,7 +779,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                     </div>
 
                     {/* Main product row */}
-                    <div className="flex items-center gap-2 py-2 border-b border-gray-50">
+                    <div className={`flex items-center gap-2 py-2 border-b`} style={{ borderColor: cardBorder }}>
                       {offerData.mainProduct.imageUrl && (
                         <img
                           src={offerData.mainProduct.imageUrl}
@@ -768,12 +787,18 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                           className="w-10 h-10 rounded object-cover shrink-0"
                         />
                       )}
-                      <p className="flex-1 text-xs text-gray-700 leading-snug line-clamp-2">{offerData.mainProduct.name}</p>
+                      <p className="flex-1 text-xs leading-snug line-clamp-2" style={{ color: foregroundColor }}>
+                        {offerData.mainProduct.name}
+                      </p>
                       <div className="text-right shrink-0 ml-2">
                         {mainOriginal > mainPrice && (
-                          <p className="text-[10px] text-gray-400 line-through">{formatCurrency(mainOriginal, offerData.currency)}</p>
+                          <p className="text-[10px] line-through" style={{ color: `${foregroundColor}60` }}>
+                            {formatCurrency(mainOriginal, offerData.currency)}
+                          </p>
                         )}
-                        <p className="text-xs font-semibold text-gray-800">{formatCurrency(mainPrice, offerData.currency)}</p>
+                        <p className="text-xs font-semibold" style={{ color: foregroundColor }}>
+                          {formatCurrency(mainPrice, offerData.currency)}
+                        </p>
                       </div>
                     </div>
 
@@ -783,28 +808,34 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                       if (!bump) return null;
                       const bOriginal = bump.originalPriceInCents ?? bump.priceInCents;
                       return (
-                        <div key={id} className="flex items-center gap-2 py-2 border-b border-gray-50">
+                        <div key={id} className={`flex items-center gap-2 py-2 border-b`} style={{ borderColor: cardBorder }}>
                           {bump.imageUrl && <img src={bump.imageUrl} alt={bump.name} className="w-10 h-10 rounded object-cover shrink-0" />}
-                          <p className="flex-1 text-xs text-gray-700 leading-snug line-clamp-2">{bump.name}</p>
+                          <p className="flex-1 text-xs leading-snug line-clamp-2" style={{ color: foregroundColor }}>
+                            {bump.name}
+                          </p>
                           <div className="text-right shrink-0 ml-2">
                             {bOriginal > bump.priceInCents && (
-                              <p className="text-[10px] text-gray-400 line-through">{formatCurrency(bOriginal, offerData.currency)}</p>
+                              <p className="text-[10px] line-through" style={{ color: `${foregroundColor}60` }}>
+                                {formatCurrency(bOriginal, offerData.currency)}
+                              </p>
                             )}
-                            <p className="text-xs font-semibold text-gray-800">{formatCurrency(bump.priceInCents, offerData.currency)}</p>
+                            <p className="text-xs font-semibold" style={{ color: foregroundColor }}>
+                              {formatCurrency(bump.priceInCents, offerData.currency)}
+                            </p>
                           </div>
                         </div>
                       );
                     })}
 
                     {/* Subtotal */}
-                    <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
+                    <div className="flex items-center justify-between mt-3 text-xs" style={{ color: `${foregroundColor}80` }}>
                       <span>{t.orderSummary.subtotal}</span>
                       <span>{formatCurrency(subtotal, offerData.currency)}</span>
                     </div>
 
                     {/* Savings */}
                     {savings > 0 && (
-                      <div className="flex items-center justify-between mt-1 text-xs font-medium text-green-600">
+                      <div className="flex items-center justify-between mt-1 text-xs font-medium text-green-500">
                         <span>{t.orderSummary.youSave}</span>
                         <span>- {formatCurrency(savings, offerData.currency)}</span>
                       </div>
@@ -812,13 +843,18 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
 
                     {/* Coupon */}
                     {offerData.coupons?.enabled && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
+                      <div className="mt-3 pt-3 border-t" style={{ borderColor: cardBorder }}>
                         {appliedCoupon ? (
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-green-600">
+                            <span className="text-xs font-medium text-green-500">
                               {t.orderSummary.couponApplied} "{appliedCoupon.code}" — {appliedCoupon.discountPercent}%
                             </span>
-                            <button type="button" onClick={handleRemoveCoupon} className="text-xs text-gray-400 underline hover:text-gray-600">
+                            <button
+                              type="button"
+                              onClick={handleRemoveCoupon}
+                              className="text-xs underline"
+                              style={{ color: `${foregroundColor}60` }}
+                            >
                               {t.orderSummary.remove}
                             </button>
                           </div>
@@ -839,7 +875,10 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                                     handleApplyCoupon();
                                   }
                                 }}
-                                className="flex-1 px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-gray-300 uppercase"
+                                className="flex-1 px-3 py-2 rounded-md text-sm outline-none uppercase placeholder:text-[#6b7280] border transition-colors"
+                                style={{ borderColor: inputBorder, backgroundColor: cardBg, color: foregroundColor }}
+                                onFocus={(e) => { e.currentTarget.style.borderColor = inputFocusBorder; }}
+                                onBlur={(e) => { e.currentTarget.style.borderColor = inputBorder; }}
                                 disabled={couponLoading}
                               />
                               <button
@@ -859,9 +898,11 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                     )}
 
                     {/* Total hoje */}
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                      <span className="text-sm font-bold text-gray-800">{t.orderSummary.totalToday}</span>
-                      <span className="text-sm font-bold" style={{ color: primary }}>
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t" style={{ borderColor: cardBorder }}>
+                      <span className="text-sm font-bold" style={{ color: foregroundColor }}>
+                        {t.orderSummary.totalToday}
+                      </span>
+                      <span className="text-sm font-bold" style={{ color: foregroundColor }}>
                         {formatCurrency(totalAmount, offerData.currency)}
                       </span>
                     </div>
@@ -873,23 +914,29 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                       <img
                         src={offerData.mainProduct.imageUrl}
                         alt={offerData.mainProduct.name}
-                        className="w-12 h-12 rounded-md object-cover shrink-0 border border-gray-100"
+                        className="w-12 h-12 rounded-md object-cover shrink-0 border"
+                        style={{ borderColor: cardBorder }}
                       />
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-semibold leading-snug text-gray-800 line-clamp-2">{offerData.mainProduct.name}</p>
+                        <p className="text-sm font-semibold leading-snug line-clamp-2" style={{ color: foregroundColor }}>
+                          {offerData.mainProduct.name}
+                        </p>
                         <button
                           type="button"
                           onClick={() => setShowDetails(true)}
-                          className="flex items-center gap-0.5 text-xs text-gray-800 shrink-0 hover:text-gray-900 transition-colors"
+                          className="flex items-center gap-0.5 text-xs shrink-0 transition-colors"
+                          style={{ color: foregroundColor }}
                         >
                           <ChevronDown className="h-6 w-6" />
                         </button>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         {selectedBumps.length === 0 && mainOriginal > mainPrice && (
-                          <p className="text-xs text-gray-400 line-through">{formatCurrency(mainOriginal, offerData.currency)}</p>
+                          <p className="text-xs line-through" style={{ color: `${foregroundColor}60` }}>
+                            {formatCurrency(mainOriginal, offerData.currency)}
+                          </p>
                         )}
                         <p className="text-sm font-bold" style={{ color: primary }}>
                           {formatCurrency(totalAmount, offerData.currency)}
@@ -922,6 +969,8 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                   className="rounded-b-none"
                   onChange={handleNameChange}
                   primary={primary}
+                  borderColor={inputBorder}
+                  focusBorderColor={inputFocusBorder}
                 />
                 <HublaInput
                   id="email"
@@ -932,6 +981,8 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                   className="rounded-none"
                   onChange={handleEmailChange}
                   primary={primary}
+                  borderColor={inputBorder}
+                  focusBorderColor={inputFocusBorder}
                 />
                 {offerData.collectPhone && (
                   <PhoneInput
@@ -943,6 +994,9 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                     primary={primary}
                     className="rounded-t-none"
                     textColor={foregroundColor}
+                    inputBackground={backgroundColor}
+                    borderColor={inputBorder}
+                    focusBorderColor={inputFocusBorder}
                   />
                 )}
               </div>
@@ -962,13 +1016,13 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                       onClick={() => setMethod("creditCard")}
                       className="flex-1 flex flex-col gap-1.5 py-3 px-2 border rounded-md transition-all duration-200 text-left"
                       style={{
-                        borderColor: method === "creditCard" ? primary : "#e5e7eb",
+                        borderColor: method === "creditCard" ? inputFocusBorder : inputBorder,
                         borderWidth: method === "creditCard" ? "2px" : "1px",
-                        backgroundColor: method === "creditCard" ? `${primary}0d` : "white",
+                        backgroundColor: method === "creditCard" ? `${inputFocusBorder}18` : backgroundColor,
                       }}
                     >
-                      <CreditCard className="h-5 w-5" style={{ color: method === "creditCard" ? primary : "#9ca3af" }} />
-                      <span className="text-xs font-medium" style={{ color: method === "creditCard" ? primary : "#6b7280" }}>
+                      <CreditCard className="h-5 w-5" style={{ color: method === "creditCard" ? inputFocusBorder : mutedColor }} />
+                      <span className="text-xs font-medium" style={{ color: method === "creditCard" ? inputFocusBorder : mutedColor }}>
                         {t.payment.creditCard}
                       </span>
                     </button>
@@ -981,13 +1035,13 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                       onClick={() => setMethod("pix")}
                       className="flex-1 flex flex-col text-left gap-1.5 py-3 px-2 border items-baseline rounded-md transition-all duration-200"
                       style={{
-                        borderColor: method === "pix" ? primary : "#e5e7eb",
+                        borderColor: method === "pix" ? inputFocusBorder : inputBorder,
                         borderWidth: method === "pix" ? "2px" : "1px",
-                        backgroundColor: method === "pix" ? `${primary}0d` : "white",
+                        backgroundColor: method === "pix" ? `${inputFocusBorder}18` : backgroundColor,
                       }}
                     >
-                      <PixIcon color={method === "pix" ? primary : "#9ca3af"} />
-                      <span className="text-xs font-medium" style={{ color: method === "pix" ? primary : "#6b7280" }}>
+                      <PixIcon color={method === "pix" ? inputFocusBorder : mutedColor} />
+                      <span className="text-xs font-medium" style={{ color: method === "pix" ? inputFocusBorder : mutedColor }}>
                         Pix
                       </span>
                     </button>
@@ -1000,15 +1054,15 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                       onClick={() => setMethod("paypal")}
                       className="flex-1 flex flex-col text-left gap-1.5 py-3 px-2 border items-baseline rounded-md transition-all duration-200"
                       style={{
-                        borderColor: method === "paypal" ? primary : "#e5e7eb",
+                        borderColor: method === "paypal" ? inputFocusBorder : inputBorder,
                         borderWidth: method === "paypal" ? "2px" : "1px",
-                        backgroundColor: method === "paypal" ? `${primary}0d` : "white",
+                        backgroundColor: method === "paypal" ? `${inputFocusBorder}18` : backgroundColor,
                       }}
                     >
                       <div style={{ opacity: method === "paypal" ? 1 : 0.5 }}>
                         <PayPalIcon className="h-5 w-auto" />
                       </div>
-                      <span className="text-xs font-medium" style={{ color: method === "paypal" ? primary : "#6b7280" }}>
+                      <span className="text-xs font-medium" style={{ color: method === "paypal" ? inputFocusBorder : mutedColor }}>
                         PayPal
                       </span>
                     </button>
@@ -1021,13 +1075,13 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                       onClick={() => setMethod("wallet")}
                       className="flex-1 flex flex-col text-left gap-1.5 py-3 px-2 border items-baseline rounded-md transition-all duration-200"
                       style={{
-                        borderColor: method === "wallet" ? primary : "#e5e7eb",
+                        borderColor: method === "wallet" ? inputFocusBorder : inputBorder,
                         borderWidth: method === "wallet" ? "2px" : "1px",
-                        backgroundColor: method === "wallet" ? `${primary}0d` : "white",
+                        backgroundColor: method === "wallet" ? `${inputFocusBorder}18` : backgroundColor,
                       }}
                     >
                       {walletLabel === t.payment.applePay ? <AppleyPayIcon className="h-6 w-auto" /> : <GooglePayIcon className="h-6 w-auto" />}
-                      <span className="text-xs font-medium" style={{ color: method === "wallet" ? primary : "#6b7280" }}>
+                      <span className="text-xs font-medium" style={{ color: method === "wallet" ? inputFocusBorder : mutedColor }}>
                         {walletLabel}
                       </span>
                     </button>
@@ -1044,6 +1098,10 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                   label={t.creditCard.cardNumber}
                   primary={primary}
                   className="rounded-b-none"
+                  isFocused={focusedStripeField === "card-number"}
+                  borderColor={inputBorder}
+                  focusBorderColor={inputFocusBorder}
+                  labelColor={mutedColor}
                   right={
                     <div className="flex items-center gap-1.5">
                       <svg xmlns="http://www.w3.org/2000/svg" width="25" height="8" viewBox="0 0 25 8">
@@ -1109,16 +1167,43 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                     </div>
                   }
                 >
-                  <CardNumberElement id="card-number" options={{ style: STRIPE_STYLE }} />
+                  <CardNumberElement
+                    id="card-number"
+                    options={{ style: stripeStyle }}
+                    onFocus={() => setFocusedStripeField("card-number")}
+                    onBlur={() => setFocusedStripeField(null)}
+                  />
                 </StripeFieldWrapper>
 
                 {/* Expiry + CVV side by side */}
                 <div className="grid grid-cols-2">
-                  <StripeFieldWrapper primary={primary} className="border-t-0 rounded-br-none rounded-t-none border-r-0">
-                    <CardExpiryElement id="card-expiry" options={{ style: STRIPE_STYLE_CENTERED }} />
+                  <StripeFieldWrapper
+                    primary={primary}
+                    className="border-t-0 rounded-br-none rounded-t-none border-r-0"
+                    isFocused={focusedStripeField === "card-expiry"}
+                    borderColor={inputBorder}
+                    focusBorderColor={inputFocusBorder}
+                  >
+                    <CardExpiryElement
+                      id="card-expiry"
+                      options={{ style: stripeStyleCentered }}
+                      onFocus={() => setFocusedStripeField("card-expiry")}
+                      onBlur={() => setFocusedStripeField(null)}
+                    />
                   </StripeFieldWrapper>
-                  <StripeFieldWrapper primary={primary} className="border-t-0 rounded-bl-none rounded-t-none">
-                    <CardCvcElement id="card-cvv" options={{ style: STRIPE_STYLE_CENTERED }} />
+                  <StripeFieldWrapper
+                    primary={primary}
+                    className="border-t-0 rounded-bl-none rounded-t-none"
+                    isFocused={focusedStripeField === "card-cvv"}
+                    borderColor={inputBorder}
+                    focusBorderColor={inputFocusBorder}
+                  >
+                    <CardCvcElement
+                      id="card-cvv"
+                      options={{ style: stripeStyleCentered }}
+                      onFocus={() => setFocusedStripeField("card-cvv")}
+                      onBlur={() => setFocusedStripeField(null)}
+                    />
                   </StripeFieldWrapper>
                 </div>
 
@@ -1129,7 +1214,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                 >
                   {t.creditCard.cardholderName}
                 </h2>
-                <HublaInput id="hubla-card-name" type="text" placeholder={t.creditCard.cardholderNamePlaceholder} primary={primary} />
+                <HublaInput id="hubla-card-name" type="text" placeholder={t.creditCard.cardholderNamePlaceholder} primary={primary} borderColor={inputBorder} focusBorderColor={inputFocusBorder} />
 
                 {/* Document */}
                 {offerData.collectDocument && (
@@ -1148,6 +1233,8 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                       onChange={handleDocumentChange}
                       maxLength={18}
                       primary={primary}
+                      borderColor={inputBorder}
+                      focusBorderColor={inputFocusBorder}
                     />
                   </div>
                 )}
@@ -1208,7 +1295,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                 {offerData.orderBumps.map((bump) => {
                   const isSelected = selectedBumps.includes(bump._id);
                   return (
-                    <div key={bump._id} className="rounded-md overflow-hidden border border-gray-200 shadow-sm">
+                    <div key={bump._id} className="rounded-md overflow-hidden border shadow-sm" style={{ borderColor: cardBorder }}>
                       {/* Colored header — green when selected */}
                       <div
                         className="flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors duration-300"
@@ -1222,33 +1309,39 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                       </div>
 
                       {/* Body */}
-                      <div className="bg-white p-3 space-y-2">
+                      <div className="p-3 space-y-2" style={{ backgroundColor }}>
                         {/* Checkbox row + description */}
                         <label className="flex items-start gap-2 cursor-pointer" onClick={() => handleToggleBump(bump._id)}>
                           <div
                             className="mt-0.5 h-4 w-4 border-2 rounded-sm shrink-0 flex items-center justify-center transition-colors"
                             style={
-                              isSelected ? { backgroundColor: primary, borderColor: primary } : { backgroundColor: "white", borderColor: "#d1d5db" }
+                              isSelected
+                                ? { backgroundColor: "#16a34a", borderColor: "#16a34a" }
+                                : { backgroundColor: "transparent", borderColor: inputBorder }
                             }
                           >
                             {isSelected && <Check className="h-3 w-3 text-white" />}
                           </div>
-                          {bump.description && <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{bump.description}</p>}
+                          {bump.description && (
+                            <p className="text-xs leading-relaxed whitespace-pre-line" style={{ color: foregroundColor }}>
+                              {bump.description}
+                            </p>
+                          )}
                         </label>
 
                         {/* Product card: image + price */}
-                        <div className="flex items-center gap-3 border border-gray-100 rounded p-2 bg-gray-50">
+                        <div className="flex items-center gap-3 border rounded p-2" style={{ borderColor: cardBorder, backgroundColor: cardBg }}>
                           {bump.imageUrl && <img src={bump.imageUrl} alt={bump.name} className="w-14 h-14 object-cover rounded shrink-0" />}
                           <div className="min-w-0">
-                            <p className="text-xs text-gray-600 font-medium leading-snug line-clamp-2">{bump.name}</p>
+                            <p className="text-xs font-medium leading-snug line-clamp-2" style={{ color: foregroundColor }}>
+                              {bump.name}
+                            </p>
                             {bump.originalPriceInCents && bump.originalPriceInCents > bump.priceInCents ? (
-                              <p className="text-xs text-gray-400 mt-0.5">
+                              <p className="text-xs mt-0.5" style={{ color: `${foregroundColor}80` }}>
                                 De {formatCurrency(bump.originalPriceInCents, offerData.currency)} por apenas:
                               </p>
                             ) : null}
-                            <p className="text-sm font-bold mt-0.5" style={{ color: primary }}>
-                              {formatCurrency(bump.priceInCents, offerData.currency)}
-                            </p>
+                            <p className="text-sm font-bold mt-0.5">{formatCurrency(bump.priceInCents, offerData.currency)}</p>
                           </div>
                         </div>
                       </div>

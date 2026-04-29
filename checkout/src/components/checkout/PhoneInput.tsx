@@ -231,6 +231,9 @@ interface PhoneInputProps {
   placeholder?: string;
   primary: string;
   textColor: string;
+  inputBackground?: string;
+  borderColor?: string;
+  focusBorderColor?: string;
   className?: string;
 }
 
@@ -242,9 +245,13 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
   placeholder,
   primary,
   textColor,
+  inputBackground = "white",
+  borderColor = "#e5e7eb",
+  focusBorderColor,
   className = "",
 }) => {
   const [open, setOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<Country>(
     () => COUNTRIES.find((c) => c.dialCode === dialCode && c.code === "BR") ?? DEFAULT_COUNTRY,
   );
@@ -299,14 +306,15 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative flex border border-gray-200 rounded-md overflow-visible transition-colors duration-150 focus-within:border-[var(--hp)] ${className}`}
-      style={{ "--hp": primary, height: "48px" } as React.CSSProperties}
+      className={`relative flex border rounded-md overflow-visible transition-colors duration-150 ${className}`}
+      style={{ borderColor: isFocused ? (focusBorderColor ?? primary) : borderColor, height: "48px" } as React.CSSProperties}
     >
       {/* Country selector trigger */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1 pr-2 pl-4 text-gray-600 shrink-0 transition-colors rounded-l-md"
+        style={{ backgroundColor: inputBackground }}
       >
         <FlagImg code={selectedCountry.code} size={15} />
         <ChevronDown className="h-3 w-3 text-gray-400 ml-0.5" />
@@ -319,8 +327,10 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onPhoneChange(e.target.value.replace(/[^\d\s\-().+]/g, ""))}
-        className="flex-1 px-4 pl-0 text-sm outline-none bg-white rounded-r-md h-full"
-        style={{ color: textColor }}
+        className="flex-1 px-4 pl-0 text-sm outline-none rounded-r-md h-full placeholder:text-[#6b7280]"
+        style={{ color: textColor, backgroundColor: inputBackground }}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
       />
 
       {/* Dropdown */}

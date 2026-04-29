@@ -33,13 +33,18 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice): Pr
     const existing = await Sale.findOne({ stripePaymentIntentId: piId });
     if (existing) return;
 
-    // Busca uma venda anterior dessa assinatura para obter oferta e dono
-    const previousSale = await Sale.findOne({ stripeSubscriptionId: subscriptionId }).populate("offerId").populate("ownerId");
-    if (!previousSale) {
+    // Busca todas as vendas anteriores dessa assinatura para obter oferta, dono e ciclo atual
+    const previousSales = await Sale.find({ stripeSubscriptionId: subscriptionId })
+      .populate("offerId")
+      .populate("ownerId")
+      .sort({ createdAt: 1 });
+
+    if (!previousSales.length) {
       console.error(`❌ [Subscription] Nenhuma venda anterior encontrada para sub ${subscriptionId}`);
       return;
     }
 
+    const previousSale = previousSales[previousSales.length - 1];
     const offer = previousSale.offerId as any;
     const owner = previousSale.ownerId as any;
     if (!owner?.stripeAccountId) {
@@ -47,11 +52,16 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice): Pr
       return;
     }
 
+    // Calcula o ciclo: a venda inicial tem ciclo 1 (ou null), as renovações partem de 2
+    const maxCycle = previousSales.reduce((max, s) => Math.max(max, s.subscriptionCycle ?? 1), 1);
+    const nextCycle = maxCycle + 1;
+
     await Sale.create({
       ownerId: owner._id,
       offerId: offer._id,
       stripePaymentIntentId: piId,
       stripeSubscriptionId: subscriptionId,
+      subscriptionCycle: nextCycle,
       customerName: previousSale.customerName,
       customerEmail: previousSale.customerEmail,
       customerPhone: previousSale.customerPhone || "",

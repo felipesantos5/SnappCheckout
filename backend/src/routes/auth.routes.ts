@@ -18,4 +18,8 @@ router.post("/login", authLimiter, authController.handleLogin);
 // GET /api/auth/me
 router.get("/me", protectRoute, authController.handleGetMe);
 
+// (PROTEGIDO) Reconhece um milestone de faturamento
+// POST /api/auth/acknowledge-milestone
+router.post("/acknowledge-milestone", protectRoute, authController.handleAcknowledgeMilestone);
+
 export default router;

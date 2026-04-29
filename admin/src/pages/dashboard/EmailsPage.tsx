@@ -7,8 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Loader2, RefreshCw, Mail, ShoppingCart, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight, X, Send, AlertCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Mail, ShoppingCart, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight, Send, AlertCircle, X } from "lucide-react";
 import { formatDate } from "@/helper/formatDate";
 
 interface EmailLog {
@@ -25,11 +25,6 @@ interface EmailLog {
 
 interface EmailLogWithHtml extends EmailLog {
   htmlContent: string;
-}
-
-interface Offer {
-  _id: string;
-  name: string;
 }
 
 const typeConfig = {
@@ -58,9 +53,45 @@ const statusConfig = {
   },
 };
 
+const PERIOD_OPTIONS = [
+  { value: "1", label: "Hoje" },
+  { value: "yesterday", label: "Ontem" },
+  { value: "7", label: "Últimos 7 dias" },
+  { value: "30", label: "Últimos 30 dias" },
+  { value: "90", label: "Últimos 3 meses" },
+  { value: "all", label: "Tudo" },
+];
+
+function getPeriodDates(period: string): { startDate: string; endDate: string } {
+  const now = new Date();
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
+
+  if (period === "all") {
+    return { startDate: "", endDate: "" };
+  }
+  if (period === "yesterday") {
+    const start = new Date(now);
+    start.setDate(start.getDate() - 1);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setHours(23, 59, 59, 999);
+    return { startDate: start.toISOString(), endDate: end.toISOString() };
+  }
+  if (period === "1") {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    return { startDate: start.toISOString(), endDate: endOfToday.toISOString() };
+  }
+  const days = parseInt(period);
+  const start = new Date(now);
+  start.setDate(start.getDate() - days);
+  start.setHours(0, 0, 0, 0);
+  return { startDate: start.toISOString(), endDate: endOfToday.toISOString() };
+}
+
 export function EmailsPage() {
   const [logs, setLogs] = useState<EmailLog[]>([]);
-  const [offers, setOffers] = useState<Offer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -68,11 +99,7 @@ export function EmailsPage() {
 
   // Filtros
   const [search, setSearch] = useState("");
-  const [selectedType, setSelectedType] = useState<string>("all");
-  const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const [selectedOffer, setSelectedOffer] = useState<string>("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [period, setPeriod] = useState("30");
 
   // Preview modal
   const [previewLog, setPreviewLog] = useState<EmailLogWithHtml | null>(null);
@@ -81,31 +108,16 @@ export function EmailsPage() {
   // Métricas
   const [metrics, setMetrics] = useState({ total: 0, sent: 0, failed: 0, abandonment: 0, confirmation: 0 });
 
-  useEffect(() => {
-    axios
-      .get(`${API_URL}/offers`)
-      .then((r) => {
-        setOffers(Array.isArray(r.data) ? r.data : []);
-      })
-      .catch(() => {});
-  }, []);
-
   const buildParams = useCallback(() => {
     const p = new URLSearchParams();
     p.set("page", page.toString());
     p.set("limit", limit.toString());
-    if (selectedType !== "all") p.set("type", selectedType);
-    if (selectedStatus !== "all") p.set("status", selectedStatus);
-    if (selectedOffer !== "all") p.set("offerId", selectedOffer);
-    if (startDate) p.set("startDate", new Date(startDate).toISOString());
-    if (endDate) {
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      p.set("endDate", end.toISOString());
-    }
+    const { startDate, endDate } = getPeriodDates(period);
+    if (startDate) p.set("startDate", startDate);
+    if (endDate) p.set("endDate", endDate);
     if (search) p.set("search", search);
     return p;
-  }, [page, selectedType, selectedStatus, selectedOffer, startDate, endDate, search]);
+  }, [page, period, search]);
 
   const fetchLogs = useCallback(async () => {
     setIsLoading(true);
@@ -116,10 +128,11 @@ export function EmailsPage() {
       setLogs(data);
       setTotal(meta.total || 0);
 
-      // Métricas rápidas a partir dos dados carregados (sem paginação, só da página atual para overview)
-      const allRes = await axios.get(
-        `${API_URL}/email-logs?limit=10000&page=1${selectedType !== "all" ? `&type=${selectedType}` : ""}${selectedStatus !== "all" ? `&status=${selectedStatus}` : ""}${selectedOffer !== "all" ? `&offerId=${selectedOffer}` : ""}`,
-      );
+      const { startDate, endDate } = getPeriodDates(period);
+      const allParams = new URLSearchParams({ limit: "10000", page: "1" });
+      if (startDate) allParams.set("startDate", startDate);
+      if (endDate) allParams.set("endDate", endDate);
+      const allRes = await axios.get(`${API_URL}/email-logs?${allParams}`);
       const allData: EmailLog[] = allRes.data?.data || [];
       setMetrics({
         total: allData.length,
@@ -128,12 +141,12 @@ export function EmailsPage() {
         abandonment: allData.filter((l) => l.type === "cart_abandonment").length,
         confirmation: allData.filter((l) => l.type === "purchase_confirmation").length,
       });
-    } catch (err) {
+    } catch {
       toast.error("Erro ao buscar logs de email");
     } finally {
       setIsLoading(false);
     }
-  }, [buildParams, selectedType, selectedStatus, selectedOffer]);
+  }, [buildParams, period]);
 
   useEffect(() => {
     fetchLogs();
@@ -142,7 +155,7 @@ export function EmailsPage() {
   useEffect(() => {
     setPage(1);
     fetchLogs();
-  }, [selectedType, selectedStatus, selectedOffer, startDate, endDate, search]);
+  }, [period, search]);
 
   const openPreview = async (log: EmailLog) => {
     setIsLoadingPreview(true);
@@ -156,16 +169,6 @@ export function EmailsPage() {
     }
   };
 
-  const clearFilters = () => {
-    setSearch("");
-    setSelectedType("all");
-    setSelectedStatus("all");
-    setSelectedOffer("all");
-    setStartDate("");
-    setEndDate("");
-    setPage(1);
-  };
-
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
@@ -176,10 +179,24 @@ export function EmailsPage() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Emails Enviados</h1>
           <p className="text-sm text-muted-foreground mt-1">Histórico de todos os emails enviados pela plataforma</p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchLogs} disabled={isLoading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-          Atualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Email ou nome..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-9 w-[200px] text-sm"
+          />
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[155px] h-9">
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Métricas */}
@@ -226,201 +243,107 @@ export function EmailsPage() {
         </Card>
       </div>
 
-      <div className="flex gap-4 items-start">
-        {/* Filtros laterais */}
-        <aside className="w-56 shrink-0 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold">Filtros</span>
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
-              <X className="h-3 w-3 mr-1" /> Limpar
-            </Button>
-          </div>
+      {/* Tabela */}
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          {isLoading ? "Carregando..." : `${total} ${total === 1 ? "email" : "emails"} encontrados`}
+        </p>
 
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Buscar</Label>
-            <Input placeholder="Email ou nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-sm" />
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tipo</Label>
-            <div className="space-y-1">
-              {[
-                { value: "all", label: "Todos" },
-                { value: "purchase_confirmation", label: "Confirmação de Compra" },
-                { value: "cart_abandonment", label: "Recuperação de Carrinho" },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setSelectedType(opt.value)}
-                  className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${
-                    selectedType === opt.value ? "bg-[#fdbf08] text-black font-medium" : "hover:bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</Label>
-            <div className="space-y-1">
-              {[
-                { value: "all", label: "Todos" },
-                { value: "sent", label: "Enviados" },
-                { value: "failed", label: "Falharam" },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setSelectedStatus(opt.value)}
-                  className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${
-                    selectedStatus === opt.value ? "bg-[#fdbf08] text-black font-medium" : "hover:bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {offers.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Oferta</Label>
-              <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
-                <button
-                  onClick={() => setSelectedOffer("all")}
-                  className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${
-                    selectedOffer === "all" ? "bg-[#fdbf08] text-black font-medium" : "hover:bg-muted text-muted-foreground"
-                  }`}
-                >
-                  Todas
-                </button>
-                {offers.map((o) => (
-                  <button
-                    key={o._id}
-                    onClick={() => setSelectedOffer(o._id)}
-                    className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors truncate ${
-                      selectedOffer === o._id ? "bg-[#fdbf08] text-black font-medium" : "hover:bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {o.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Período</Label>
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 text-sm" />
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 text-sm" />
-          </div>
-        </aside>
-
-        {/* Tabela */}
-        <div className="flex-1 min-w-0 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              {isLoading ? "Carregando..." : `${total} ${total === 1 ? "email" : "emails"} encontrados`}
-            </p>
-          </div>
-
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="w-[140px]">Data</TableHead>
-                    <TableHead>Destinatário</TableHead>
-                    <TableHead>Assunto</TableHead>
-                    <TableHead className="w-[180px]">Tipo</TableHead>
-                    <TableHead className="w-[100px]">Status</TableHead>
-                    <TableHead className="w-[60px] text-center">Ver</TableHead>
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-[140px]">Data</TableHead>
+                  <TableHead>Destinatário</TableHead>
+                  <TableHead>Assunto</TableHead>
+                  <TableHead className="w-[180px]">Tipo</TableHead>
+                  <TableHead className="w-[100px]">Status</TableHead>
+                  <TableHead className="w-[60px] text-center">Ver</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-48 text-center">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-48 text-center">
-                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                      </TableCell>
-                    </TableRow>
-                  ) : logs.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-48 text-center">
-                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                          <Send className="h-8 w-8 opacity-30" />
-                          <p className="text-sm">Nenhum email encontrado com os filtros aplicados.</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    logs.map((log) => {
-                      const tc = typeConfig[log.type];
-                      const sc = statusConfig[log.status];
-                      return (
-                        <TableRow key={log._id} className="hover:bg-muted/50">
-                          <TableCell className="text-sm text-muted-foreground">{formatDate(log.sentAt)}</TableCell>
-                          <TableCell>
-                            <div className="font-medium text-sm">{log.customerName || "—"}</div>
-                            <div className="text-xs text-muted-foreground">{log.to}</div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm truncate max-w-[220px]">{log.subject}</div>
-                            {log.offerId && <div className="text-xs text-muted-foreground truncate max-w-[220px]">{log.offerId.name}</div>}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className={`gap-1 ${tc.color}`}>
-                              {tc.icon}
-                              {tc.label}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {log.status === "failed" && log.errorMessage ? (
-                              <div title={log.errorMessage}>
-                                <Badge variant="outline" className={`gap-1 ${sc.color} cursor-help`}>
-                                  {sc.icon}
-                                  {sc.label}
-                                </Badge>
-                              </div>
-                            ) : (
-                              <Badge variant="outline" className={`gap-1 ${sc.color}`}>
+                ) : logs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-48 text-center">
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <Send className="h-8 w-8 opacity-30" />
+                        <p className="text-sm">Nenhum email encontrado com os filtros aplicados.</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  logs.map((log) => {
+                    const tc = typeConfig[log.type];
+                    const sc = statusConfig[log.status];
+                    return (
+                      <TableRow key={log._id} className="hover:bg-muted/50">
+                        <TableCell className="text-sm text-muted-foreground">{formatDate(log.sentAt)}</TableCell>
+                        <TableCell>
+                          <div className="font-medium text-sm">{log.customerName || "—"}</div>
+                          <div className="text-xs text-muted-foreground">{log.to}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm truncate max-w-[220px]">{log.subject}</div>
+                          {log.offerId && <div className="text-xs text-muted-foreground truncate max-w-[220px]">{log.offerId.name}</div>}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`gap-1 ${tc.color}`}>
+                            {tc.icon}
+                            {tc.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {log.status === "failed" && log.errorMessage ? (
+                            <div title={log.errorMessage}>
+                              <Badge variant="outline" className={`gap-1 ${sc.color} cursor-help`}>
                                 {sc.icon}
                                 {sc.label}
                               </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openPreview(log)} disabled={isLoadingPreview}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className={`gap-1 ${sc.color}`}>
+                              {sc.icon}
+                              {sc.label}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openPreview(log)} disabled={isLoadingPreview}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
 
-          {/* Paginação */}
-          {!isLoading && logs.length > 0 && (
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                Página {page} de {totalPages}
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 1}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page >= totalPages}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+        {/* Paginação */}
+        {!isLoading && logs.length > 0 && (
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              Página {page} de {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 1}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page >= totalPages}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Modal de preview */}

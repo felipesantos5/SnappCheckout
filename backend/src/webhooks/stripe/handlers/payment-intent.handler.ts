@@ -560,7 +560,10 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       sale.utm_campaign = metadata.utm_campaign || sale.utm_campaign || "";
       sale.utm_term = metadata.utm_term || sale.utm_term || "";
       sale.utm_content = metadata.utm_content || sale.utm_content || "";
-      if (metadata.stripeSubscriptionId) sale.stripeSubscriptionId = metadata.stripeSubscriptionId;
+      if (metadata.stripeSubscriptionId) {
+        sale.stripeSubscriptionId = metadata.stripeSubscriptionId;
+        if (!sale.subscriptionCycle) sale.subscriptionCycle = 1;
+      }
 
       // Facebook Purchase consolidado: configura envio agendado ou vincula ao parent
       if (isUpsell) {
@@ -635,6 +638,7 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
             utm_term: metadata.utm_term || "",
             utm_content: metadata.utm_content || "",
             stripeSubscriptionId: metadata.stripeSubscriptionId || "",
+            subscriptionCycle: metadata.stripeSubscriptionId ? 1 : null,
           },
         },
         { upsert: true, new: true }

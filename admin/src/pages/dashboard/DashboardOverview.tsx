@@ -17,6 +17,7 @@ import type { DateRange } from "react-day-picker";
 import { subDays, startOfDay, endOfDay } from "date-fns";
 import { SalesWorldMap } from "@/components/dashboard/SalesWorldMap";
 import { KpiCard } from "@/components/dashboard/KpiCard";
+import { MilestoneModal } from "@/components/dashboard/MilestoneModal";
 
 // --- Interfaces ---
 interface DashboardData {
@@ -72,10 +73,17 @@ interface Offer {
 }
 
 export function DashboardOverview() {
-  const { token } = useAuth();
+  const { token, user, acknowledgeMilestone } = useAuth();
 
   const [metrics, setMetrics] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const MILESTONES = [
+    { key: "100k", threshold: 100_000, next: 500_000 },
+    { key: "500k", threshold: 500_000, next: null },
+  ];
+
+  const [activeMilestone, setActiveMilestone] = useState<typeof MILESTONES[number] | null>(null);
 
   // --- FILTROS COM PERSISTÊNCIA (LOCALSTORAGE) ---
   // Inicializa lendo do LocalStorage ou usa o padrão
@@ -125,8 +133,8 @@ export function DashboardOverview() {
     let endDate: string;
 
     if (days === "all") {
-      // Tempo Total - desde o início da operação (2020)
-      startDate = new Date("2020-01-01").toISOString();
+      // Tempo Total - desde a criação da conta do usuário
+      startDate = user?.createdAt ? startOfDay(new Date(user.createdAt)).toISOString() : new Date("2020-01-01").toISOString();
       endDate = endOfDay(now).toISOString();
     } else if (days === "custom") {
       // Período personalizado - usa o customDateRange
@@ -198,7 +206,23 @@ export function DashboardOverview() {
     fetchData();
   }, [token, period, selectedOfferId, customDateRange]);
 
+  // Detecta milestone de faturamento total usando period "all"
+  useEffect(() => {
+    if (!metrics || !user || loading) return;
+    // Busca receita total acumulada (period "all")
+    // Só verifica quando o período é "all" para ter o faturamento completo
+    if (period !== "all") return;
+    const totalRevenue = metrics.kpis.totalRevenue;
+    const acknowledged = user.acknowledgedMilestones ?? [];
+    const hit = MILESTONES.find((m) => totalRevenue >= m.threshold && !acknowledged.includes(m.key));
+    setActiveMilestone(hit ?? null);
+  }, [metrics, user, loading, period]);
 
+  const handleAcknowledgeMilestone = async () => {
+    if (!activeMilestone) return;
+    await acknowledgeMilestone(activeMilestone.key);
+    setActiveMilestone(null);
+  };
 
   const getPeriodLabel = () => {
     switch (period) {
@@ -389,6 +413,14 @@ export function DashboardOverview() {
         </div>
       </div>
       <RecentSalesTable period={period} customDateRange={customDateRange} />
+
+      {activeMilestone && (
+        <MilestoneModal
+          milestone={activeMilestone.threshold}
+          nextMilestone={activeMilestone.next}
+          onAcknowledge={handleAcknowledgeMilestone}
+        />
+      )}
     </div>
   );
 }

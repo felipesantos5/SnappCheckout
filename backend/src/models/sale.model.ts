@@ -17,6 +17,7 @@ export interface ISale extends Document {
   abTestId?: Schema.Types.ObjectId; // O teste A/B (se aplicável)
   stripePaymentIntentId: string; // O ID do pagamento no Stripe (pi_...)
   stripeSubscriptionId?: string; // ID da assinatura no Stripe (sub_...) — preenchido em cobranças recorrentes
+  subscriptionCycle?: number; // Número do ciclo da assinatura (1 = inicial, 2 = 2ª cobrança, etc.)
 
   customerName: string;
   customerEmail: string;
@@ -90,6 +91,7 @@ const saleSchema = new Schema<ISale>(
 
     stripePaymentIntentId: { type: String, required: true, unique: true, index: true },
     stripeSubscriptionId: { type: String, default: "", index: true },
+    subscriptionCycle: { type: Number, default: null },
 
     customerName: { type: String, required: true },
     customerEmail: { type: String, required: true, index: true },

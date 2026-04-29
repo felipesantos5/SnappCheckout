@@ -7,13 +7,14 @@ export interface IUser extends Document {
   name: string;
   email: string;
   passwordHash: string;
-  stripeAccountId?: string; // <-- NOVO: Armazena o ID da conta (ex: acct_...)
-  stripeOnboardingComplete: boolean; // <-- NOVO: Controla se o onboarding foi concluído
-  paypalClientId?: string; // <-- NOVO: PayPal Client ID
-  paypalClientSecret?: string; // <-- NOVO: PayPal Client Secret
-  pagarme_api_key?: string; // <-- NOVO: Pagar.me API Key (encriptada)
-  pagarme_encryption_key?: string; // <-- NOVO: Pagar.me Encryption Key (encriptada)
-  automaticNotifications: boolean; // <-- NOVO: Notificações automáticas de vendas
+  stripeAccountId?: string;
+  stripeOnboardingComplete: boolean;
+  paypalClientId?: string;
+  paypalClientSecret?: string;
+  pagarme_api_key?: string;
+  pagarme_encryption_key?: string;
+  automaticNotifications: boolean;
+  acknowledgedMilestones: string[];
   // SMTP para envio de emails
   smtpHost?: string;
   smtpPort?: number;
@@ -83,7 +84,13 @@ const userSchema = new Schema<IUser>(
     // --- NOVO CAMPO NOTIFICAÇÕES ---
     automaticNotifications: {
       type: Boolean,
-      default: false, // Desativado por padrão
+      default: false,
+    },
+
+    // --- MILESTONES DE FATURAMENTO ---
+    acknowledgedMilestones: {
+      type: [String],
+      default: [],
     },
 
     // --- SMTP PARA EMAILS ---
