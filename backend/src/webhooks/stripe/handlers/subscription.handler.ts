@@ -3,6 +3,7 @@ import { Stripe } from "stripe";
 import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
 import { getCountryFromIP } from "../../../helper/getCountryFromIP";
+import stripe from "../../../lib/stripe";
 
 export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, _stripeAccountId?: string): Promise<void> => {
   try {
@@ -22,18 +23,64 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, _st
 
     // API antiga: invoice.payment_intent = "pi_xxx"
     // API >=2025-03-31: payment_intent removido do Invoice object.
-    // Para subscription_create: Sale já criada pelo payment_intent.succeeded handler.
-    // Para subscription_cycle: necessitamos do PI para idempotência.
-    const piId: string | undefined =
+    // Quando piId ausente, resolvemos via Stripe API usando o owner's stripeAccountId.
+    let piId: string | undefined =
       typeof invoiceAny.payment_intent === "string"
         ? invoiceAny.payment_intent
         : invoiceAny.payment_intent?.id;
 
+    // Se piId ausente (API nova), resolver via offerSlug → owner → Stripe API
     if (!piId) {
-      // Na API nova não há payment_intent no invoice — retorna silenciosamente.
-      // subscription_create: tratado pelo payment_intent.succeeded.
-      // subscription_cycle: será tratado quando migrarmos o handler de renovação.
-      return;
+      const meta: Record<string, string> = subDetails?.metadata || {};
+      const offerSlug = meta.offerSlug;
+
+      let accountId = _stripeAccountId;
+
+      // Tentar resolver accountId via oferta
+      if (!accountId && offerSlug) {
+        const offerForAccount = await Offer.findOne({ slug: offerSlug }).populate("ownerId");
+        if (offerForAccount) {
+          accountId = (offerForAccount.ownerId as any)?.stripeAccountId;
+        }
+      }
+
+      // Para subscription_cycle sem offerSlug, buscar vendas anteriores para obter accountId
+      if (!accountId && invoice.billing_reason === "subscription_cycle") {
+        const prevSale = await Sale.findOne({ stripeSubscriptionId: subscriptionId }).populate("ownerId");
+        if (prevSale) {
+          accountId = (prevSale.ownerId as any)?.stripeAccountId;
+        }
+      }
+
+      if (accountId) {
+        try {
+          const customerId = typeof invoice.customer === "string"
+            ? invoice.customer
+            : (invoice.customer as any)?.id;
+
+          if (customerId) {
+            const pis = await stripe.paymentIntents.list(
+              { customer: customerId, limit: 5 },
+              { stripeAccount: accountId }
+            );
+            const matchingPi = pis.data.find((pi: any) =>
+              pi.payment_details?.order_reference === invoice.id
+            );
+            if (matchingPi) {
+              piId = matchingPi.id;
+              console.log(`[Subscription] PI resolvido via API: ${piId} para invoice ${invoice.id}`);
+            }
+          }
+        } catch (err: any) {
+          console.warn(`[Subscription] Erro ao resolver PI via API: ${err.message}`);
+        }
+      }
+
+      // Fallback: usar chave única baseada no invoice ID
+      if (!piId) {
+        piId = "sub_inv_" + invoice.id;
+        console.log(`[Subscription] Usando fallback piId: ${piId} para invoice ${invoice.id}`);
+      }
     }
 
     // Idempotência
