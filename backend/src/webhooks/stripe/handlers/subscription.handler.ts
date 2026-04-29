@@ -21,19 +21,18 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, _st
     }
 
     // API antiga: invoice.payment_intent = "pi_xxx"
-    // API >=2025-10-29: PI ID fica em confirmation_secret.client_secret = "pi_xxx_secret_..."
-    let piId: string | undefined =
+    // API >=2025-03-31: payment_intent removido do Invoice object.
+    // Para subscription_create: Sale já criada pelo payment_intent.succeeded handler.
+    // Para subscription_cycle: necessitamos do PI para idempotência.
+    const piId: string | undefined =
       typeof invoiceAny.payment_intent === "string"
         ? invoiceAny.payment_intent
         : invoiceAny.payment_intent?.id;
 
-    if (!piId && invoiceAny.confirmation_secret?.client_secret) {
-      // Extrai o PI ID do client_secret (formato: "pi_xxx_secret_yyy")
-      piId = invoiceAny.confirmation_secret.client_secret.split("_secret_")[0];
-    }
-
     if (!piId) {
-      console.error("❌ [Subscription] invoice sem payment_intent ID");
+      // Na API nova não há payment_intent no invoice — retorna silenciosamente.
+      // subscription_create: tratado pelo payment_intent.succeeded.
+      // subscription_cycle: será tratado quando migrarmos o handler de renovação.
       return;
     }
 
