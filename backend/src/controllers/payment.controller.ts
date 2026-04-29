@@ -95,9 +95,19 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
         invoice = await stripe.invoices.retrieve(invoice, { expand: ["payment_intent"] } as any, { stripeAccount: stripeAccountId });
         console.log("[subscription] invoice retrieved, payment_intent type:", typeof invoice?.payment_intent, "value:", typeof invoice?.payment_intent === "string" ? invoice.payment_intent : invoice?.payment_intent?.id);
       } else if (invoice && !invoice.payment_intent) {
-        // Expand aninhado falhou em conta conectada — busca invoice explicitamente
-        invoice = await stripe.invoices.retrieve(invoice.id, { expand: ["payment_intent"] } as any, { stripeAccount: stripeAccountId });
-        console.log("[subscription] invoice re-fetched, payment_intent type:", typeof invoice?.payment_intent, "value:", typeof invoice?.payment_intent === "string" ? invoice.payment_intent : invoice?.payment_intent?.id);
+        // Invoice veio como objeto mas sem payment_intent — pode estar em draft, finalizar e re-buscar
+        console.log("[subscription] invoice status:", invoice.status, "— finalizando se draft");
+        if (invoice.status === "draft") {
+          invoice = await (stripe.invoices as any).finalizeInvoice(
+            invoice.id,
+            { expand: ["payment_intent"] },
+            { stripeAccount: stripeAccountId }
+          );
+          console.log("[subscription] invoice finalized, payment_intent type:", typeof invoice?.payment_intent);
+        } else {
+          invoice = await stripe.invoices.retrieve(invoice.id, { expand: ["payment_intent"] } as any, { stripeAccount: stripeAccountId });
+          console.log("[subscription] invoice re-fetched, payment_intent type:", typeof invoice?.payment_intent);
+        }
       }
 
       let pi = invoice?.payment_intent as any;
@@ -106,17 +116,6 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
       if (typeof pi === "string") {
         console.log("[subscription] fetching PI explicitly:", pi);
         pi = await stripe.paymentIntents.retrieve(pi, { stripeAccount: stripeAccountId });
-      }
-
-      // Fallback: invoice.payment_intent ainda undefined — busca PI via lista (PI de invoice tem campo invoice=invoiceId)
-      if (!pi?.client_secret && invoice?.id) {
-        console.log("[subscription] fallback: listing PIs for customer to find invoice PI");
-        const piList = await stripe.paymentIntents.list(
-          { customer: customerId, limit: 5 },
-          { stripeAccount: stripeAccountId }
-        );
-        pi = piList.data.find((p: any) => p.invoice === invoice.id);
-        console.log("[subscription] fallback pi id:", pi?.id, "has client_secret:", !!pi?.client_secret);
       }
 
       console.log("[subscription] pi id:", pi?.id, "has client_secret:", !!pi?.client_secret);
