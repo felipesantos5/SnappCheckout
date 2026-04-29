@@ -82,57 +82,20 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
           payment_settings: { payment_method_types: ["card"], save_default_payment_method: "on_subscription" },
           application_fee_percent: 5,
           metadata: sharedMetadata,
-          expand: ["latest_invoice.payment_intent"],
+          expand: ["latest_invoice.confirmation_secret"],
         },
         { stripeAccount: stripeAccountId }
       );
 
-      let invoice = subscription.latest_invoice as any;
-      console.log("[subscription] latest_invoice type:", typeof invoice, "value:", typeof invoice === "string" ? invoice : invoice?.id);
+      const invoice = subscription.latest_invoice as any;
+      const clientSecret = invoice?.confirmation_secret?.client_secret;
 
-      // Se latest_invoice veio como string (não expandido), busca explicitamente
-      if (typeof invoice === "string") {
-        invoice = await stripe.invoices.retrieve(invoice, { expand: ["payment_intent"] } as any, { stripeAccount: stripeAccountId });
-        console.log("[subscription] invoice retrieved, payment_intent type:", typeof invoice?.payment_intent, "value:", typeof invoice?.payment_intent === "string" ? invoice.payment_intent : invoice?.payment_intent?.id);
-      } else if (invoice && !invoice.payment_intent) {
-        // Invoice veio como objeto mas sem payment_intent — pode estar em draft, finalizar e re-buscar
-        console.log("[subscription] invoice status:", invoice.status, "— finalizando se draft");
-        if (invoice.status === "draft") {
-          invoice = await (stripe.invoices as any).finalizeInvoice(
-            invoice.id,
-            { expand: ["payment_intent"] },
-            { stripeAccount: stripeAccountId }
-          );
-          console.log("[subscription] invoice finalized, payment_intent type:", typeof invoice?.payment_intent);
-        } else {
-          invoice = await stripe.invoices.retrieve(invoice.id, { expand: ["payment_intent"] } as any, { stripeAccount: stripeAccountId });
-          console.log("[subscription] invoice re-fetched, payment_intent type:", typeof invoice?.payment_intent);
-        }
+      if (!clientSecret) {
+        console.error("[subscription] confirmation_secret ausente — invoice:", invoice?.id, "status:", invoice?.status);
+        return res.status(500).json({ error: { message: "Falha ao criar assinatura: client_secret não encontrado." } });
       }
 
-      let pi = invoice?.payment_intent as any;
-
-      // Se o payment_intent veio como string (não expandido), busca explicitamente
-      if (typeof pi === "string") {
-        console.log("[subscription] fetching PI explicitly:", pi);
-        pi = await stripe.paymentIntents.retrieve(pi, { stripeAccount: stripeAccountId });
-      }
-
-      console.log("[subscription] pi id:", pi?.id, "has client_secret:", !!pi?.client_secret);
-
-      if (!pi?.client_secret) {
-        console.error("[subscription] PI debug - invoice:", JSON.stringify(invoice?.id), "pi:", JSON.stringify(pi));
-        return res.status(500).json({ error: { message: "Falha ao criar assinatura: PaymentIntent não encontrado." } });
-      }
-
-      // Atualiza metadata do PI para que o webhook existente funcione normalmente
-      await stripe.paymentIntents.update(
-        pi.id,
-        { metadata: { ...sharedMetadata, stripeSubscriptionId: subscription.id } },
-        { stripeAccount: stripeAccountId }
-      );
-
-      return res.status(200).json({ clientSecret: pi.client_secret });
+      return res.status(200).json({ clientSecret, subscriptionId: subscription.id });
     }
 
     // --- PAGAMENTO ÚNICO (fluxo original, sem alterações) ---
