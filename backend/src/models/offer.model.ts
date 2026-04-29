@@ -139,6 +139,11 @@ export interface IOffer extends Document {
   paymentType: PaymentType;
   subscriptionInterval: SubscriptionInterval;
 
+  coupons?: {
+    enabled: boolean;
+    codes: Array<{ code: string; discountPercent: number }>;
+  };
+
   createdAt?: Date;
   updatedAt?: Date;
   __v?: number;
@@ -361,6 +366,18 @@ const offerSchema = new Schema<IOffer>(
       type: Schema.Types.ObjectId,
       ref: "Category",
       index: true,
+    },
+    coupons: {
+      enabled: { type: Boolean, default: false },
+      codes: {
+        type: [
+          {
+            code: { type: String, required: true, trim: true },
+            discountPercent: { type: Number, required: true, min: 1, max: 100 },
+          },
+        ],
+        default: [],
+      },
     },
     emailNotification: {
       enabled: { type: Boolean, default: false },

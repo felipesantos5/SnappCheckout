@@ -36,6 +36,7 @@ import {
   LayoutTemplate,
   Mail,
   RefreshCw,
+  Tag,
 } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 import { PdfUpload } from "./PdfUpload";
@@ -318,6 +319,13 @@ const offerFormSchema = z.object({
     pdfUrl: optionalUrl,
   }).optional(),
   cartAbandonmentEnabled: z.boolean().default(false).optional(),
+  coupons: z.object({
+    enabled: z.boolean().default(false),
+    codes: z.array(z.object({
+      code: z.string().min(1, "Codigo obrigatorio"),
+      discountPercent: z.number().min(1).max(100),
+    })).default([]),
+  }).default({ enabled: false, codes: [] }),
 });
 
 export type OfferFormInput = z.input<typeof offerFormSchema>;
@@ -410,6 +418,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         pdfUrl: "",
       },
       cartAbandonmentEnabled: false,
+      coupons: { enabled: false, codes: [] },
     },
   });
 
@@ -443,6 +452,15 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
   } = useFieldArray({
     control: form.control,
     name: "upsell.steps" as any,
+  });
+
+  const {
+    fields: couponFields,
+    append: appendCoupon,
+    remove: removeCoupon,
+  } = useFieldArray({
+    control: form.control,
+    name: "coupons.codes" as any,
   });
 
   // Estado local para controlar visibilidade do card de downsell (confiável para re-render)
@@ -2243,6 +2261,104 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
               </FormItem>
             )}
           />
+        </FormSection>
+
+        {/* Seção: Cupons de Desconto */}
+        <FormSection
+          title="Cupons de Desconto"
+          icon={<Tag className="w-5 h-5" />}
+          description="Crie codigos de cupom com desconto percentual para o checkout Hubla."
+        >
+          <FormField
+            control={form.control}
+            name={"coupons.enabled" as any}
+            render={({ field }: any) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Ativar Cupons</FormLabel>
+                  <FormDescription>
+                    Quando ativado, o cliente vê um campo "Adicionar cupom" no checkout Hubla.
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <input
+                    type="checkbox"
+                    checked={field.value ?? false}
+                    onChange={field.onChange}
+                    className="h-5 w-5 accent-primary cursor-pointer"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          {form.watch("coupons.enabled" as any) && (
+            <div className="mt-4 space-y-3">
+              {couponFields.map((couponField, index) => (
+                <div key={couponField.id} className="flex items-center gap-2">
+                  <FormField
+                    control={form.control}
+                    name={`coupons.codes.${index}.code` as any}
+                    render={({ field }: any) => (
+                      <FormItem className="flex-1">
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="CODIGO (ex: DESCONTO20)"
+                            className="uppercase"
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`coupons.codes.${index}.discountPercent` as any}
+                    render={({ field }: any) => (
+                      <FormItem className="w-28">
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              min={1}
+                              max={100}
+                              placeholder="% desconto"
+                              value={field.value || ""}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeCoupon(index)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendCoupon({ code: "", discountPercent: 10 } as any)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar Cupom
+              </Button>
+            </div>
+          )}
         </FormSection>
 
         {/* Botão Flutuante Fixo */}

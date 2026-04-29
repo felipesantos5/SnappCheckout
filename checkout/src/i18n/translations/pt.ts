@@ -10,6 +10,14 @@ export const pt = {
     extraProduct: "Produto Extra",
     total: "Total",
     save: "Economize",
+    purchaseDetails: "Detalhes da compra",
+    hide: "Esconder",
+    totalToday: "Total hoje",
+    couponPlaceholder: "Inserir cupom de desconto",
+    apply: "Aplicar",
+    remove: "Remover",
+    youSave: "Você economiza",
+    couponApplied: "Cupom aplicado",
   },
 
   // Payment Methods
@@ -26,11 +34,11 @@ export const pt = {
   contact: {
     title: "Contato",
     email: "E-mail*",
-    emailPlaceholder: "seuemail@exemplo.com",
+    emailPlaceholder: "Email",
     name: "Nome completo*",
-    namePlaceholder: "Seu nome",
+    namePlaceholder: "Nome completo",
     phone: "Celular",
-    phonePlaceholder: "(00) 00000-0000",
+    phonePlaceholder: "Telefone",
   },
 
   // Address Info
@@ -85,6 +93,7 @@ export const pt = {
     processing: "Processando pagamento...",
     continue: "Continuar",
     back: "Voltar",
+    secureTransaction: "Transação Segura e Criptografada",
   },
 
   // Validation Messages
@@ -124,6 +133,7 @@ export const pt = {
 
   orderBump: {
     action: "Adicionar produto",
+    addedToCart: "Adicionado ao carrinho",
   },
 
   notification: {

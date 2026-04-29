@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from "rea
 import { useNavigate } from "react-router-dom";
 import { useStripe, useElements, CardNumberElement, CardExpiryElement, CardCvcElement, PaymentRequestButtonElement } from "@stripe/react-stripe-js";
 import type { PaymentRequest, PaymentRequestPaymentMethodEvent, StripeElementStyle } from "@stripe/stripe-js";
-import { Loader2, CheckCircle, ChevronDown, Plus, Lock, CreditCard } from "lucide-react";
+import { Loader2, CheckCircle, ChevronDown, Plus, Lock, CreditCard, Check } from "lucide-react";
 
 import type { OfferData } from "../../pages/CheckoutSlugPage";
 import { PixDisplay } from "../../components/checkout/PixDisplay";
@@ -17,9 +17,9 @@ import { getCookie } from "../../helper/getCookie";
 import { detectPlatform } from "../../utils/platformDetection";
 import { formatCurrency } from "../../helper/formatCurrency";
 import type { LayoutProps } from "../LayoutLoader";
+import { PhoneInput } from "../../components/checkout/PhoneInput";
 
 const PayPalPayment = lazy(() => import("../../components/checkout/PayPalPayment").then((m) => ({ default: m.PayPalPayment })));
-const OrderBump = lazy(() => import("../../components/checkout/OrderBump").then((m) => ({ default: m.OrderBump })));
 
 const STRIPE_STYLE: StripeElementStyle = {
   base: {
@@ -36,6 +36,7 @@ const STRIPE_STYLE_CENTERED: StripeElementStyle = {
     color: "#374151",
     fontFamily: "inherit",
     fontSize: "14px",
+    lineHeight: "48px",
     textAlign: "left",
     "::placeholder": { color: "#9CA3AF" },
   },
@@ -51,8 +52,8 @@ const PixIcon: React.FC<{ color?: string }> = ({ color = "#6b7280" }) => (
 const HublaInput: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { primary: string }> = ({ primary, className = "", style, ...props }) => (
   <input
     {...props}
-    className={`w-full px-4 py-3 border border-gray-200 rounded-md text-sm outline-none transition-colors duration-150 focus:border-[var(--hp)] ${className}`}
-    style={{ "--hp": primary, ...style } as React.CSSProperties}
+    className={`w-full px-4 border border-gray-200 rounded-md text-sm outline-none transition-colors duration-150 focus:border-[var(--hp)] focus:relative focus:z-10 ${className}`}
+    style={{ "--hp": primary, height: "48px", ...style } as React.CSSProperties}
   />
 );
 
@@ -64,8 +65,15 @@ const StripeFieldWrapper: React.FC<{
   className?: string;
 }> = ({ label, children, primary, right, className = "" }) => (
   <div
-    className={`border border-gray-200 rounded-md mb-0 px-4 pt-2 pb-3 transition-colors duration-150 focus-within:border-[var(--hp)] ${className}`}
-    style={{ "--hp": primary } as React.CSSProperties}
+    className={`border border-gray-200 rounded-md mb-0 px-4 transition-colors duration-150 focus-within:border-[var(--hp)] ${className}`}
+    style={
+      {
+        "--hp": primary,
+        minHeight: "48px",
+        paddingTop: label || right ? "6px" : "0px",
+        paddingBottom: label || right ? "6px" : "0px",
+      } as React.CSSProperties
+    }
   >
     {(label || right) && (
       <div className="flex items-center justify-between mb-1">
@@ -103,6 +111,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneDialCode, setPhoneDialCode] = useState("+55");
   const [docValue, setDocValue] = useState("");
   const checkoutStartedSent = useRef(false);
   const nameUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,6 +119,11 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
   // UI state
   const [showDetails, setShowDetails] = useState(false);
   const [couponExpanded, setCouponExpanded] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountPercent: number } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponDiscount, setCouponDiscount] = useState(0); // em centavos
 
   // Payment method
   const isSubscription = offerData.paymentType === "subscription";
@@ -165,8 +179,9 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
       const bump = offerData.orderBumps.find((b) => b?._id === bumpId);
       if (bump) newTotal += bump.priceInCents;
     });
-    setTotalAmount(newTotal);
-  }, [selectedBumps, offerData]);
+    // Aplica desconto do cupom no total exibido
+    setTotalAmount(Math.max(newTotal - couponDiscount, 0));
+  }, [selectedBumps, offerData, couponDiscount]);
 
   // Reset method guards
   useEffect(() => {
@@ -468,6 +483,51 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
     setSelectedBumps((prev) => (prev.includes(bumpId) ? prev.filter((id) => id !== bumpId) : [...prev, bumpId]));
   };
 
+  const handleApplyCoupon = async () => {
+    const code = couponInput.trim();
+    if (!code) return;
+
+    setCouponLoading(true);
+    setCouponError(null);
+
+    try {
+      const res = await fetch(`${API_URL}/coupons/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ offerSlug: offerData.slug, code }),
+      });
+      const data = await res.json();
+
+      if (data.valid) {
+        const baseTotal =
+          offerData.mainProduct.priceInCents +
+          selectedBumps.reduce((acc, bumpId) => {
+            const bump = offerData.orderBumps.find((b) => b?._id === bumpId);
+            return acc + (bump?.priceInCents || 0);
+          }, 0);
+        const discount = Math.floor(baseTotal * (data.discountPercent / 100));
+        setAppliedCoupon({ code, discountPercent: data.discountPercent });
+        setCouponDiscount(discount);
+        setCouponExpanded(false);
+        setCouponInput("");
+      } else {
+        setCouponError(data.message || "Cupom invalido.");
+      }
+    } catch {
+      setCouponError("Erro ao validar cupom. Tente novamente.");
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setCouponError(null);
+    setCouponInput("");
+    setCouponExpanded(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) {
@@ -518,10 +578,11 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
       const payload = {
         offerSlug: offerData.slug,
         selectedOrderBumps: selectedBumps,
+        couponCode: appliedCoupon?.code || null,
         contactInfo: {
           email: contactEmail,
           name: contactName,
-          phone,
+          phone: phone ? `${phoneDialCode}${phone}` : "",
           document: docValue,
         },
         metadata: {
@@ -680,10 +741,9 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                   <button
                     type="button"
                     onClick={() => setShowDetails(!showDetails)}
-                    className="flex items-center gap-0.5 text-xs text-gray-400 shrink-0 hover:text-gray-600 transition-colors"
+                    className="flex items-center gap-0.5 text-xs text-gray-800 shrink-0 hover:text-gray-900 transition-colors"
                   >
-                    Detalhes
-                    <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${showDetails ? "rotate-180" : ""}`} />
+                    <ChevronDown className={`h-6 w-6 transition-transform duration-200 ${showDetails ? "rotate-180" : ""}`} />
                   </button>
                 </div>
                 <p className="text-sm font-bold mt-1" style={{ color: primary }}>
@@ -692,68 +752,166 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
               </div>
             </div>
 
-            {showDetails && (
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                {offerData.mainProduct.description ? (
-                  <p className="text-xs text-gray-500 leading-relaxed">{offerData.mainProduct.description}</p>
-                ) : (
-                  <p className="text-xs text-gray-400">Sem descricao disponivel.</p>
-                )}
-              </div>
-            )}
+            {showDetails &&
+              (() => {
+                const mainPrice = offerData.mainProduct.priceInCents;
+                const mainOriginal = offerData.mainProduct.originalPriceInCents ?? mainPrice;
+                const bumpsSubtotal = selectedBumps.reduce((acc, id) => {
+                  const b = offerData.orderBumps.find((x) => x._id === id);
+                  return acc + (b?.priceInCents ?? 0);
+                }, 0);
+                const bumpsOriginal = selectedBumps.reduce((acc, id) => {
+                  const b = offerData.orderBumps.find((x) => x._id === id);
+                  return acc + (b?.originalPriceInCents ?? b?.priceInCents ?? 0);
+                }, 0);
+                const subtotal = mainPrice + bumpsSubtotal;
+                const originalTotal = mainOriginal + bumpsOriginal;
+                const savings = originalTotal - totalAmount; // inclui descontos de preço + cupom
 
-            {/* Coupon row */}
-            <div className="mt-2 pt-2 border-t border-gray-100">
-              {!couponExpanded ? (
-                <button
-                  type="button"
-                  onClick={() => setCouponExpanded(true)}
-                  className="flex items-center gap-1 text-sm font-medium transition-opacity hover:opacity-75"
-                  style={{ color: primary }}
-                >
-                  <Plus className="h-4 w-4" />
-                  Adicionar cupom
-                </button>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Codigo do cupom"
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-gray-300"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setCouponExpanded(false)}
-                    className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              )}
-            </div>
+                return (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-semibold text-gray-800">{t.orderSummary.purchaseDetails}</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowDetails(false)}
+                        className="flex items-center gap-0.5 text-xs text-gray-800 hover:text-gray-900 transition-colors"
+                      >
+                        {t.orderSummary.hide}
+                        <ChevronDown className="h-3.5 w-3.5 rotate-180" />
+                      </button>
+                    </div>
+
+                    {/* Main product row */}
+                    <div className="flex items-center gap-2 py-2 border-b border-gray-50">
+                      {offerData.mainProduct.imageUrl && (
+                        <img
+                          src={offerData.mainProduct.imageUrl}
+                          alt={offerData.mainProduct.name}
+                          className="w-10 h-10 rounded object-cover shrink-0"
+                        />
+                      )}
+                      <p className="flex-1 text-xs text-gray-700 leading-snug line-clamp-2">{offerData.mainProduct.name}</p>
+                      <div className="text-right shrink-0 ml-2">
+                        {mainOriginal > mainPrice && (
+                          <p className="text-[10px] text-gray-400 line-through">{formatCurrency(mainOriginal, offerData.currency)}</p>
+                        )}
+                        <p className="text-xs font-semibold text-gray-800">{formatCurrency(mainPrice, offerData.currency)}</p>
+                      </div>
+                    </div>
+
+                    {/* Selected order bump rows */}
+                    {selectedBumps.map((id) => {
+                      const bump = offerData.orderBumps.find((x) => x._id === id);
+                      if (!bump) return null;
+                      const bOriginal = bump.originalPriceInCents ?? bump.priceInCents;
+                      return (
+                        <div key={id} className="flex items-center gap-2 py-2 border-b border-gray-50">
+                          {bump.imageUrl && <img src={bump.imageUrl} alt={bump.name} className="w-10 h-10 rounded object-cover shrink-0" />}
+                          <p className="flex-1 text-xs text-gray-700 leading-snug line-clamp-2">{bump.name}</p>
+                          <div className="text-right shrink-0 ml-2">
+                            {bOriginal > bump.priceInCents && (
+                              <p className="text-[10px] text-gray-400 line-through">{formatCurrency(bOriginal, offerData.currency)}</p>
+                            )}
+                            <p className="text-xs font-semibold text-gray-800">{formatCurrency(bump.priceInCents, offerData.currency)}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Subtotal */}
+                    <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
+                      <span>{t.orderSummary.subtotal}</span>
+                      <span>{formatCurrency(subtotal, offerData.currency)}</span>
+                    </div>
+
+                    {/* Savings */}
+                    {savings > 0 && (
+                      <div className="flex items-center justify-between mt-1 text-xs font-medium text-green-600">
+                        <span>{t.orderSummary.youSave}</span>
+                        <span>- {formatCurrency(savings, offerData.currency)}</span>
+                      </div>
+                    )}
+
+                    {/* Coupon */}
+                    {offerData.coupons?.enabled && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        {appliedCoupon ? (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-green-600">
+                              {t.orderSummary.couponApplied} "{appliedCoupon.code}" — {appliedCoupon.discountPercent}%
+                            </span>
+                            <button type="button" onClick={handleRemoveCoupon} className="text-xs text-gray-400 underline hover:text-gray-600">
+                              {t.orderSummary.remove}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder={t.orderSummary.couponPlaceholder}
+                                value={couponInput}
+                                onChange={(e) => {
+                                  setCouponInput(e.target.value);
+                                  setCouponError(null);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    handleApplyCoupon();
+                                  }
+                                }}
+                                className="flex-1 px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-gray-300 uppercase"
+                                disabled={couponLoading}
+                              />
+                              <button
+                                type="button"
+                                onClick={handleApplyCoupon}
+                                disabled={couponLoading || !couponInput.trim()}
+                                className="px-4 py-2 text-xs font-semibold rounded-md transition-colors disabled:opacity-50 text-white"
+                                style={{ backgroundColor: "#6b7280" }}
+                              >
+                                {couponLoading ? "..." : t.orderSummary.apply}
+                              </button>
+                            </div>
+                            {couponError && <p className="text-xs text-red-500">{couponError}</p>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Total hoje */}
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                      <span className="text-sm font-bold text-gray-800">{t.orderSummary.totalToday}</span>
+                      <span className="text-sm font-bold" style={{ color: primary }}>
+                        {formatCurrency(totalAmount, offerData.currency)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
           </div>
-
-          {/* Order bumps */}
-          {offerData.orderBumps.length > 0 && (
-            <Suspense fallback={null}>
-              <OrderBump bumps={offerData.orderBumps} selectedBumps={selectedBumps} onToggleBump={handleToggleBump} currency={offerData.currency} />
-            </Suspense>
-          )}
 
           {/* Main form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Contact section */}
             <div>
-              <h2 className="text-sm font-semibold mb-3" style={{ color: textColor }}>
+              <h2
+                className="mb-2 text-[15px] md:text-sm font-medium text-zinc-700 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-gray-300"
+                style={{ color: textColor }}
+              >
                 {t.contact.title}
               </h2>
-              <div className="space-y-2">
+              <div className="space-y-[-1px]">
                 <HublaInput
                   id="name"
                   type="text"
                   placeholder={t.contact.namePlaceholder}
                   required
                   value={contactName}
+                  className="rounded-b-none"
                   onChange={handleNameChange}
                   primary={primary}
                 />
@@ -763,29 +921,21 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                   placeholder={t.contact.emailPlaceholder}
                   required
                   value={contactEmail}
+                  className="rounded-none"
                   onChange={handleEmailChange}
                   primary={primary}
                 />
                 {offerData.collectPhone && (
-                  <div
-                    className="flex border border-gray-200 rounded-md overflow-hidden transition-colors duration-150 focus-within:border-[var(--hp)]"
-                    style={{ "--hp": primary } as React.CSSProperties}
-                  >
-                    <div className="flex items-center gap-1 px-3 bg-gray-50 border-r border-gray-200 text-sm text-gray-500 shrink-0 select-none">
-                      <span>🇧🇷</span>
-                      <span className="text-xs">+55</span>
-                    </div>
-                    <input
-                      id="phone"
-                      type="tel"
-                      placeholder={t.contact.phonePlaceholder || "(00) 00000-0000"}
-                      value={phone}
-                      onChange={handlePhoneChange}
-                      maxLength={15}
-                      className="flex-1 px-4 py-3 text-sm outline-none bg-white"
-                      style={{ color: textColor }}
-                    />
-                  </div>
+                  <PhoneInput
+                    value={phone}
+                    dialCode={phoneDialCode}
+                    onPhoneChange={setPhone}
+                    onDialCodeChange={setPhoneDialCode}
+                    placeholder={t.contact.phonePlaceholder}
+                    primary={primary}
+                    className="rounded-t-none"
+                    textColor={textColor}
+                  />
                 )}
               </div>
             </div>
@@ -793,7 +943,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
             {/* Payment method tabs — only shown when more than 1 method */}
             {availableMethodsCount > 1 && (
               <div>
-                <h2 className="text-sm font-semibold mb-3" style={{ color: textColor }}>
+                <h2 className="text-lg md:text-base font-medium my-1.5 text-zinc-800 dark:text-zinc-100" style={{ color: textColor }}>
                   {t.payment.title}
                 </h2>
                 <div className="flex gap-2">
@@ -888,10 +1038,10 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                   className="rounded-b-none"
                   right={
                     <div className="flex gap-1 items-center">
-                      <img src="https://assets.mycartpanda.com/cartx-ecomm-ui-assets/images/payment/visa.svg" className="h-4" alt="Visa" />
+                      <img src="https://assets.mycartpanda.com/cartx-ecomm-ui-assets/images/payment/visa.svg" className="h-5 max-h-5" alt="Visa" />
                       <img
                         src="https://assets.mycartpanda.com/cartx-ecomm-ui-assets/images/payment/mastercard.svg"
-                        className="h-4"
+                        className="h-5 max-h-5"
                         alt="Mastercard"
                       />
                     </div>
@@ -902,28 +1052,42 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
 
                 {/* Expiry + CVV side by side */}
                 <div className="grid grid-cols-2">
-                  <StripeFieldWrapper primary={primary} className="border-t-0 rounded-b-none rounded-t-none border-r-0">
+                  <StripeFieldWrapper primary={primary} className="border-t-0 rounded-br-none rounded-t-none border-r-0">
                     <CardExpiryElement id="card-expiry" options={{ style: STRIPE_STYLE_CENTERED }} />
                   </StripeFieldWrapper>
-                  <StripeFieldWrapper primary={primary} className="border-t-0 rounded-b-none rounded-t-none">
+                  <StripeFieldWrapper primary={primary} className="border-t-0 rounded-bl-none rounded-t-none">
                     <CardCvcElement id="card-cvv" options={{ style: STRIPE_STYLE_CENTERED }} />
                   </StripeFieldWrapper>
                 </div>
 
                 {/* Cardholder name */}
+                <h2
+                  className="mb-2 mt-5 text-[15px] md:text-sm font-medium text-zinc-700 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-gray-300"
+                  style={{ color: textColor }}
+                >
+                  {t.contact.title}
+                </h2>
                 <HublaInput id="hubla-card-name" type="text" placeholder={t.creditCard.cardholderNamePlaceholder} primary={primary} />
 
                 {/* Document */}
                 {offerData.collectDocument && (
-                  <HublaInput
-                    id="document"
-                    type="text"
-                    placeholder="CPF/CNPJ do titular do cartao"
-                    value={docValue}
-                    onChange={handleDocumentChange}
-                    maxLength={18}
-                    primary={primary}
-                  />
+                  <div>
+                    <h2
+                      className="mb-2 mt-[11px] text-[15px] md:text-sm font-medium text-zinc-700 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-gray-300"
+                      style={{ color: textColor }}
+                    >
+                      {t.contact.title}
+                    </h2>
+                    <HublaInput
+                      id="document"
+                      type="text"
+                      placeholder="CPF/CNPJ do titular do cartao"
+                      value={docValue}
+                      onChange={handleDocumentChange}
+                      maxLength={18}
+                      primary={primary}
+                    />
+                  </div>
                 )}
               </div>
             )}
@@ -976,6 +1140,62 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                 </Suspense>
               ))}
 
+            {/* Order bumps — Hubla style */}
+            {offerData.orderBumps.length > 0 && (
+              <div className="space-y-3">
+                {offerData.orderBumps.map((bump) => {
+                  const isSelected = selectedBumps.includes(bump._id);
+                  return (
+                    <div key={bump._id} className="rounded-md overflow-hidden border border-gray-200 shadow-sm">
+                      {/* Colored header — green when selected */}
+                      <div
+                        className="flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors duration-300"
+                        style={{ backgroundColor: isSelected ? "#16a34a" : primary }}
+                        onClick={() => handleToggleBump(bump._id)}
+                      >
+                        {isSelected ? <Check className="h-4 w-4 text-white shrink-0" /> : <ChevronDown className="h-4 w-4 text-white shrink-0" />}
+                        <span className="text-white text-xs font-bold uppercase tracking-wide leading-snug">
+                          {isSelected ? t.orderBump.addedToCart : bump.name}
+                        </span>
+                      </div>
+
+                      {/* Body */}
+                      <div className="bg-white p-3 space-y-2">
+                        {/* Checkbox row + description */}
+                        <label className="flex items-start gap-2 cursor-pointer" onClick={() => handleToggleBump(bump._id)}>
+                          <div
+                            className="mt-0.5 h-4 w-4 border-2 rounded-sm shrink-0 flex items-center justify-center transition-colors"
+                            style={
+                              isSelected ? { backgroundColor: primary, borderColor: primary } : { backgroundColor: "white", borderColor: "#d1d5db" }
+                            }
+                          >
+                            {isSelected && <Check className="h-3 w-3 text-white" />}
+                          </div>
+                          {bump.description && <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{bump.description}</p>}
+                        </label>
+
+                        {/* Product card: image + price */}
+                        <div className="flex items-center gap-3 border border-gray-100 rounded p-2 bg-gray-50">
+                          {bump.imageUrl && <img src={bump.imageUrl} alt={bump.name} className="w-14 h-14 object-cover rounded shrink-0" />}
+                          <div className="min-w-0">
+                            <p className="text-xs text-gray-600 font-medium leading-snug line-clamp-2">{bump.name}</p>
+                            {bump.originalPriceInCents && bump.originalPriceInCents > bump.priceInCents ? (
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                De {formatCurrency(bump.originalPriceInCents, offerData.currency)} por apenas:
+                              </p>
+                            ) : null}
+                            <p className="text-sm font-bold mt-0.5" style={{ color: primary }}>
+                              {formatCurrency(bump.priceInCents, offerData.currency)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Submit button */}
             {method !== "wallet" && method !== "paypal" && (
               <button
@@ -1003,6 +1223,26 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                 </span>
               </button>
             )}
+
+            <div className="flex items-center self-center gap-2 justify-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                className="lucide lucide-lock-keyhole h-4 w-4 text-green-500"
+              >
+                <circle cx="12" cy="16" r="1"></circle>
+                <rect x="3" y="10" width="18" height="12" rx="2"></rect>
+                <path d="M7 10V7a5 5 0 0 1 10 0v3"></path>
+              </svg>
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">{t.buttons.secureTransaction}</span>
+            </div>
 
             {/* Error */}
             {errorMessage && (

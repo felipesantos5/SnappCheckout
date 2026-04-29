@@ -12,6 +12,14 @@ export const de: Translation = {
     extraProduct: "Extra Produkt",
     total: "Gesamt",
     save: "Sparen",
+    purchaseDetails: "Bestelldetails",
+    hide: "Ausblenden",
+    totalToday: "Heute gesamt",
+    couponPlaceholder: "Rabattgutschein eingeben",
+    apply: "Anwenden",
+    remove: "Entfernen",
+    youSave: "Sie sparen",
+    couponApplied: "Gutschein angewendet",
   },
 
   // Payment Methods
@@ -28,11 +36,11 @@ export const de: Translation = {
   contact: {
     title: "Kontakt",
     email: "E-Mail*",
-    emailPlaceholder: "ihre.email@beispiel.com",
+    emailPlaceholder: "E-Mail",
     name: "Vollständiger Name*",
-    namePlaceholder: "Ihr Name",
+    namePlaceholder: "Vollständiger Name",
     phone: "Telefon",
-    phonePlaceholder: "+49 000 00000000",
+    phonePlaceholder: "Telefon",
   },
 
   // Address Info
@@ -87,6 +95,7 @@ export const de: Translation = {
     processing: "Zahlung wird verarbeitet...",
     continue: "Weiter",
     back: "Zurück",
+    secureTransaction: "Sichere und Verschlüsselte Transaktion",
   },
 
   // Validation Messages
@@ -118,6 +127,7 @@ export const de: Translation = {
 
   orderBump: {
     action: "Produkt hinzufügen",
+    addedToCart: "Zum Warenkorb hinzugefügt",
   },
 
   notification: {

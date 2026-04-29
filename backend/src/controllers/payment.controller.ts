@@ -13,7 +13,7 @@ import { getUpsellSteps, buildUpsellRedirectUrl } from "../helper/getUpsellSteps
 
 export const handleCreatePaymentIntent = async (req: Request, res: Response) => {
   try {
-    const { offerSlug, selectedOrderBumps, contactInfo, addressInfo, metadata } = req.body;
+    const { offerSlug, selectedOrderBumps, contactInfo, addressInfo, metadata, couponCode } = req.body;
 
     const offer = await Offer.findOne({ slug: offerSlug });
     if (!offer) {
@@ -22,7 +22,19 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
 
     const stripeAccountId = await getStripeAccountId(offerSlug);
     const customerId = await getOrCreateCustomer(stripeAccountId, contactInfo.email, contactInfo.name, contactInfo.phone);
-    const totalAmount = await calculateTotalAmount(offerSlug, selectedOrderBumps);
+    let totalAmount = await calculateTotalAmount(offerSlug, selectedOrderBumps);
+
+    // Aplica desconto do cupom (validado server-side)
+    if (couponCode && offer.coupons?.enabled && offer.coupons.codes.length) {
+      const coupon = offer.coupons.codes.find(
+        (c) => c.code.toLowerCase() === String(couponCode).trim().toLowerCase()
+      );
+      if (coupon) {
+        const discount = Math.floor(totalAmount * (coupon.discountPercent / 100));
+        totalAmount = Math.max(totalAmount - discount, 50); // mínimo 50 centavos
+      }
+    }
+
     const applicationFee = Math.round(totalAmount * 0.05);
 
     const sharedMetadata: Record<string, string> = {

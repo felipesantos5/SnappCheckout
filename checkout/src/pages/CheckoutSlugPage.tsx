@@ -65,6 +65,10 @@ export interface OfferData {
     price: number;
     redirectUrl: string;
   };
+  coupons?: {
+    enabled: boolean;
+    codes: Array<{ code: string; discountPercent: number }>;
+  };
   autoNotifications?: {
     enabled: boolean;
     genderFilter: 'all' | 'male' | 'female';
