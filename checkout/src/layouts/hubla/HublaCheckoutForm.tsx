@@ -711,7 +711,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
 
       {/* Full-width banner */}
       {offerData.bannerImageUrl && (
-        <div className="w-full overflow-hidden" style={{ maxHeight: "192px" }}>
+        <div className="w-full overflow-hidden max-w-md m-auto" style={{ maxHeight: "192px" }}>
           <img
             src={offerData.bannerImageUrl}
             alt="Banner da oferta"
@@ -723,60 +723,36 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
       )}
 
       {/* Main content */}
-      <div className="min-h-screen pb-10" style={{ backgroundColor, color: textColor }}>
+      <div className="pb-4" style={{ backgroundColor, color: textColor }}>
         <div className="max-w-md mx-auto px-4 pt-4 space-y-4">
           {/* Product card */}
-          <div className="border rounded-lg p-3 shadow-sm" style={{ borderColor: `${textColor}18`, backgroundColor: "white" }}>
-            <div className="flex items-start gap-3">
-              {offerData.mainProduct.imageUrl && (
-                <img
-                  src={offerData.mainProduct.imageUrl}
-                  alt={offerData.mainProduct.name}
-                  className="w-12 h-12 rounded-md object-cover shrink-0 border border-gray-100"
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold leading-snug text-gray-800 line-clamp-2">{offerData.mainProduct.name}</p>
-                  <button
-                    type="button"
-                    onClick={() => setShowDetails(!showDetails)}
-                    className="flex items-center gap-0.5 text-xs text-gray-800 shrink-0 hover:text-gray-900 transition-colors"
-                  >
-                    <ChevronDown className={`h-6 w-6 transition-transform duration-200 ${showDetails ? "rotate-180" : ""}`} />
-                  </button>
-                </div>
-                <p className="text-sm font-bold mt-1" style={{ color: primary }}>
-                  {formatCurrency(totalAmount, offerData.currency)}
-                </p>
-              </div>
-            </div>
+          {(() => {
+            const mainPrice = offerData.mainProduct.priceInCents;
+            const mainOriginal = offerData.mainProduct.originalPriceInCents ?? mainPrice;
+            const bumpsSubtotal = selectedBumps.reduce((acc, id) => {
+              const b = offerData.orderBumps.find((x) => x._id === id);
+              return acc + (b?.priceInCents ?? 0);
+            }, 0);
+            const bumpsOriginal = selectedBumps.reduce((acc, id) => {
+              const b = offerData.orderBumps.find((x) => x._id === id);
+              return acc + (b?.originalPriceInCents ?? b?.priceInCents ?? 0);
+            }, 0);
+            const subtotal = mainPrice + bumpsSubtotal;
+            const originalTotal = mainOriginal + bumpsOriginal;
+            const savings = originalTotal - totalAmount;
 
-            {showDetails &&
-              (() => {
-                const mainPrice = offerData.mainProduct.priceInCents;
-                const mainOriginal = offerData.mainProduct.originalPriceInCents ?? mainPrice;
-                const bumpsSubtotal = selectedBumps.reduce((acc, id) => {
-                  const b = offerData.orderBumps.find((x) => x._id === id);
-                  return acc + (b?.priceInCents ?? 0);
-                }, 0);
-                const bumpsOriginal = selectedBumps.reduce((acc, id) => {
-                  const b = offerData.orderBumps.find((x) => x._id === id);
-                  return acc + (b?.originalPriceInCents ?? b?.priceInCents ?? 0);
-                }, 0);
-                const subtotal = mainPrice + bumpsSubtotal;
-                const originalTotal = mainOriginal + bumpsOriginal;
-                const savings = originalTotal - totalAmount; // inclui descontos de preço + cupom
-
-                return (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
+            return (
+              <div className="border rounded-lg shadow-sm overflow-hidden" style={{ borderColor: `${textColor}18`, backgroundColor: "white" }}>
+                {showDetails ? (
+                  /* EXPANDED: details open at the top, no product header above */
+                  <div className="p-3">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-sm font-semibold text-gray-800">{t.orderSummary.purchaseDetails}</span>
                       <button
                         type="button"
                         onClick={() => setShowDetails(false)}
-                        className="flex items-center gap-0.5 text-xs text-gray-800 hover:text-gray-900 transition-colors"
+                        className="flex items-center gap-1 text-xs text-gray-800 hover:text-gray-900 transition-colors"
                       >
                         {t.orderSummary.hide}
                         <ChevronDown className="h-3.5 w-3.5 rotate-180" />
@@ -890,9 +866,41 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                       </span>
                     </div>
                   </div>
-                );
-              })()}
-          </div>
+                ) : (
+                  /* COLLAPSED */
+                  <div className="p-3 flex items-start gap-3">
+                    {offerData.mainProduct.imageUrl && (
+                      <img
+                        src={offerData.mainProduct.imageUrl}
+                        alt={offerData.mainProduct.name}
+                        className="w-12 h-12 rounded-md object-cover shrink-0 border border-gray-100"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold leading-snug text-gray-800 line-clamp-2">{offerData.mainProduct.name}</p>
+                        <button
+                          type="button"
+                          onClick={() => setShowDetails(true)}
+                          className="flex items-center gap-0.5 text-xs text-gray-800 shrink-0 hover:text-gray-900 transition-colors"
+                        >
+                          <ChevronDown className="h-6 w-6" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        {selectedBumps.length === 0 && mainOriginal > mainPrice && (
+                          <p className="text-xs text-gray-400 line-through">{formatCurrency(mainOriginal, offerData.currency)}</p>
+                        )}
+                        <p className="text-sm font-bold" style={{ color: primary }}>
+                          {formatCurrency(totalAmount, offerData.currency)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Main form */}
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -1037,13 +1045,67 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                   primary={primary}
                   className="rounded-b-none"
                   right={
-                    <div className="flex gap-1 items-center">
-                      <img src="https://assets.mycartpanda.com/cartx-ecomm-ui-assets/images/payment/visa.svg" className="h-5 max-h-5" alt="Visa" />
-                      <img
-                        src="https://assets.mycartpanda.com/cartx-ecomm-ui-assets/images/payment/mastercard.svg"
-                        className="h-5 max-h-5"
-                        alt="Mastercard"
-                      />
+                    <div className="flex items-center gap-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="25" height="8" viewBox="0 0 25 8">
+                        <path
+                          fill-rule="evenodd"
+                          clip-rule="evenodd"
+                          d="M6.12526 7.75825H4.00494L2.41495 1.69237C2.33949 1.41334 2.17925 1.16667 1.94354 1.0504C1.35531 0.75823 0.707118 0.525705 0 0.408431V0.174895H3.41567C3.88708 0.174895 4.24064 0.525705 4.29957 0.933129L5.12454 5.30865L7.24383 0.174895H9.30522L6.12526 7.75825ZM10.4838 7.75825H8.48129L10.1302 0.174895H12.1327L10.4838 7.75825ZM14.7234 2.27571C14.7823 1.86728 15.1359 1.63374 15.5483 1.63374C16.1965 1.57511 16.9026 1.69238 17.4919 1.98354L17.8454 0.35081C17.2562 0.117274 16.608 0 16.0198 0C14.0762 0 12.662 1.05041 12.662 2.50824C12.662 3.61728 13.6637 4.19961 14.3708 4.55042C15.1359 4.90021 15.4305 5.13375 15.3716 5.48355C15.3716 6.00825 14.7823 6.24178 14.1941 6.24178C13.4869 6.24178 12.7798 6.06688 12.1327 5.77471L11.7791 7.40845C12.4862 7.69962 13.2512 7.81689 13.9584 7.81689C16.1376 7.87451 17.4919 6.82512 17.4919 5.25001C17.4919 3.26647 14.7234 3.15021 14.7234 2.27571V2.27571ZM24.5 7.75825L22.91 0.174895H21.2022C20.8486 0.174895 20.4951 0.408431 20.3772 0.75823L17.4329 7.75825H19.4943L19.9058 6.65021H22.4386L22.6743 7.75825H24.5ZM21.4968 2.21708L22.085 5.07512H20.4361L21.4968 2.21708Z"
+                          className="h-4 w-6 fill-[#172B85]"
+                        ></path>
+                      </svg>
+                      <svg className="h-4 w-6" xmlns="http://www.w3.org/2000/svg" width="23" height="14" viewBox="0 0 23 14" fill="none">
+                        <path
+                          fill-rule="evenodd"
+                          clip-rule="evenodd"
+                          d="M11.25 12.1569C10.0584 13.1852 8.51276 13.806 6.82377 13.806C3.05511 13.806 0 10.7154 0 6.90299C0 3.09057 3.05511 0 6.82377 0C8.51276 0 10.0584 0.620752 11.25 1.64903C12.4416 0.620752 13.9872 0 15.6762 0C19.4449 0 22.5 3.09057 22.5 6.90299C22.5 10.7154 19.4449 13.806 15.6762 13.806C13.9872 13.806 12.4416 13.1852 11.25 12.1569Z"
+                          className="fill-[#ED0006] dark:fill-[#ED0006]"
+                        ></path>
+                        <path
+                          fill-rule="evenodd"
+                          clip-rule="evenodd"
+                          d="M11.25 12.1569C12.7172 10.8908 13.6475 9.0068 13.6475 6.90299C13.6475 4.79917 12.7172 2.91517 11.25 1.64903C12.4416 0.620752 13.9872 0 15.6762 0C19.4449 0 22.5 3.09057 22.5 6.90299C22.5 10.7154 19.4449 13.806 15.6762 13.806C13.9872 13.806 12.4416 13.1852 11.25 12.1569Z"
+                          className="fill-[#F9A000] dark:fill-[#F9A000]"
+                        ></path>
+                        <path
+                          fill-rule="evenodd"
+                          clip-rule="evenodd"
+                          d="M11.25 1.64905C12.7172 2.91518 13.6476 4.79917 13.6476 6.90297C13.6476 9.00678 12.7172 10.8908 11.25 12.1569C9.78287 10.8908 8.85254 9.00678 8.85254 6.90297C8.85254 4.79917 9.78287 2.91518 11.25 1.64905Z"
+                          className="fill-[#FF5E00] dark:fill-[#FF5E00]"
+                        ></path>
+                      </svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="29" height="8" viewBox="0 0 29 8" fill="none">
+                        <path
+                          fill-rule="evenodd"
+                          clip-rule="evenodd"
+                          d="M3.18111 0L0 7.24674H3.80824L4.28035 6.09131H5.35949L5.8316 7.24674H10.0234V6.36488L10.3969 7.24674H12.5652L12.9387 6.34624V7.24674H21.6566L22.7166 6.12132L23.7092 7.24674L28.1868 7.25606L24.9957 3.6436L28.1868 0H23.7786L22.7467 1.10463L21.7854 0H12.3016L11.4872 1.87045L10.6537 0H6.85343V0.851856L6.43068 0H3.18111ZM16.1994 1.02905H21.2055L22.7367 2.73162L24.3172 1.02905H25.8484L23.5219 3.64258L25.8484 6.226H24.2477L22.7166 4.50364L21.128 6.226H16.1994V1.02905ZM17.4356 3.05497V2.10571V2.1048H20.5593L21.9223 3.62291L20.4989 5.14932H17.4356V4.113H20.1667V3.05497H17.4356ZM3.91799 1.02905H5.7743L7.88433 5.94311V1.02905H9.91784L11.5476 4.5524L13.0496 1.02905H15.073V6.22906H13.8418L13.8317 2.15436L12.0368 6.22906H10.9355L9.13052 2.15436V6.22906H6.59773L6.11756 5.06329H3.52338L3.04421 6.22804H1.68717L3.91799 1.02905ZM3.96634 3.9856L4.82101 1.90886L5.6747 3.9856H3.96634Z"
+                          className="h-4 w-6 fill-[#1F72CD]"
+                        ></path>
+                      </svg>
+                      <div className="relative">
+                        <div className="transition-opacity duration-500 opacity-0 absolute">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="10" viewBox="0 0 28 10" fill="none">
+                            <path
+                              d="M7.91765 5.55557C7.63702 6.90825 6.41869 7.9254 4.95846 7.9254C4.62344 7.9254 4.30095 7.8717 4.00007 7.77275L3.32935 9.74073C3.84122 9.909 4.38889 10 4.95846 10C7.44054 10 9.51097 8.27036 9.98808 5.9719L7.91765 5.55557Z"
+                              fill="#EC412A"
+                            ></path>
+                            <path
+                              fill-rule="evenodd"
+                              clip-rule="evenodd"
+                              d="M19.9526 1.11116V6.80143L20.9737 7.21073L20.4906 8.33306L19.4808 7.92715C19.2538 7.83194 19.1001 7.68687 18.9833 7.52303C18.8712 7.3554 18.7881 7.12628 18.7881 6.81709V1.11116H19.9526ZM12.208 5.34038C12.2334 3.71313 13.6192 2.41419 15.3007 2.43911C16.7279 2.46076 17.9105 3.42743 18.2211 4.71313L12.7011 6.99451C12.3804 6.5205 12.1982 5.95024 12.208 5.34038ZM13.471 5.56851C13.4635 5.50024 13.4581 5.43023 13.4601 5.3596C13.476 4.40088 14.2918 3.63587 15.2826 3.65176C15.8218 3.65872 16.3006 3.89751 16.6243 4.26709L13.471 5.56851ZM16.5081 6.62488C16.1754 6.93782 15.7243 7.12848 15.2262 7.12163C14.8847 7.1161 14.5684 7.01726 14.2994 6.85256L13.6325 7.88002C14.0892 8.15916 14.6277 8.32432 15.2082 8.33301C16.0533 8.34516 16.8235 8.02416 17.3835 7.49414L16.5081 6.62488ZM24.2025 3.65168C24.0036 3.65168 23.8124 3.68276 23.6338 3.74073L23.2365 2.58939C23.5397 2.49147 23.8645 2.43828 24.2025 2.43828C25.6773 2.43828 26.9077 3.45134 27.1898 4.79709L25.9598 5.03956C25.7941 4.24755 25.0703 3.65168 24.2025 3.65168ZM22.183 7.59358L23.0141 6.68477C22.6429 6.367 22.4092 5.90289 22.4092 5.38559C22.4092 4.86881 22.6429 4.40494 23.0138 4.0874L22.1821 3.17859C21.5515 3.71857 21.1543 4.50758 21.1543 5.38559C21.1543 6.2647 21.5518 7.05343 22.183 7.59358ZM24.2024 7.12011C25.0694 7.12011 25.7931 6.52475 25.9598 5.7339L27.1894 5.97741C26.9059 7.32171 25.6759 8.3334 24.2024 8.3334C23.8642 8.3334 23.539 8.28003 23.2349 8.18165L23.6332 7.03071C23.8121 7.08851 24.0034 7.12011 24.2024 7.12011Z"
+                              className="fill-[#000000]"
+                            ></path>
+                            <path
+                              d="M1.53441 8.88894L2.77447 7.28777C2.22095 6.72789 1.87158 5.9105 1.87158 4.9994C1.87158 4.08898 2.22062 3.27159 2.77399 2.71214L1.53327 1.11116C0.592714 2.06238 0 3.45184 0 4.9994C0 6.54776 0.593582 7.93772 1.53441 8.88894"
+                              fill="#1BA7DE"
+                            ></path>
+                            <path
+                              d="M3.99912 2.22531C4.29998 2.12667 4.62183 2.07312 4.95671 2.07312C6.41823 2.07312 7.63733 3.09154 7.91702 4.44444L9.98808 4.03018C9.51287 1.73084 7.44106 0 4.95671 0C4.38792 0 3.84043 0.0908977 3.32935 0.258344L3.99912 2.22531Z"
+                              fill="#FECA2F"
+                            ></path>
+                          </svg>
+                        </div>
+                      </div>
                     </div>
                   }
                 >
@@ -1065,7 +1127,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                   className="mb-2 mt-5 text-[15px] md:text-sm font-medium text-zinc-700 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-gray-300"
                   style={{ color: textColor }}
                 >
-                  {t.contact.title}
+                  {t.creditCard.cardholderName}
                 </h2>
                 <HublaInput id="hubla-card-name" type="text" placeholder={t.creditCard.cardholderNamePlaceholder} primary={primary} />
 
@@ -1076,12 +1138,12 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                       className="mb-2 mt-[11px] text-[15px] md:text-sm font-medium text-zinc-700 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-gray-300"
                       style={{ color: textColor }}
                     >
-                      {t.contact.title}
+                      {t.creditCard.document}
                     </h2>
                     <HublaInput
                       id="document"
                       type="text"
-                      placeholder="CPF/CNPJ do titular do cartao"
+                      placeholder="CPF/CNPJ"
                       value={docValue}
                       onChange={handleDocumentChange}
                       maxLength={18}
@@ -1198,51 +1260,53 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
 
             {/* Submit button */}
             {method !== "wallet" && method !== "paypal" && (
-              <button
-                type="submit"
-                disabled={!stripe || loading || paymentSucceeded || !isContactValid}
-                className="w-full font-bold py-4 px-6 text-base rounded-xs transition-all duration-200 disabled:cursor-not-allowed relative overflow-hidden group"
-                style={{
-                  backgroundColor: loading || paymentSucceeded || !isContactValid ? "#d1d5db" : button,
-                  color: loading || paymentSucceeded || !isContactValid ? "#9ca3af" : buttonForeground,
-                }}
-              >
-                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-                <span className="relative flex items-center justify-center gap-2">
-                  {loading || paymentSucceeded ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      {t.buttons.processing}
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="h-4 w-4" />
-                      {method === "pix" ? t.buttons.submitPix : `${t.buttons.submit} - ${formatCurrency(totalAmount, offerData.currency)}`}
-                    </>
-                  )}
-                </span>
-              </button>
+              <>
+                <button
+                  type="submit"
+                  disabled={!stripe || loading || paymentSucceeded || !isContactValid}
+                  className="inline-flex items-center w-full justify-center whitespace-nowrap font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60 dark:ring-offset-zinc-950 dark:focus-visible:ring-zinc-300 bg-zinc-900 text-zinc-50 hover:bg-zinc-900/90 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-50/90 h-11 rounded-md px-8 text-lg md:text-base relative overflow-hidden"
+                  style={{
+                    backgroundColor: loading || paymentSucceeded || !isContactValid ? "#d1d5db" : button,
+                    color: loading || paymentSucceeded || !isContactValid ? "#9ca3af" : buttonForeground,
+                  }}
+                >
+                  <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+                  <span className="relative flex items-center justify-center gap-2">
+                    {loading || paymentSucceeded ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        {t.buttons.processing}
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-4 w-4" />
+                        {method === "pix" ? t.buttons.submitPix : `${t.buttons.submit} - ${formatCurrency(totalAmount, offerData.currency)}`}
+                      </>
+                    )}
+                  </span>
+                </button>
+                <div className="flex items-center self-center gap-2 justify-center mb-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    className="lucide lucide-lock-keyhole h-4 w-4"
+                    style={{ color: primary }}
+                  >
+                    <circle cx="12" cy="16" r="1"></circle>
+                    <rect x="3" y="10" width="18" height="12" rx="2"></rect>
+                    <path d="M7 10V7a5 5 0 0 1 10 0v3"></path>
+                  </svg>
+                  <span className="text-sm text-zinc-500 dark:text-zinc-400">{t.buttons.secureTransaction}</span>
+                </div>
+              </>
             )}
-
-            <div className="flex items-center self-center gap-2 justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                className="lucide lucide-lock-keyhole h-4 w-4 text-green-500"
-              >
-                <circle cx="12" cy="16" r="1"></circle>
-                <rect x="3" y="10" width="18" height="12" rx="2"></rect>
-                <path d="M7 10V7a5 5 0 0 1 10 0v3"></path>
-              </svg>
-              <span className="text-sm text-zinc-500 dark:text-zinc-400">{t.buttons.secureTransaction}</span>
-            </div>
 
             {/* Error */}
             {errorMessage && (

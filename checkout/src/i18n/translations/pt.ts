@@ -22,7 +22,7 @@ export const pt = {
 
   // Payment Methods
   payment: {
-    title: "Pagamento",
+    title: "Método de pagamento",
     creditCard: "Cartão de Crédito",
     pix: "PIX",
     wallet: "Carteira Digital",
@@ -32,7 +32,7 @@ export const pt = {
 
   // Contact Info
   contact: {
-    title: "Contato",
+    title: "Informações pessoais",
     email: "E-mail*",
     emailPlaceholder: "Email",
     name: "Nome completo*",
@@ -67,8 +67,9 @@ export const pt = {
     cardNumber: "Número do cartão",
     expiry: "MM/AA",
     cvc: "CVV",
-    cardholderName: "Nome impresso no cartão",
-    cardholderNamePlaceholder: "Como está no cartão",
+    cardholderName: "Titular do cartão",
+    cardholderNamePlaceholder: "Nome completo no cartão",
+    document: "Documento",
   },
 
   // PIX
@@ -88,7 +89,7 @@ export const pt = {
 
   // Buttons
   buttons: {
-    submit: "Finalizar compra",
+    submit: "CONCLUIR PAGAMENTO",
     submitPix: "Gerar PIX",
     processing: "Processando pagamento...",
     continue: "Continuar",

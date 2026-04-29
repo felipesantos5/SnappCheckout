@@ -24,7 +24,7 @@ export const en: Translation = {
 
   // Payment Methods
   payment: {
-    title: "Payment",
+    title: "Payment method",
     creditCard: "Credit Card",
     pix: "PIX",
     wallet: "Digital Wallet",
@@ -34,7 +34,7 @@ export const en: Translation = {
 
   // Contact Info
   contact: {
-    title: "Contact",
+    title: "Personal information",
     email: "Email*",
     emailPlaceholder: "Email",
     name: "Full name*",
@@ -69,8 +69,9 @@ export const en: Translation = {
     cardNumber: "Card number",
     expiry: "MM/YY",
     cvc: "CVV",
-    cardholderName: "Name on card",
-    cardholderNamePlaceholder: "As it appears on card",
+    cardholderName: "Cardholder",
+    cardholderNamePlaceholder: "Full name on card",
+    document: "Document",
   },
 
   // PIX
@@ -90,7 +91,7 @@ export const en: Translation = {
 
   // Buttons
   buttons: {
-    submit: "Complete purchase",
+    submit: "COMPLETE PAYMENT",
     submitPix: "Generate PIX",
     processing: "processing payment...",
     continue: "Continue",
