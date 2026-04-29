@@ -407,8 +407,9 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
 
 
     if (!offerSlug) {
-      console.error(`❌ [Stripe] Metadata 'offerSlug' não encontrado no PaymentIntent ${paymentIntentId}`);
-      throw new Error("Metadata 'offerSlug' não encontrado.");
+      // PI sem offerSlug = gerado internamente pelo Stripe (ex: assinatura).
+      // A Sale será criada pelo handler de invoice.payment_succeeded.
+      return;
     }
 
     // 1. Busca Oferta e Dono PRIMEIRO (precisamos do stripeAccountId para expandir o PaymentIntent)
