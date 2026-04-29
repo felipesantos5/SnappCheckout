@@ -48,6 +48,169 @@ const extractPaymentMethodDetails = (paymentIntent: Stripe.PaymentIntent): {
 };
 
 /**
+ * Processa venda inicial de assinatura usando o objeto Subscription diretamente.
+ * Fallback quando payment_details.order_reference não está disponível no webhook.
+ */
+const handleSubscriptionInitialPaymentFromSub = async (
+  paymentIntent: Stripe.PaymentIntent,
+  paymentIntentId: string,
+  subscription: Stripe.Subscription,
+): Promise<void> => {
+  try {
+    const existing = await Sale.findOne({ stripePaymentIntentId: paymentIntentId });
+    if (existing) return;
+
+    const meta: Record<string, string> = subscription.metadata || {};
+    const offerSlug = meta.offerSlug;
+    if (!offerSlug) return;
+
+    const offer = await Offer.findOne({ slug: offerSlug });
+    if (!offer) {
+      console.error(`❌ [Stripe/Sub] Oferta '${offerSlug}' não encontrada`);
+      return;
+    }
+
+    const customerEmail = meta.customerEmail || "email@nao.informado";
+    const customerName = meta.customerName || "Cliente Não Identificado";
+    const customerPhone = meta.customerPhone || "";
+    const clientIp = meta.ip || "";
+    const countryCode = clientIp ? getCountryFromIP(clientIp) : "BR";
+    const { paymentMethodType, walletType } = extractPaymentMethodDetails(paymentIntent);
+
+    await Sale.create({
+      ownerId: offer.ownerId,
+      offerId: offer._id,
+      stripePaymentIntentId: paymentIntentId,
+      stripeSubscriptionId: subscription.id,
+      subscriptionCycle: 1,
+      customerName,
+      customerEmail,
+      customerPhone,
+      ip: clientIp,
+      country: countryCode,
+      totalAmountInCents: paymentIntent.amount,
+      platformFeeInCents: paymentIntent.application_fee_amount || 0,
+      currency: paymentIntent.currency || "brl",
+      status: "succeeded",
+      paymentMethod: "stripe",
+      gateway: "stripe",
+      paymentMethodType,
+      walletType,
+      isUpsell: false,
+      isDownsell: false,
+      items: [{
+        name: offer.mainProduct?.name || offer.name || "Assinatura",
+        priceInCents: paymentIntent.amount,
+        isOrderBump: false,
+      }],
+      utm_source: meta.utm_source || "",
+      utm_medium: meta.utm_medium || "",
+      utm_campaign: meta.utm_campaign || "",
+      utm_term: meta.utm_term || "",
+      utm_content: meta.utm_content || "",
+      facebookPurchaseSendAfter: new Date(Date.now() + 10 * 60 * 1000),
+    });
+
+    console.log(`✅ [Stripe/Sub] Venda inicial (via subscription) registrada: sub ${subscription.id}, pi ${paymentIntentId}`);
+  } catch (error: any) {
+    console.error(`❌ [Stripe/Sub] Erro (via subscription): ${error.message}`);
+  }
+};
+
+/**
+ * Processa o pagamento inicial de uma assinatura.
+ * Chamado pelo handlePaymentIntentSucceeded quando o PI não tem offerSlug,
+ * mas tem payment_details.order_reference com o ID do invoice da subscription.
+ * A partir da API 2025-03-31, invoice.payment_intent foi removido do Invoice object,
+ * então fazemos o caminho inverso: PI → invoice → subscription metadata.
+ */
+const handleSubscriptionInitialPayment = async (
+  paymentIntent: Stripe.PaymentIntent,
+  paymentIntentId: string,
+  invoiceId: string,
+  stripeAccountId: string,
+): Promise<void> => {
+  try {
+    // Idempotência
+    const existing = await Sale.findOne({ stripePaymentIntentId: paymentIntentId });
+    if (existing) return;
+
+    // Busca o invoice na conta conectada para obter o metadata da subscription
+    const invoice = await stripe.invoices.retrieve(invoiceId, {}, { stripeAccount: stripeAccountId });
+    const invoiceAny = invoice as any;
+
+    // API >=2025-10-29: metadata em invoice.parent.subscription_details.metadata
+    // API antiga: invoice.subscription_details.metadata
+    const subDetails = invoiceAny.parent?.subscription_details ?? invoiceAny.subscription_details;
+    const meta: Record<string, string> = subDetails?.metadata || {};
+    const subscriptionId: string | undefined = subDetails?.subscription;
+    const offerSlug = meta.offerSlug;
+
+    if (!offerSlug) {
+      console.error(`❌ [Stripe/Sub] offerSlug ausente no invoice ${invoiceId}`);
+      return;
+    }
+    if (!subscriptionId) {
+      console.error(`❌ [Stripe/Sub] subscriptionId ausente no invoice ${invoiceId}`);
+      return;
+    }
+
+    const offer = await Offer.findOne({ slug: offerSlug });
+    if (!offer) {
+      console.error(`❌ [Stripe/Sub] Oferta '${offerSlug}' não encontrada`);
+      return;
+    }
+
+    const customerEmail = meta.customerEmail || "email@nao.informado";
+    const customerName = meta.customerName || "Cliente Não Identificado";
+    const customerPhone = meta.customerPhone || "";
+    const clientIp = meta.ip || "";
+    const countryCode = clientIp ? getCountryFromIP(clientIp) : "BR";
+    const { paymentMethodType, walletType } = extractPaymentMethodDetails(paymentIntent);
+
+    await Sale.create({
+      ownerId: offer.ownerId,
+      offerId: offer._id,
+      stripePaymentIntentId: paymentIntentId,
+      stripeSubscriptionId: subscriptionId,
+      subscriptionCycle: 1,
+      customerName,
+      customerEmail,
+      customerPhone,
+      ip: clientIp,
+      country: countryCode,
+      totalAmountInCents: paymentIntent.amount,
+      platformFeeInCents: paymentIntent.application_fee_amount || 0,
+      currency: paymentIntent.currency || "brl",
+      status: "succeeded",
+      paymentMethod: "stripe",
+      gateway: "stripe",
+      paymentMethodType,
+      walletType,
+      isUpsell: false,
+      isDownsell: false,
+      items: [
+        {
+          name: offer.mainProduct?.name || offer.name || "Assinatura",
+          priceInCents: paymentIntent.amount,
+          isOrderBump: false,
+        },
+      ],
+      utm_source: meta.utm_source || "",
+      utm_medium: meta.utm_medium || "",
+      utm_campaign: meta.utm_campaign || "",
+      utm_term: meta.utm_term || "",
+      utm_content: meta.utm_content || "",
+      facebookPurchaseSendAfter: new Date(Date.now() + 10 * 60 * 1000),
+    });
+
+    console.log(`✅ [Stripe/Sub] Venda inicial de assinatura registrada: sub ${subscriptionId}, pi ${paymentIntentId}`);
+  } catch (error: any) {
+    console.error(`❌ [Stripe/Sub] Erro ao processar pagamento inicial de assinatura: ${error.message}`);
+  }
+};
+
+/**
  * Handler para quando um PaymentIntent é CRIADO
  * 1. Busca os dados da oferta usando o metadata
  * 2. Cria um registro de tentativa com status "pending"
@@ -397,7 +560,7 @@ export const handlePaymentIntentFailed = async (paymentIntent: Stripe.PaymentInt
  * 2. Salva a venda no banco de dados
  * 3. Dispara notificação para API externa
  */
-export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.PaymentIntent): Promise<void> => {
+export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.PaymentIntent, stripeAccountId?: string): Promise<void> => {
   const paymentIntentId = paymentIntent.id;
 
   try {
@@ -405,10 +568,45 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     const offerSlug = metadata.offerSlug || metadata.originalOfferSlug;
     const isUpsell = metadata.isUpsell === "true";
 
-
     if (!offerSlug) {
-      // PI sem offerSlug = gerado internamente pelo Stripe (ex: assinatura).
-      // A Sale será criada pelo handler de invoice.payment_succeeded.
+      // PI sem offerSlug = possivelmente assinatura (Stripe gera PI interno sem metadata)
+      const piAny = paymentIntent as any;
+      console.log(`[Stripe/Sub] PI ${paymentIntentId} sem offerSlug | account=${stripeAccountId} | description="${paymentIntent.description}" | payment_details=${JSON.stringify(piAny.payment_details ?? null)}`);
+
+      if (!stripeAccountId) {
+        console.warn(`[Stripe/Sub] event.account não disponível — não é possível processar PI de assinatura`);
+        return;
+      }
+
+      // Tentativa 1: payment_details.order_reference (nova API)
+      const invoiceRef: string | undefined = piAny.payment_details?.order_reference;
+      if (invoiceRef?.startsWith("in_")) {
+        await handleSubscriptionInitialPayment(paymentIntent, paymentIntentId, invoiceRef, stripeAccountId);
+        return;
+      }
+
+      // Tentativa 2: buscar subscription do customer na conta conectada
+      const customerId = typeof paymentIntent.customer === "string"
+        ? paymentIntent.customer
+        : (paymentIntent.customer as any)?.id;
+
+      if (customerId) {
+        try {
+          const subs = await stripe.subscriptions.list(
+            { customer: customerId, limit: 5, status: "active" },
+            { stripeAccount: stripeAccountId }
+          );
+          const matchingSub = subs.data.find(s => s.metadata?.offerSlug);
+          if (matchingSub) {
+            await handleSubscriptionInitialPaymentFromSub(paymentIntent, paymentIntentId, matchingSub);
+            return;
+          }
+          console.warn(`[Stripe/Sub] Nenhuma subscription com offerSlug encontrada para customer ${customerId}`);
+        } catch (err: any) {
+          console.error(`[Stripe/Sub] Erro ao buscar subscriptions: ${err.message}`);
+        }
+      }
+
       return;
     }
 
