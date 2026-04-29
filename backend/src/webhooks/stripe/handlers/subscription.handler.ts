@@ -2,10 +2,9 @@
 import { Stripe } from "stripe";
 import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
-import stripe from "../../../lib/stripe";
 import { getCountryFromIP } from "../../../helper/getCountryFromIP";
 
-export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, stripeAccountId?: string): Promise<void> => {
+export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, _stripeAccountId?: string): Promise<void> => {
   try {
     const invoiceAny = invoice as any;
     const subscriptionId = typeof invoiceAny.subscription === "string" ? invoiceAny.subscription : invoiceAny.subscription?.id;
@@ -24,7 +23,7 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, str
     const existing = await Sale.findOne({ stripePaymentIntentId: piId });
     if (existing) {
       // Garante que a venda inicial tem o subscriptionId vinculado
-      if (existing.stripeSubscriptionId !== subscriptionId) {
+      if (!existing.stripeSubscriptionId) {
         existing.stripeSubscriptionId = subscriptionId;
         if (!existing.subscriptionCycle) existing.subscriptionCycle = 1;
         await existing.save();
@@ -33,19 +32,13 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, str
     }
 
     // --- PAGAMENTO INICIAL DA ASSINATURA ---
+    // O metadata da Subscription é copiado para invoice.subscription_details.metadata pelo Stripe
     if (invoice.billing_reason === "subscription_create") {
-      if (!stripeAccountId) {
-        console.error("❌ [Subscription] stripeAccountId ausente — não é possível registrar venda inicial");
-        return;
-      }
-
-      // Recupera a subscription para obter o metadata (offerSlug, dados do cliente, UTMs)
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId, {}, { stripeAccount: stripeAccountId });
-      const meta = subscription.metadata || {};
+      const meta: Record<string, string> = invoiceAny.subscription_details?.metadata || {};
       const offerSlug = meta.offerSlug;
 
       if (!offerSlug) {
-        console.error("❌ [Subscription] offerSlug não encontrado no metadata da subscription");
+        console.error("❌ [Subscription] offerSlug não encontrado em invoice.subscription_details.metadata");
         return;
       }
 
@@ -105,7 +98,7 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, str
       return;
     }
 
-    // Busca todas as vendas anteriores dessa assinatura para obter oferta, dono e ciclo atual
+    // Busca vendas anteriores dessa assinatura para obter oferta, dono e ciclo atual
     const previousSales = await Sale.find({ stripeSubscriptionId: subscriptionId })
       .populate("offerId")
       .populate("ownerId")
