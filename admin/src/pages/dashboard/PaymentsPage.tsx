@@ -1,5 +1,6 @@
 // admin/src/pages/dashboard/PaymentsPage.tsx
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { API_URL } from "@/config/BackendUrl";
@@ -12,7 +13,8 @@ import { PaypalIcon } from "@/components/icons/paypal";
 import { PixIcon } from "@/components/icons/pix";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
-import { subDays, startOfDay, endOfDay } from "date-fns";
+import { subDays, startOfDay, endOfDay, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { TrendingUp, CreditCard, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
@@ -43,10 +45,21 @@ interface PaymentMetrics {
   };
 }
 
+interface RecentSale {
+  _id: string;
+  totalAmountInCents: number;
+  currency: string;
+  status: "succeeded" | "pending" | "failed" | "refunded";
+  paymentMethod: string;
+  paymentMethodType?: string;
+  createdAt: string;
+}
+
 export default function PaymentsPage() {
   const { token } = useAuth();
   const [metrics, setMetrics] = useState<PaymentMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recentSales, setRecentSales] = useState<RecentSale[]>([]);
 
   // Filtros
   const [period, setPeriod] = useState(() => {
@@ -101,12 +114,19 @@ export default function PaymentsPage() {
       try {
         const { startDate, endDate } = getDateRange(period);
 
-        const response = await axios.get(`${API_URL}/metrics/payments`, {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { startDate, endDate },
-        });
+        const [metricsRes, salesRes] = await Promise.all([
+          axios.get(`${API_URL}/metrics/payments`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { startDate, endDate },
+          }),
+          axios.get(`${API_URL}/sales`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { limit: 8, page: 1, status: "all" },
+          }),
+        ]);
 
-        setMetrics(response.data);
+        setMetrics(metricsRes.data);
+        setRecentSales(salesRes.data?.data || []);
       } catch (error) {
         console.error("Erro ao carregar métricas de pagamentos:", error);
       } finally {
@@ -137,6 +157,49 @@ export default function PaymentsPage() {
   // Formatar moeda para tooltip
   const formatTooltipValue = (value: number) => {
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+  };
+
+  const formatSaleDate = (iso: string) => {
+    try {
+      return format(new Date(iso), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    } catch {
+      return iso;
+    }
+  };
+
+  const platformLabel = (sale: RecentSale) => {
+    if (sale.paymentMethod === "paypal") return "Venda via PayPal";
+    if (sale.paymentMethod === "pagarme") return "Venda via PIX";
+    return "Venda via Stripe";
+  };
+
+  const statusConfig: Record<string, { label: string; color: string }> = {
+    succeeded: { label: "Disponível", color: "text-green-600" },
+    pending:   { label: "Pendente",   color: "text-amber-500" },
+    failed:    { label: "Recusada",   color: "text-red-500"   },
+    refunded:  { label: "Reembolsada",color: "text-blue-500"  },
+  };
+
+  const PlatformAvatar = ({ method }: { method: string }) => {
+    if (method === "paypal") {
+      return (
+        <div className="w-8 h-8 rounded-full bg-[#003087] flex items-center justify-center shrink-0">
+          <span className="text-white text-xs font-bold">P</span>
+        </div>
+      );
+    }
+    if (method === "pagarme") {
+      return (
+        <div className="w-8 h-8 rounded-full bg-[#32BCAD] flex items-center justify-center shrink-0">
+          <span className="text-white text-xs font-bold">PIX</span>
+        </div>
+      );
+    }
+    return (
+      <div className="w-8 h-8 rounded-full bg-[#635BFF] flex items-center justify-center shrink-0">
+        <span className="text-white text-xs font-bold">S</span>
+      </div>
+    );
   };
 
   // Calcular totais consolidados
@@ -414,96 +477,148 @@ export default function PaymentsPage() {
         </Card>
       </div>
 
-      {/* Gráfico de Vendas por Plataforma */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-medium">Vendas por Plataforma</CardTitle>
-          <CardDescription>Comparativo de vendas ao longo do tempo</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px] sm:h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={metrics?.chart || []}
-                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+      {/* Gráfico + Transações recentes */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Gráfico — 2/3 */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg font-medium">Vendas por Plataforma</CardTitle>
+            <CardDescription>Comparativo de vendas ao longo do tempo</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] sm:h-[350px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={metrics?.chart || []}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="stripeGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#635BFF" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#635BFF" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="paypalGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#003087" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#003087" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="pagarmeGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#32BCAD" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#32BCAD" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={{ stroke: "hsl(var(--border))" }}
+                  />
+                  <YAxis
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `R$${value}`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                    }}
+                    labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+                    formatter={(value: number, name: string) => [
+                      formatTooltipValue(value),
+                      name === "stripe" ? "Stripe" : name === "paypal" ? "PayPal" : "Pagar.me (PIX)",
+                    ]}
+                  />
+                  <Legend
+                    verticalAlign="top"
+                    height={36}
+                    formatter={(value) => (value === "stripe" ? "Stripe" : value === "paypal" ? "PayPal" : "Pagar.me (PIX)")}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="stripe"
+                    stroke="#635BFF"
+                    strokeWidth={2}
+                    fill="url(#stripeGradient)"
+                    dot={false}
+                    activeDot={{ r: 6, fill: "#635BFF" }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="paypal"
+                    stroke="#003087"
+                    strokeWidth={2}
+                    fill="url(#paypalGradient)"
+                    dot={false}
+                    activeDot={{ r: 6, fill: "#003087" }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="pagarme"
+                    stroke="#32BCAD"
+                    strokeWidth={2}
+                    fill="url(#pagarmeGradient)"
+                    dot={false}
+                    activeDot={{ r: 6, fill: "#32BCAD" }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Transações Recentes — 1/3 */}
+        <Card className="lg:col-span-1 flex flex-col">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold">Transações recentes</CardTitle>
+              <Link
+                to="/all-sales"
+                className="text-xs text-primary font-medium hover:underline shrink-0"
               >
-                <defs>
-                  <linearGradient id="stripeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#635BFF" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#635BFF" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="paypalGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#003087" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#003087" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="pagarmeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#32BCAD" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#32BCAD" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={{ stroke: "hsl(var(--border))" }}
-                />
-                <YAxis
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `R$${value}`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                  }}
-                  labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
-                  formatter={(value: number, name: string) => [
-                    formatTooltipValue(value),
-                    name === "stripe" ? "Stripe" : name === "paypal" ? "PayPal" : "Pagar.me (PIX)",
-                  ]}
-                />
-                <Legend
-                  verticalAlign="top"
-                  height={36}
-                  formatter={(value) => (value === "stripe" ? "Stripe" : value === "paypal" ? "PayPal" : "Pagar.me (PIX)")}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="stripe"
-                  stroke="#635BFF"
-                  strokeWidth={2}
-                  fill="url(#stripeGradient)"
-                  dot={false}
-                  activeDot={{ r: 6, fill: "#635BFF" }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="paypal"
-                  stroke="#003087"
-                  strokeWidth={2}
-                  fill="url(#paypalGradient)"
-                  dot={false}
-                  activeDot={{ r: 6, fill: "#003087" }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="pagarme"
-                  stroke="#32BCAD"
-                  strokeWidth={2}
-                  fill="url(#pagarmeGradient)"
-                  dot={false}
-                  activeDot={{ r: 6, fill: "#32BCAD" }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+                Ver todos
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-y-auto px-4 pb-4">
+            {recentSales.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Nenhuma transação encontrada.
+              </p>
+            ) : (
+              <ul className="space-y-0 divide-y divide-border">
+                {recentSales.map((sale) => {
+                  const sc = statusConfig[sale.status] ?? { label: sale.status, color: "text-muted-foreground" };
+                  return (
+                    <li key={sale._id} className="flex items-center gap-3 py-3">
+                      <PlatformAvatar method={sale.paymentMethod} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate leading-tight">
+                          {platformLabel(sale)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {formatSaleDate(sale.createdAt)}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-semibold">
+                          {formatCurrency(sale.totalAmountInCents, sale.currency)}
+                        </p>
+                        <p className={`text-xs font-medium mt-0.5 ${sc.color}`}>
+                          {sc.label}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
