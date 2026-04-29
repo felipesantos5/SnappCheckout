@@ -32,7 +32,7 @@ export const handleStripeEvent = async (event: Stripe.Event): Promise<void> => {
       break;
 
     case "invoice.payment_succeeded":
-      await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice);
+      await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice, event.account);
       break;
 
     default:

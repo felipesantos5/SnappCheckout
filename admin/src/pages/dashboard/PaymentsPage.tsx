@@ -16,6 +16,8 @@ import type { DateRange } from "react-day-picker";
 import { subDays, startOfDay, endOfDay, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { TrendingUp, CreditCard, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import stripeIconMini from "@/assets/stripe-icon-mini.webp";
+import paypalIconMini from "@/assets/paypal-icon-mini.png";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 interface PaymentPlatformMetrics {
@@ -175,31 +177,19 @@ export default function PaymentsPage() {
 
   const statusConfig: Record<string, { label: string; color: string }> = {
     succeeded: { label: "Disponível", color: "text-green-600" },
-    pending:   { label: "Pendente",   color: "text-amber-500" },
-    failed:    { label: "Recusada",   color: "text-red-500"   },
-    refunded:  { label: "Reembolsada",color: "text-blue-500"  },
+    pending: { label: "Pendente", color: "text-amber-500" },
+    failed: { label: "Recusada", color: "text-red-500" },
+    refunded: { label: "Reembolsada", color: "text-blue-500" },
   };
 
   const PlatformAvatar = ({ method }: { method: string }) => {
     if (method === "paypal") {
-      return (
-        <div className="w-8 h-8 rounded-full bg-[#003087] flex items-center justify-center shrink-0">
-          <span className="text-white text-xs font-bold">P</span>
-        </div>
-      );
+      return <img src={paypalIconMini} alt="PayPal" className="w-5 h-5 object-contain" />;
     }
     if (method === "pagarme") {
-      return (
-        <div className="w-8 h-8 rounded-full bg-[#32BCAD] flex items-center justify-center shrink-0">
-          <span className="text-white text-xs font-bold">PIX</span>
-        </div>
-      );
+      return <PixIcon className="w-4 h-4 text-[#32BCAD]" />;
     }
-    return (
-      <div className="w-8 h-8 rounded-full bg-[#635BFF] flex items-center justify-center shrink-0">
-        <span className="text-white text-xs font-bold">S</span>
-      </div>
-    );
+    return <img src={stripeIconMini} alt="Stripe" className="w-5 h-5 object-contain" />;
   };
 
   // Calcular totais consolidados
@@ -233,9 +223,7 @@ export default function PaymentsPage() {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Pagamentos</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Visão consolidada das suas vendas por plataforma
-          </p>
+          <p className="text-muted-foreground text-sm mt-1">Visão consolidada das suas vendas por plataforma</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -273,9 +261,7 @@ export default function PaymentsPage() {
         <CardContent>
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div>
-              <p className="text-3xl sm:text-4xl font-bold text-yellow-500">
-                {formatCurrency(totalRevenue)}
-              </p>
+              <p className="text-3xl sm:text-4xl font-bold text-yellow-500">{formatCurrency(totalRevenue)}</p>
               <p className="text-sm text-muted-foreground mt-1">
                 {totalSales} {totalSales === 1 ? "venda" : "vendas"} no período
               </p>
@@ -337,9 +323,7 @@ export default function PaymentsPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">A Receber</p>
-                    <p className="text-lg font-semibold text-yellow-500">
-                      {formatCurrency(metrics?.stripe.pending || 0)}
-                    </p>
+                    <p className="text-lg font-semibold text-yellow-500">{formatCurrency(metrics?.stripe.pending || 0)}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
@@ -348,9 +332,7 @@ export default function PaymentsPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Disponível</p>
-                    <p className="text-lg font-semibold text-green-500">
-                      {formatCurrency(metrics?.stripe.available || 0)}
-                    </p>
+                    <p className="text-lg font-semibold text-green-500">{formatCurrency(metrics?.stripe.available || 0)}</p>
                   </div>
                 </div>
               </div>
@@ -451,12 +433,7 @@ export default function PaymentsPage() {
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-sm text-muted-foreground">
                   O saldo do Pagar.me cai diretamente na sua conta bancária configurada no{" "}
-                  <a
-                    href="https://dash.pagar.me/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#32BCAD] hover:underline font-medium"
-                  >
+                  <a href="https://dash.pagar.me/" target="_blank" rel="noopener noreferrer" className="text-[#32BCAD] hover:underline font-medium">
                     painel do Pagar.me
                   </a>
                   .
@@ -488,10 +465,7 @@ export default function PaymentsPage() {
           <CardContent>
             <div className="h-[300px] sm:h-[350px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={metrics?.chart || []}
-                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                >
+                <AreaChart data={metrics?.chart || []} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="stripeGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#635BFF" stopOpacity={0.3} />
@@ -571,23 +545,18 @@ export default function PaymentsPage() {
         </Card>
 
         {/* Transações Recentes — 1/3 */}
-        <Card className="lg:col-span-1 flex flex-col">
-          <CardHeader className="pb-3">
+        <Card className="lg:col-span-1 flex flex-col gap-0 ">
+          <CardHeader className="pb-0 px-6">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold">Transações recentes</CardTitle>
-              <Link
-                to="/all-sales"
-                className="text-xs text-primary font-medium hover:underline shrink-0"
-              >
+              <Link to="/all-sales" className="text-xs text-primary font-medium hover:underline shrink-0">
                 Ver todos
               </Link>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto px-4 pb-4">
+          <CardContent className="flex-1 overflow-y-auto px-6">
             {recentSales.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Nenhuma transação encontrada.
-              </p>
+              <p className="text-sm text-muted-foreground text-center py-8">Nenhuma transação encontrada.</p>
             ) : (
               <ul className="space-y-0 divide-y divide-border">
                 {recentSales.map((sale) => {
@@ -596,20 +565,12 @@ export default function PaymentsPage() {
                     <li key={sale._id} className="flex items-center gap-3 py-3">
                       <PlatformAvatar method={sale.paymentMethod} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate leading-tight">
-                          {platformLabel(sale)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {formatSaleDate(sale.createdAt)}
-                        </p>
+                        <p className="text-sm font-medium truncate leading-tight">{platformLabel(sale)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{formatSaleDate(sale.createdAt)}</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold">
-                          {formatCurrency(sale.totalAmountInCents, sale.currency)}
-                        </p>
-                        <p className={`text-xs font-medium mt-0.5 ${sc.color}`}>
-                          {sc.label}
-                        </p>
+                        <p className="text-sm font-semibold">{formatCurrency(sale.totalAmountInCents, sale.currency)}</p>
+                        <p className={`text-xs font-medium mt-0.5 ${sc.color}`}>{sc.label}</p>
                       </div>
                     </li>
                   );
@@ -622,4 +583,3 @@ export default function PaymentsPage() {
     </div>
   );
 }
-

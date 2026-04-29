@@ -3,19 +3,10 @@ import { Stripe } from "stripe";
 import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
 import stripe from "../../../lib/stripe";
+import { getCountryFromIP } from "../../../helper/getCountryFromIP";
 
-/**
- * Handler para invoice.payment_succeeded em renovações de assinatura.
- * O pagamento inicial já é coberto pelo payment_intent.succeeded (com metadata do PI).
- * Este handler cuida apenas das cobranças recorrentes (subscription_cycle).
- */
-export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice): Promise<void> => {
+export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, stripeAccountId?: string): Promise<void> => {
   try {
-    // Processa apenas renovações automáticas — o pagamento inicial é coberto pelo payment_intent.succeeded
-    if (invoice.billing_reason !== "subscription_cycle") {
-      return;
-    }
-
     const invoiceAny = invoice as any;
     const subscriptionId = typeof invoiceAny.subscription === "string" ? invoiceAny.subscription : invoiceAny.subscription?.id;
     if (!subscriptionId) {
@@ -31,7 +22,88 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice): Pr
 
     // Idempotência
     const existing = await Sale.findOne({ stripePaymentIntentId: piId });
-    if (existing) return;
+    if (existing) {
+      // Garante que a venda inicial tem o subscriptionId vinculado
+      if (existing.stripeSubscriptionId !== subscriptionId) {
+        existing.stripeSubscriptionId = subscriptionId;
+        if (!existing.subscriptionCycle) existing.subscriptionCycle = 1;
+        await existing.save();
+      }
+      return;
+    }
+
+    // --- PAGAMENTO INICIAL DA ASSINATURA ---
+    if (invoice.billing_reason === "subscription_create") {
+      if (!stripeAccountId) {
+        console.error("❌ [Subscription] stripeAccountId ausente — não é possível registrar venda inicial");
+        return;
+      }
+
+      // Recupera a subscription para obter o metadata (offerSlug, dados do cliente, UTMs)
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId, {}, { stripeAccount: stripeAccountId });
+      const meta = subscription.metadata || {};
+      const offerSlug = meta.offerSlug;
+
+      if (!offerSlug) {
+        console.error("❌ [Subscription] offerSlug não encontrado no metadata da subscription");
+        return;
+      }
+
+      const offer = await Offer.findOne({ slug: offerSlug });
+      if (!offer) {
+        console.error(`❌ [Subscription] Oferta '${offerSlug}' não encontrada`);
+        return;
+      }
+
+      const customerEmail = meta.customerEmail || "email@nao.informado";
+      const customerName = meta.customerName || "Cliente Não Identificado";
+      const customerPhone = meta.customerPhone || "";
+      const clientIp = meta.ip || "";
+      const countryCode = clientIp ? getCountryFromIP(clientIp) : "BR";
+
+      await Sale.create({
+        ownerId: offer.ownerId,
+        offerId: offer._id,
+        stripePaymentIntentId: piId,
+        stripeSubscriptionId: subscriptionId,
+        subscriptionCycle: 1,
+        customerName,
+        customerEmail,
+        customerPhone,
+        ip: clientIp,
+        country: countryCode,
+        totalAmountInCents: invoice.amount_paid,
+        platformFeeInCents: Math.round(invoice.amount_paid * 0.05),
+        currency: invoice.currency || "brl",
+        status: "succeeded",
+        paymentMethod: "stripe",
+        gateway: "stripe",
+        paymentMethodType: "card",
+        isUpsell: false,
+        isDownsell: false,
+        items: [
+          {
+            name: offer.mainProduct?.name || offer.name || "Assinatura",
+            priceInCents: invoice.amount_paid,
+            isOrderBump: false,
+          },
+        ],
+        utm_source: meta.utm_source || "",
+        utm_medium: meta.utm_medium || "",
+        utm_campaign: meta.utm_campaign || "",
+        utm_term: meta.utm_term || "",
+        utm_content: meta.utm_content || "",
+        facebookPurchaseSendAfter: new Date(Date.now() + 10 * 60 * 1000),
+      });
+
+      console.log(`✅ [Subscription] Venda inicial registrada: sub ${subscriptionId}, pi ${piId}`);
+      return;
+    }
+
+    // --- RENOVAÇÃO AUTOMÁTICA (subscription_cycle) ---
+    if (invoice.billing_reason !== "subscription_cycle") {
+      return;
+    }
 
     // Busca todas as vendas anteriores dessa assinatura para obter oferta, dono e ciclo atual
     const previousSales = await Sale.find({ stripeSubscriptionId: subscriptionId })
@@ -93,6 +165,6 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice): Pr
 
     console.log(`✅ [Subscription] Renovação registrada: sub ${subscriptionId}, pi ${piId}`);
   } catch (error: any) {
-    console.error(`❌ [Subscription] Erro ao processar renovação: ${error.message}`);
+    console.error(`❌ [Subscription] Erro ao processar invoice: ${error.message}`);
   }
 };
