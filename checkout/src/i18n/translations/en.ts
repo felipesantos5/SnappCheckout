@@ -20,6 +20,13 @@ export const en: Translation = {
     remove: "Remove",
     youSave: "You save",
     couponApplied: "Coupon applied",
+    subscriptionBadge: "Subscription",
+    interval: {
+      day: "/day",
+      week: "/week",
+      month: "/month",
+      year: "/year",
+    },
   },
 
   // Payment Methods

@@ -654,6 +654,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                 currency={offerData.currency}
                 originalPriceInCents={offerData.mainProduct.compareAtPriceInCents}
                 discountPercentage={offerData.mainProduct.discountPercentage}
+                paymentType={offerData.paymentType}
+                subscriptionInterval={offerData.subscriptionInterval}
               />
             </div>
 
@@ -746,6 +748,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                     currency={offerData.currency}
                     originalPriceInCents={offerData.mainProduct.compareAtPriceInCents}
                     discountPercentage={offerData.mainProduct.discountPercentage}
+                    paymentType={offerData.paymentType}
+                    subscriptionInterval={offerData.subscriptionInterval}
                   />
 
                   {/* Order Bumps aparecem aqui em desktop */}
