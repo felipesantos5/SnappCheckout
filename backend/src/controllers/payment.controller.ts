@@ -12,6 +12,8 @@ import { calculateTotalAmount } from "../helper/calculateTotalAmount";
 import { getStripeAccountId, getOwnerPaymentInfo } from "../helper/getStripeAccountId";
 import { getUpsellSteps, buildUpsellRedirectUrl } from "../helper/getUpsellSteps";
 
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+
 export const handleCreatePaymentIntent = async (req: Request, res: Response) => {
   try {
     const { offerSlug, selectedOrderBumps, contactInfo, addressInfo, metadata, couponCode } = req.body;
@@ -248,6 +250,9 @@ export const handleTrackCart = async (req: Request, res: Response) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ error: "Email invalido." });
+    }
 
     const offer = await Offer.findOne({ slug: offerSlug }).select("_id ownerId cartAbandonmentEnabled").lean();
     if (!offer) {
@@ -270,14 +275,13 @@ export const handleTrackCart = async (req: Request, res: Response) => {
           customerEmail: normalizedEmail,
           offerId: offer._id,
           ownerId: offer.ownerId,
-          customerName: name || "",
           emailSent: false,
           reminder1SentAt: null,
           reminder2SentAt: null,
           convertedAt: null,
         },
         $set: {
-          ...(name ? { customerName: name } : {}),
+          customerName: name || "",
         },
       },
       { upsert: true, new: true }

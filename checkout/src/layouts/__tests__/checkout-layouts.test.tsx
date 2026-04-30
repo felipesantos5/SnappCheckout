@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { loadStripe } from "@stripe/stripe-js";
@@ -93,10 +93,11 @@ describe("Layout Classic - Renderizacao e Pagamento", () => {
   });
 
   it("dispara carrinho abandonado quando o cliente informa email", async () => {
-    const user = userEvent.setup();
     renderClassic();
 
-    await user.type(await screen.findByLabelText(/e-mail/i), "abc@");
+    fireEvent.change(await screen.findByLabelText(/e-mail/i), {
+      target: { value: "cliente@example.com" },
+    });
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(
@@ -111,7 +112,7 @@ describe("Layout Classic - Renderizacao e Pagamento", () => {
     await waitFor(() => {
       const initiateCheckout = metricCalls().find(([, init]) => {
         const body = JSON.parse(String(init?.body));
-        return body.type === "initiate_checkout" && body.email === "abc@" && body.language === "pt";
+        return body.type === "initiate_checkout" && body.email === "cliente@example.com" && body.language === "pt";
       });
 
       expect(initiateCheckout).toBeTruthy();

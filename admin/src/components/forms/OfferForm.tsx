@@ -2395,7 +2395,12 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   </FormDescription>
                 </div>
                 <FormControl>
-                  <input type="checkbox" checked={field.value ?? false} onChange={field.onChange} className="h-5 w-5 accent-primary cursor-pointer" />
+                  <input
+                    type="checkbox"
+                    checked={field.value ?? false}
+                    onChange={(event) => field.onChange(event.target.checked)}
+                    className="h-5 w-5 accent-primary cursor-pointer"
+                  />
                 </FormControl>
               </FormItem>
             )}

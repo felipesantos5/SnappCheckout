@@ -32,7 +32,7 @@ interface ApiOfferData {
   slug: string;
   name: string;
   bannerImageUrl?: string;
-  layoutType?: 'classic' | 'modern' | 'minimal';
+  layoutType?: 'classic' | 'modern' | 'minimal' | 'hubla';
   secondaryBannerImageUrl?: string;
   thankYouPageUrl?: string;
   backRedirectUrl?: string;
@@ -118,6 +118,7 @@ interface ApiOfferData {
     intervalSeconds: number;
     soundEnabled: boolean;
   };
+  cartAbandonmentEnabled?: boolean;
   group?: string;
   categoryId?: string;
   paymentType?: 'one_time' | 'subscription';
@@ -287,6 +288,7 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
         intervalSeconds: 10,
         soundEnabled: true,
       },
+    cartAbandonmentEnabled: data.cartAbandonmentEnabled ?? false,
   };
 };
 

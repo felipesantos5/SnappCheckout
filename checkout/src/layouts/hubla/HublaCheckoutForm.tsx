@@ -21,6 +21,7 @@ import { PhoneInput } from "../../components/checkout/PhoneInput";
 
 const PayPalPayment = lazy(() => import("../../components/checkout/PayPalPayment").then((m) => ({ default: m.PayPalPayment })));
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const PixIcon: React.FC<{ color?: string }> = ({ color = "#6b7280" }) => (
   <svg className="h-5 w-5" viewBox="0 0 512 512" fill={color}>
@@ -418,7 +419,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
     const email = e.target.value;
     setContactEmail(email);
 
-    if (email.length >= 4 && email.includes("@") && !checkoutStartedSent.current) {
+    if (EMAIL_REGEX.test(email.trim()) && !checkoutStartedSent.current) {
       checkoutStartedSent.current = true;
 
       fetch(`${API_URL}/offers/checkout-started`, {
@@ -435,6 +436,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
           type: "initiate_checkout",
           email,
           name: contactName,
+          language: offerData.language || "pt",
         }),
       }).catch(() => {});
 
@@ -462,6 +464,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
             type: "initiate_checkout",
             email: contactEmail,
             name,
+            language: offerData.language || "pt",
           }),
         }).catch(() => {});
       }, 1000);

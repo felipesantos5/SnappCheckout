@@ -8,6 +8,8 @@ const REMINDER_2_DELAY_MS = 60 * 60 * 1000; // 2º lembrete: 1 hora após abando
 
 let jobInterval: ReturnType<typeof setInterval> | null = null;
 
+const getCheckoutBaseUrl = (): string => (process.env.CHECKOUT_BASE_URL || "https://pay.snappcheckout.com").replace(/\/$/, "");
+
 // ──────────────────────────────────────────────────────────────
 // ONDA 1 — 30 minutos após abandono
 // ──────────────────────────────────────────────────────────────
@@ -34,7 +36,7 @@ async function processReminder1(): Promise<void> {
 
       if (!offer) continue;
 
-      const baseUrl = (process.env.CHECKOUT_BASE_URL || "").replace(/\/$/, "");
+      const baseUrl = getCheckoutBaseUrl();
       const checkoutUrl = `${baseUrl}/c/${offer.slug}`;
 
       await sendCartAbandonmentEmail({
@@ -68,10 +70,9 @@ async function processReminder2(): Promise<void> {
   const cutoff = new Date(Date.now() - REMINDER_2_DELAY_MS);
 
   const carts = await AbandonedCart.find({
-    reminder1SentAt: { $ne: null },
+    reminder1SentAt: { $ne: null, $lte: cutoff },
     reminder2SentAt: null,
     convertedAt: null,
-    createdAt: { $lte: cutoff },
   }).lean();
 
   if (carts.length === 0) return;
@@ -88,7 +89,7 @@ async function processReminder2(): Promise<void> {
 
       if (!offer) continue;
 
-      const baseUrl = (process.env.CHECKOUT_BASE_URL || "").replace(/\/$/, "");
+      const baseUrl = getCheckoutBaseUrl();
       const checkoutUrl = `${baseUrl}/c/${offer.slug}`;
 
       await sendCartAbandonmentEmail({
@@ -98,7 +99,7 @@ async function processReminder2(): Promise<void> {
         productName: offer.mainProduct.name,
         priceInCents: offer.mainProduct.priceInCents,
         currency: offer.currency || "BRL",
-        language: offer.language || "pt",
+        language: cart.visitorLanguage || offer.language || "pt",
         checkoutUrl,
         ownerId: cart.ownerId.toString(),
         offerId: cart.offerId.toString(),

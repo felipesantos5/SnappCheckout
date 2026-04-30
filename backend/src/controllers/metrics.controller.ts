@@ -7,6 +7,8 @@ import Offer from "../models/offer.model";
 import { sendFacebookEvent, createFacebookUserData } from "../services/facebook.service";
 import { convertToBRL } from "../services/currency-conversion.service";
 
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+
 /**
  * Helper: Busca IDs de todas as ofertas ativas de um usuário
  * Usado pela rota /api/sales (RecentSalesTable)
@@ -183,25 +185,44 @@ export const handleTrackMetric = async (req: Request, res: Response) => {
     // Salva o email do cliente para envio de email de recuperação
     if (type === "initiate_checkout" && email) {
       try {
+        const normalizedEmail = String(email).toLowerCase().trim();
+        if (!isValidEmail(normalizedEmail)) return;
+
         const offerForCart = await Offer.findById(offerId, "ownerId cartAbandonmentEnabled").lean();
-        if (offerForCart) {
-          await AbandonedCart.findOneAndUpdate(
-            { customerEmail: email.toLowerCase().trim(), offerId },
-            {
-              $set: {
-                ownerId: offerForCart.ownerId,
-                ...(name ? { customerName: name } : {}),
-                ...(language ? { visitorLanguage: language } : {}),
-                emailSent: false,
-                emailSentAt: null,
-                convertedAt: null,
-                // Atualiza createdAt para reiniciar o timer de 30 min a cada nova tentativa
-                createdAt: new Date(),
-              },
+        if (!offerForCart?.cartAbandonmentEnabled) return;
+
+        const existingCart = await AbandonedCart.findOne({ customerEmail: normalizedEmail, offerId })
+          .select("convertedAt reminder1SentAt reminder2SentAt")
+          .lean();
+        const shouldRestartTimer = !existingCart || existingCart.convertedAt || existingCart.reminder1SentAt || existingCart.reminder2SentAt;
+        const now = new Date();
+
+        await AbandonedCart.findOneAndUpdate(
+          { customerEmail: normalizedEmail, offerId },
+          {
+            $set: {
+              ownerId: offerForCart.ownerId,
+              ...(name ? { customerName: name } : {}),
+              ...(language ? { visitorLanguage: language } : {}),
+              convertedAt: null,
+              updatedAt: now,
+              ...(shouldRestartTimer
+                ? {
+                    emailSent: false,
+                    emailSentAt: null,
+                    reminder1SentAt: null,
+                    reminder2SentAt: null,
+                    createdAt: now,
+                  }
+                : {}),
             },
-            { upsert: true, new: true, timestamps: false }
-          );
-        }
+            $setOnInsert: {
+              customerEmail: normalizedEmail,
+              offerId,
+            },
+          },
+          { upsert: true, new: true, timestamps: false }
+        );
       } catch (err: any) {
         // Não bloqueia o fluxo em caso de erro
         console.error("[Cart Abandonment] Erro ao salvar:", err.message);

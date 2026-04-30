@@ -61,6 +61,7 @@ export type CreateOfferPayload = {
   facebookAccessToken?: string;
   thankYouPageUrl?: string;
   backRedirectUrl?: string;
+  cartAbandonmentEnabled?: boolean;
   autoNotifications?: {
     enabled: boolean;
     genderFilter: 'all' | 'male' | 'female';
@@ -244,6 +245,10 @@ export const updateOffer = async (id: string, ownerId: string, payload: UpdateOf
     if (utmfyWebhookUrls !== undefined) {
       (offer as any).utmfyWebhookUrls = utmfyWebhookUrls;
       offer.markModified("utmfyWebhookUrls");
+    }
+    if ((payload as any).cartAbandonmentEnabled !== undefined) {
+      (offer as any).cartAbandonmentEnabled = Boolean((payload as any).cartAbandonmentEnabled);
+      offer.markModified("cartAbandonmentEnabled");
     }
 
     // 3. Salva o documento atualizado

@@ -13,6 +13,8 @@ interface ContactInfoProps {
   onNameChange?: (name: string) => void;
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, showDocument = false, offerID, abTestId, onEmailChange, onNameChange }) => {
   const { t, language } = useTranslation();
   const { foregroundColor } = useTheme();
@@ -30,9 +32,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, show
     // Notifica o parent sobre a mudança do email
     onEmailChange?.(email);
 
-    // Só dispara quando o email tem pelo menos 3 caracteres antes do @ e contém @
-    // Exemplo: "abc@" já seria suficiente para contar como checkout iniciado
-    if (email.length >= 4 && email.includes("@") && !checkoutStartedSent.current) {
+    if (EMAIL_REGEX.test(email.trim()) && !checkoutStartedSent.current) {
       checkoutStartedSent.current = true;
 
       try {
