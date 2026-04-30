@@ -3,7 +3,7 @@ import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
 import User from "../../../models/user.model";
 import UpsellSession from "../../../models/upsell-session.model";
-import { sendAccessWebhook } from "../../../services/integration.service";
+import { sendAccessWebhook, sendGenericWebhook } from "../../../services/integration.service";
 import { getCountryFromIP } from "../../../helper/getCountryFromIP";
 import { v4 as uuidv4 } from "uuid";
 
@@ -81,6 +81,15 @@ export const handlePaymentCaptureCompleted = async (event: PayPalWebhookEvent): 
 
         // Enviar webhook para área de membros (Husky)
         await sendAccessWebhook(offer as any, pendingSale, items, "");
+
+        // Webhook Genérico
+        try {
+          await sendGenericWebhook(offer as any, pendingSale);
+          pendingSale.integrationsGenericWebhookSent = true;
+          await pendingSale.save();
+        } catch (genericError: any) {
+          console.error(`⚠️ [PayPal] Erro ao enviar webhook genérico:`, genericError.message);
+        }
 
         // Facebook CAPI (Purchase) - NÃO envia imediatamente
         // O evento Purchase será enviado consolidado pelo job (facebook-purchase.job.ts)
@@ -298,6 +307,16 @@ const retryAllIntegrations = async (sale: any): Promise<void> => {
         sale.integrationsUtmfySent = true;
       } catch (error: any) {
         console.error(`❌ [PayPal Webhook] Erro ao reenviar webhook UTMfy:`, error.message);
+      }
+    }
+
+    // D: Reenvia webhook genérico se não foi enviado ainda
+    if (!sale.integrationsGenericWebhookSent) {
+      try {
+        await sendGenericWebhook(offer as any, sale);
+        sale.integrationsGenericWebhookSent = true;
+      } catch (error: any) {
+        console.error(`❌ [PayPal Webhook] Erro ao reenviar webhook genérico:`, error.message);
       }
     }
 

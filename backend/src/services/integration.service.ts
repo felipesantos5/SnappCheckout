@@ -20,6 +20,44 @@ interface MembershipPayload {
   subscriptionId: string | null;
 }
 
+export const sendGenericWebhook = async (
+  offer: IOffer,
+  sale: ISale,
+) => {
+  if (!offer.genericWebhook || !offer.genericWebhook.enabled || !offer.genericWebhook.url) {
+    return;
+  }
+
+  try {
+    const payload = {
+      email: sale.customerEmail,
+      status: "approved",
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (offer.genericWebhook.authToken) {
+      headers["Authorization"] = `Bearer ${offer.genericWebhook.authToken}`;
+    }
+
+    const response = await fetchWithTimeout(offer.genericWebhook.url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+      timeout: 30000,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Erro no Webhook Genérico: ${response.status} - ${errorText}`);
+    }
+  } catch (error: any) {
+    console.error(`❌ Falha ao enviar webhook genérico: ${error.message}`);
+  }
+};
+
 export const sendAccessWebhook = async (
   offer: IOffer,
   sale: ISale,

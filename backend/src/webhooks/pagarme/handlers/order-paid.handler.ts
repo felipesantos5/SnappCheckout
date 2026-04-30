@@ -3,7 +3,7 @@ import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
 import AbandonedCart from "../../../models/abandoned-cart.model";
 import User from "../../../models/user.model";
-import { sendAccessWebhook } from "../../../services/integration.service";
+import { sendAccessWebhook, sendGenericWebhook } from "../../../services/integration.service";
 import { processUtmfyIntegrationForPayPal } from "../../../services/utmfy.service";
 import { sendPurchaseConfirmationEmail } from "../../../services/email.service";
 
@@ -117,6 +117,15 @@ const dispatchAllIntegrations = async (sale: any, offer: any, items: any[]) => {
   } catch (error: any) {
     console.error(`❌ [Pagar.me] Erro ao enviar webhook UTMfy:`, error.message);
     sale.integrationsUtmfySent = false;
+  }
+
+  // D: Webhook Genérico
+  try {
+    await sendGenericWebhook(offer as any, sale);
+    sale.integrationsGenericWebhookSent = true;
+  } catch (error: any) {
+    console.error(`❌ [Pagar.me] Erro ao enviar webhook genérico:`, error.message);
+    sale.integrationsGenericWebhookSent = false;
   }
 
   // Salva as flags de integração

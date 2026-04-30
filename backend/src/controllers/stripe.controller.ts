@@ -6,7 +6,7 @@ import Offer from "../models/offer.model";
 import Sale from "../models/sale.model";
 import { Stripe } from "stripe";
 import * as stripeService from "../services/stripe.service";
-import { sendAccessWebhook } from "../services/integration.service";
+import { sendAccessWebhook, sendGenericWebhook } from "../services/integration.service";
 import { createFacebookUserData, sendFacebookEvent } from "../services/facebook.service";
 import { processUtmfyIntegration } from "../services/utmfy.service";
 
@@ -119,6 +119,15 @@ async function dispatchIntegrations(
   } catch (error: any) {
     console.error(`⚠️ [Stripe] Erro UTMfy (venda salva):`, error.message);
     sale.integrationsUtmfySent = false;
+  }
+
+  // D: Webhook Genérico
+  try {
+    await sendGenericWebhook(offer as any, sale);
+    sale.integrationsGenericWebhookSent = true;
+  } catch (error: any) {
+    console.error(`⚠️ [Stripe] Erro webhook genérico (venda salva):`, error.message);
+    sale.integrationsGenericWebhookSent = false;
   }
 
   // Salva flags
