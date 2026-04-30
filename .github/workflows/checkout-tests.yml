@@ -1,0 +1,43 @@
+name: Checkout Frontend Tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checkout-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checkout-tests:
+    name: Vitest and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: checkout
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: checkout/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run checkout unit tests
+        run: npm run test:unit
+
+      - name: Build checkout
+        run: npm run build
+        env:
+          VITE_BACKEND_URL: http://localhost:4242
+          VITE_STRIPE_PUBLISHABLE_KEY: pk_test_checkout

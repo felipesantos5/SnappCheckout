@@ -18,6 +18,13 @@ export const pt = {
     remove: "Remover",
     youSave: "Você economiza",
     couponApplied: "Cupom aplicado",
+    subscriptionBadge: "Assinatura",
+    interval: {
+      day: "/dia",
+      week: "/semana",
+      month: "/mês",
+      year: "/ano",
+    },
   },
 
   // Payment Methods

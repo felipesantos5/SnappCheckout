@@ -18,7 +18,7 @@ import "dotenv/config";
 import mongoose from "mongoose";
 import Sale from "../models/sale.model";
 import Offer from "../models/offer.model";
-import { sendAccessWebhook } from "../services/integration.service";
+import { sendAccessWebhook, sendGenericWebhook } from "../services/integration.service";
 import { createFacebookUserData, sendFacebookEvent } from "../services/facebook.service";
 import { processUtmfyIntegrationForPayPal } from "../services/utmfy.service";
 
@@ -204,6 +204,17 @@ const reprocessSale = async (sale: any): Promise<void> => {
   if (!sale.integrationsUtmfySent) {
     const success = await resendUtmfyWebhook(offer, sale, items);
     sale.integrationsUtmfySent = success;
+  }
+
+  // Reenviar Webhook Genérico se necessário
+  if (!sale.integrationsGenericWebhookSent) {
+    try {
+      await sendGenericWebhook(offer as any, sale);
+      sale.integrationsGenericWebhookSent = true;
+    } catch (error: any) {
+      console.error(`   ❌ Erro ao enviar webhook genérico:`, error.message);
+      sale.integrationsGenericWebhookSent = false;
+    }
   }
 
   // Salvar alterações

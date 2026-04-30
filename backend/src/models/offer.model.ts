@@ -111,6 +111,11 @@ export interface IOffer extends Document {
     url: string;
     authToken: string;
   };
+  genericWebhook?: {
+    enabled: boolean;
+    url: string;
+    authToken?: string;
+  };
   customId?: string;
   collectPhone: boolean;
   collectDocument: boolean; // <-- NOVO: Controla se CPF/CNPJ deve ser coletado
@@ -339,6 +344,11 @@ const offerSchema = new Schema<IOffer>(
     },
     orderBumps: [productSubSchema],
     membershipWebhook: {
+      enabled: { type: Boolean, default: false },
+      url: { type: String, default: "" },
+      authToken: { type: String, default: "" },
+    },
+    genericWebhook: {
       enabled: { type: Boolean, default: false },
       url: { type: String, default: "" },
       authToken: { type: String, default: "" },

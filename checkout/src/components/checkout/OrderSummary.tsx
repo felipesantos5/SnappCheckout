@@ -12,10 +12,12 @@ interface OrderSummaryProps {
   basePriceInCents: number;
   originalPriceInCents?: number;
   discountPercentage?: number;
+  paymentType?: "one_time" | "subscription";
+  subscriptionInterval?: "day" | "week" | "month" | "year";
 }
 
 export const OrderSummary = memo<OrderSummaryProps>(
-  ({ productName, productImageUrl, currency, totalAmountInCents, basePriceInCents, originalPriceInCents }) => {
+  ({ productName, productImageUrl, currency, totalAmountInCents, basePriceInCents, originalPriceInCents, paymentType, subscriptionInterval }) => {
     const { textColor, backgroundColor, foregroundColor } = useTheme();
     const { t } = useTranslation();
 
@@ -41,9 +43,19 @@ export const OrderSummary = memo<OrderSummaryProps>(
             />
           )}
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold line-clamp-2" style={{ color: foregroundColor }}>
-              {productName}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold line-clamp-2" style={{ color: foregroundColor }}>
+                {productName}
+              </h3>
+              {paymentType === "subscription" && subscriptionInterval && (
+                <span
+                  className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                  style={{ backgroundColor: `${textColor}15`, color: textColor }}
+                >
+                  {t.orderSummary.subscriptionBadge}
+                </span>
+              )}
+            </div>
             <div className="flex items-center justify-end">
               <div className="text-right">
                 <p className="text-xs" style={{ color: foregroundColor, opacity: 0.6 }}>
@@ -57,6 +69,11 @@ export const OrderSummary = memo<OrderSummaryProps>(
                   )}
                   <p className="text-lg font-bold" style={{ color: textColor }}>
                     {totalSmallText}
+                    {paymentType === "subscription" && subscriptionInterval && (
+                      <span className="text-xs font-medium" style={{ opacity: 0.7 }}>
+                        {t.orderSummary.interval[subscriptionInterval]}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>

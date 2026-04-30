@@ -6,7 +6,7 @@ import AbandonedCart from "../../../models/abandoned-cart.model";
 import UpsellSession from "../../../models/upsell-session.model";
 import { processUtmfyIntegration, sendPurchaseToUTMfyWebhook } from "../../../services/utmfy.service";
 import stripe from "../../../lib/stripe";
-import { sendAccessWebhook } from "../../../services/integration.service";
+import { sendAccessWebhook, sendGenericWebhook } from "../../../services/integration.service";
 import { getCountryFromIP } from "../../../helper/getCountryFromIP";
 import { getUpsellSteps } from "../../../helper/getUpsellSteps";
 import User from "../../../models/user.model";
@@ -893,7 +893,16 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
       sale.integrationsUtmfySent = false;
     }
 
-    // D: Email de confirmação de compra para o cliente
+    // D: Webhook Genérico (ex: sistema de barbearia, etc.)
+    try {
+      await sendGenericWebhook(offer as any, sale);
+      sale.integrationsGenericWebhookSent = true;
+    } catch (genericError: any) {
+      console.error(`⚠️ [Stripe] Erro ao enviar webhook genérico (Venda salva normalmente):`, genericError.message);
+      sale.integrationsGenericWebhookSent = false;
+    }
+
+    // E: Email de confirmação de compra para o cliente
     try {
       const emailConfig = (offer as any).emailNotification;
       if (emailConfig?.enabled && finalCustomerEmail && finalCustomerEmail !== "email@nao.informado") {

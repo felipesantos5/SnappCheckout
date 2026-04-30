@@ -21,13 +21,20 @@ const getActiveOfferIds = async (ownerId: string): Promise<mongoose.Types.Object
 
 /**
  * Helper: Busca IDs de TODAS as ofertas de um usuário (sem filtrar por isActive)
+ * Inclui ofertas deletadas através dos registros de Sale (hard delete safe)
  * Usado pelas métricas do dashboard (KPIs, gráficos)
  */
 const getAllOfferIds = async (ownerId: string): Promise<mongoose.Types.ObjectId[]> => {
-  const offers = await Offer.find({
-    ownerId: new mongoose.Types.ObjectId(ownerId)
-  }).select("_id").lean();
-  return offers.map(offer => offer._id as mongoose.Types.ObjectId);
+  const ownerObjectId = new mongoose.Types.ObjectId(ownerId);
+  const [existingOffers, saleOfferIds] = await Promise.all([
+    Offer.find({ ownerId: ownerObjectId }).select("_id").lean(),
+    Sale.distinct("offerId", { ownerId: ownerObjectId }),
+  ]);
+  const allIds = new Set([
+    ...existingOffers.map(o => (o._id as mongoose.Types.ObjectId).toString()),
+    ...saleOfferIds.map((id: any) => id.toString()),
+  ]);
+  return Array.from(allIds).map(id => new mongoose.Types.ObjectId(id));
 };
 
 /**
@@ -35,7 +42,7 @@ const getAllOfferIds = async (ownerId: string): Promise<mongoose.Types.ObjectId[
  * Público: Não requer autenticação (pois é chamado pelo checkout do cliente)
  */
 export const handleTrackMetric = async (req: Request, res: Response) => {
-  const { offerId, type, fbc, fbp, email, phone, name, eventId, totalAmount, contentIds } = req.body;
+  const { offerId, type, fbc, fbp, email, phone, name, language, eventId, totalAmount, contentIds } = req.body;
 
   // Resposta imediata para não travar o cliente (Fire and Forget)
   res.status(200).send();
@@ -184,6 +191,7 @@ export const handleTrackMetric = async (req: Request, res: Response) => {
               $set: {
                 ownerId: offerForCart.ownerId,
                 ...(name ? { customerName: name } : {}),
+                ...(language ? { visitorLanguage: language } : {}),
                 emailSent: false,
                 emailSentAt: null,
                 convertedAt: null,
@@ -322,8 +330,22 @@ export const handleGetConversionFunnel = async (req: Request, res: Response) => 
       return res.status(400).json({ error: "Datas inválidas." });
     }
 
-    // Busca TODAS as ofertas (métricas do dashboard não filtram por isActive)
-    const offers = await Offer.find({ ownerId }).select("_id name slug checkoutStarted").lean();
+    // Busca TODAS as ofertas (incluindo deletadas via Sale records)
+    const ownerObjectId = new mongoose.Types.ObjectId(ownerId);
+    const [existingOffers, saleOfferIds] = await Promise.all([
+      Offer.find({ ownerId }).select("_id name slug checkoutStarted").lean(),
+      Sale.distinct("offerId", { ownerId: ownerObjectId }),
+    ]);
+
+    // Mapa de ofertas existentes
+    const existingOfferMap = new Map(existingOffers.map(o => [o._id.toString(), o]));
+
+    // Inclui ofertas deletadas que tiveram vendas
+    const deletedOfferEntries = saleOfferIds
+      .filter((id: any) => !existingOfferMap.has(id.toString()))
+      .map((id: any) => ({ _id: id, name: "Oferta Removida", slug: "", checkoutStarted: false }));
+
+    const offers = [...existingOffers, ...deletedOfferEntries];
     if (!offers.length) return res.status(200).json([]);
 
     const offerIds = offers.map((offer) => offer._id);

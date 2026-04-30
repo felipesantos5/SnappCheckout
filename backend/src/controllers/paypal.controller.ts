@@ -5,7 +5,7 @@ import Offer from "../models/offer.model";
 import User from "../models/user.model";
 import UpsellSession from "../models/upsell-session.model";
 import { v4 as uuidv4 } from "uuid";
-import { sendAccessWebhook } from "../services/integration.service";
+import { sendAccessWebhook, sendGenericWebhook } from "../services/integration.service";
 import { getCountryFromIP } from "../helper/getCountryFromIP";
 import { processUtmfyIntegrationForPayPal } from "../services/utmfy.service";
 import { getUpsellSteps, buildUpsellRedirectUrl } from "../helper/getUpsellSteps";
@@ -37,6 +37,10 @@ export const getClientId = async (req: Request, res: Response) => {
 
     if (!user || !user.paypalClientId) {
       return res.status(400).json({ error: "Credenciais do PayPal não configuradas pelo vendedor." });
+    }
+
+    if (user.paypalBilling?.status === "blocked") {
+      return res.status(403).json({ error: "PayPal indisponível.", blocked: true });
     }
 
     // Retorna apenas o Client ID (é seguro expor, pois é usado no script SDK do frontend)
@@ -71,6 +75,10 @@ export const createOrder = async (req: Request, res: Response) => {
 
     if (!user || !user.paypalClientId || !user.paypalClientSecret) {
       return res.status(400).json({ error: "Credenciais do PayPal não configuradas." });
+    }
+
+    if (user.paypalBilling?.status === "blocked") {
+      return res.status(403).json({ error: "PayPal indisponível.", blocked: true });
     }
 
     // Habilita vault apenas se a oferta tiver upsell ativo E o PayPal One-Click estiver habilitado
@@ -109,6 +117,10 @@ export const captureOrder = async (req: Request, res: Response) => {
 
     if (!user || !user.paypalClientId || !user.paypalClientSecret) {
       return res.status(400).json({ error: "Credenciais do PayPal não configuradas." });
+    }
+
+    if (user.paypalBilling?.status === "blocked") {
+      return res.status(403).json({ error: "PayPal indisponível.", blocked: true });
     }
 
     let captureData: any;
@@ -287,6 +299,15 @@ export const captureOrder = async (req: Request, res: Response) => {
         newSale.integrationsUtmfySent = false;
       }
 
+      // D: Webhook Genérico
+      try {
+        await sendGenericWebhook(offer as any, newSale);
+        newSale.integrationsGenericWebhookSent = true;
+      } catch (genericError: any) {
+        console.error(`⚠️ [PayPal] Erro ao enviar webhook genérico:`, genericError.message);
+        newSale.integrationsGenericWebhookSent = false;
+      }
+
       // Salva as flags de integração (não-crítico, não deve impedir resposta)
       try {
         await newSale.save();
@@ -294,7 +315,7 @@ export const captureOrder = async (req: Request, res: Response) => {
         console.error(`⚠️ [PayPal] Erro ao salvar flags de integração:`, flagSaveError.message);
       }
 
-      // D: Verificar se tem upsell habilitado e vault disponível
+      // E: Verificar se tem upsell habilitado e vault disponível
       let upsellToken: string | null = null;
       let upsellRedirectUrl: string | null = null;
 
@@ -575,6 +596,15 @@ export const handlePayPalOneClickUpsell = async (req: Request, res: Response) =>
       } catch (utmfyError: any) {
         console.error(`⚠️ [PayPal Upsell] Erro ao enviar webhook UTMfy:`, utmfyError.message);
         newSale.integrationsUtmfySent = false;
+      }
+
+      // D: Webhook Genérico
+      try {
+        await sendGenericWebhook(offer as any, newSale);
+        newSale.integrationsGenericWebhookSent = true;
+      } catch (genericError: any) {
+        console.error(`⚠️ [PayPal Upsell] Erro ao enviar webhook genérico:`, genericError.message);
+        newSale.integrationsGenericWebhookSent = false;
       }
 
       // Salva flags de integração

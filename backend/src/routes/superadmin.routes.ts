@@ -1,6 +1,6 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { superAdminLogin, getSuperAdminStats, getSuperAdminUsers } from "../controllers/superadmin.controller";
+import { superAdminLogin, getSuperAdminStats, getSuperAdminUsers, updateUserFee } from "../controllers/superadmin.controller";
 import { protectSuperAdmin } from "../middleware/superadmin.middleware";
 
 const router = Router();
@@ -17,5 +17,6 @@ const loginLimiter = rateLimit({
 router.post("/auth", loginLimiter, superAdminLogin);
 router.get("/stats", protectSuperAdmin, getSuperAdminStats);
 router.get("/users", protectSuperAdmin, getSuperAdminUsers);
+router.patch("/users/:userId/fee", protectSuperAdmin, updateUserFee);
 
 export default router;

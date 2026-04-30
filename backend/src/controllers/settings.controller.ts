@@ -47,6 +47,7 @@ export const getSettings = async (req: Request, res: Response) => {
       smtpPass: user.smtpPass || "",
       smtpFromEmail: user.smtpFromEmail || "",
       smtpFromName: user.smtpFromName || "",
+      paypalBilling: user.paypalBilling,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -76,7 +77,18 @@ export const updateSettings = async (req: Request, res: Response) => {
     }
 
     // Atualiza PayPal
+    let isFirstPaypalSetup = false;
     if (paypalClientId !== undefined) {
+      const wasEmpty = !user.paypalClientId;
+      const isNowFilled = !!paypalClientId;
+      if (wasEmpty && isNowFilled && !user.paypalBilling?.trialStartDate) {
+        isFirstPaypalSetup = true;
+        const now = new Date();
+        user.paypalBilling.trialStartDate = now;
+        user.paypalBilling.status = "trial";
+        user.paypalBilling.currentCycleStart = now;
+        user.paypalBilling.currentCycleEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      }
       user.paypalClientId = paypalClientId;
     }
     if (paypalClientSecret !== undefined) {
@@ -135,7 +147,7 @@ export const updateSettings = async (req: Request, res: Response) => {
 
     await user.save();
 
-    res.status(200).json({ message: "Configurações atualizadas com sucesso." });
+    res.status(200).json({ message: "Configurações atualizadas com sucesso.", isFirstPaypalSetup });
   } catch (error: any) {
     console.error("[Settings] Erro ao atualizar configurações:", error);
     res.status(500).json({ error: error.message });

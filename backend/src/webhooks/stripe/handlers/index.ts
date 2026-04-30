@@ -15,7 +15,7 @@ export const handleStripeEvent = async (event: Stripe.Event): Promise<void> => {
       break;
 
     case "payment_intent.succeeded":
-      await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
+      await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent, event.account);
       break;
 
     case "payment_intent.payment_failed":

@@ -20,6 +20,13 @@ export const de: Translation = {
     remove: "Entfernen",
     youSave: "Sie sparen",
     couponApplied: "Gutschein angewendet",
+    subscriptionBadge: "Abonnement",
+    interval: {
+      day: "/Tag",
+      week: "/Woche",
+      month: "/Monat",
+      year: "/Jahr",
+    },
   },
 
   // Payment Methods

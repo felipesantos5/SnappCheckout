@@ -3,6 +3,16 @@ import mongoose, { Schema, Document, model, Model } from "mongoose";
 import bcrypt from "bcrypt";
 
 // Interface para o documento (para tipagem)
+export interface IPaypalBilling {
+  trialStartDate: Date | null;
+  status: "trial" | "active" | "blocked";
+  currentCycleStart: Date | null;
+  currentCycleEnd: Date | null;
+  lastPaymentDate: Date | null;
+  lastChargeAmountInCents: number;
+  pendingFeeInCents: number;
+}
+
 export interface IUser extends Document {
   name: string;
   email: string;
@@ -22,6 +32,9 @@ export interface IUser extends Document {
   smtpPass?: string;
   smtpFromEmail?: string;
   smtpFromName?: string;
+  // PayPal Billing
+  paypalBilling: IPaypalBilling;
+  platformFeePercent: number;
   // Métodos
   comparePassword(password: string): Promise<boolean>;
 }
@@ -100,6 +113,20 @@ const userSchema = new Schema<IUser>(
     smtpPass: { type: String, default: "", select: false },
     smtpFromEmail: { type: String, default: "" },
     smtpFromName: { type: String, default: "" },
+
+    // --- TAXA DA PLATAFORMA ---
+    platformFeePercent: { type: Number, default: 3, min: 0, max: 100 },
+
+    // --- PAYPAL BILLING ---
+    paypalBilling: {
+      trialStartDate: { type: Date, default: null },
+      status: { type: String, enum: ["trial", "active", "blocked"], default: "trial" },
+      currentCycleStart: { type: Date, default: null },
+      currentCycleEnd: { type: Date, default: null },
+      lastPaymentDate: { type: Date, default: null },
+      lastChargeAmountInCents: { type: Number, default: 0 },
+      pendingFeeInCents: { type: Number, default: 0 },
+    },
   },
   {
     timestamps: true, // Adiciona createdAt e updatedAt

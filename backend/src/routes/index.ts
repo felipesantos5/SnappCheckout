@@ -18,6 +18,7 @@ import categoryRoutes from "./category.routes";
 import superAdminRoutes from "./superadmin.routes";
 import emailLogRoutes from "./email-log.routes";
 import couponRoutes from "./coupon.routes";
+import paypalBillingRoutes from "./paypal-billing.routes";
 import { getUpsellScript } from "../controllers/script.controller";
 
 const router = Router();
@@ -64,6 +65,7 @@ router.use("/categories", categoryRoutes);
 router.use("/superadmin", superAdminRoutes);
 router.use("/email-logs", emailLogRoutes);
 router.use("/coupons", couponRoutes);
+router.use("/paypal-billing", paypalBillingRoutes);
 
 router.get("/v1/upsell.js", getUpsellScript);
 

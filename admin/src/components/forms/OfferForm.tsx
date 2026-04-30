@@ -227,6 +227,12 @@ const membershipWebhookSchema = z.object({
   authToken: z.string().optional(),
 });
 
+const genericWebhookSchema = z.object({
+  enabled: z.boolean().default(false),
+  url: optionalUrl,
+  authToken: z.string().optional(),
+});
+
 const autoNotificationsSchema = z.object({
   enabled: z.boolean().default(false),
   genderFilter: z.enum(["all", "male", "female"]).default("all"),
@@ -308,6 +314,7 @@ const offerFormSchema = z.object({
     ),
   upsell: upsellSchema,
   membershipWebhook: membershipWebhookSchema,
+  genericWebhook: genericWebhookSchema,
   autoNotifications: autoNotificationsSchema,
   orderBumps: z.array(productSchema).optional(),
   emailNotification: z
@@ -400,6 +407,11 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
         priceInCents: 0,
       },
       membershipWebhook: {
+        enabled: false,
+        url: "",
+        authToken: "",
+      },
+      genericWebhook: {
         enabled: false,
         url: "",
         authToken: "",
@@ -946,27 +958,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="pagarme_pix_enabled"
-                render={({ field }: any) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-card">
-                    <FormControl>
-                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Habilitar PIX via Pagar.me</FormLabel>
-                      <FormDescription>
-                        Permitir pagamentos via PIX. Certifique-se de configurar suas credenciais {""}
-                        <a href="/dashboard/settings" className="text-primary hover:underline">
-                          configurações da conta
-                        </a>
-                        .
-                      </FormDescription>
-                    </div>
-                  </FormItem>
-                )}
-              />
+              {/* Pagar.me PIX — OCULTO TEMPORARIAMENTE */}
               <FormField
                 control={form.control}
                 name="stripe_card_enabled"
@@ -1979,6 +1971,106 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                               </div>
                             </div>
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* --- BLOCO WEBHOOK GENÉRICO --- */}
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="genericWebhook.enabled"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Webhook Genérico</FormLabel>
+                      <FormDescription>Envia o email do cliente e status de aprovação para uma URL externa ao confirmar uma venda.</FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              {form.watch("genericWebhook.enabled") && (
+                <div className="pl-7 space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="genericWebhook.url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>URL do Webhook</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://seu-sistema.com/webhook" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Ao confirmar uma venda, será enviado um POST com <code className="bg-muted px-1 rounded">{"{ email, status: \"approved\" }"}</code>
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="genericWebhook.authToken"
+                    render={({ field }) => {
+                      const [showToken, setShowToken] = React.useState(false);
+                      const [copied, setCopied] = React.useState(false);
+
+                      const handleCopy = async () => {
+                        if (field.value) {
+                          await navigator.clipboard.writeText(field.value);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }
+                      };
+
+                      return (
+                        <FormItem>
+                          <FormLabel>Token de Autenticação (opcional)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                type={showToken ? "text" : "password"}
+                                placeholder="Seu token secreto"
+                                {...field}
+                                value={field.value || ""}
+                                className="pr-20"
+                              />
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                  onClick={() => setShowToken(!showToken)}
+                                >
+                                  {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                  onClick={handleCopy}
+                                  disabled={!field.value}
+                                >
+                                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                          </FormControl>
+                          <FormDescription className="text-xs">
+                            Se preenchido, será enviado como <code className="bg-muted px-1 rounded">Authorization: Bearer &lt;token&gt;</code> no header.
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       );

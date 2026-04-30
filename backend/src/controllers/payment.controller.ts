@@ -1,6 +1,7 @@
 // src/controllers/payment.controller.ts
 import { Request, Response } from "express";
 import Offer, { IOffer } from "../models/offer.model";
+import User from "../models/user.model";
 import Sale from "../models/sale.model";
 import AbandonedCart from "../models/abandoned-cart.model";
 import stripe from "../lib/stripe";
@@ -8,7 +9,7 @@ import UpsellSession from "../models/upsell-session.model";
 import { v4 as uuidv4 } from "uuid";
 import { getOrCreateCustomer } from "../helper/getOrCreateCustomer";
 import { calculateTotalAmount } from "../helper/calculateTotalAmount";
-import { getStripeAccountId } from "../helper/getStripeAccountId";
+import { getStripeAccountId, getOwnerPaymentInfo } from "../helper/getStripeAccountId";
 import { getUpsellSteps, buildUpsellRedirectUrl } from "../helper/getUpsellSteps";
 
 export const handleCreatePaymentIntent = async (req: Request, res: Response) => {
@@ -20,7 +21,7 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
       return res.status(404).json({ error: { message: "Oferta não encontrada." } });
     }
 
-    const stripeAccountId = await getStripeAccountId(offerSlug);
+    const { stripeAccountId, platformFeePercent } = await getOwnerPaymentInfo(offerSlug);
     const customerId = await getOrCreateCustomer(stripeAccountId, contactInfo.email, contactInfo.name, contactInfo.phone);
     let totalAmount = await calculateTotalAmount(offerSlug, selectedOrderBumps);
 
@@ -35,7 +36,7 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
       }
     }
 
-    const applicationFee = Math.round(totalAmount * 0.05);
+    const applicationFee = Math.round(totalAmount * (platformFeePercent / 100));
 
     const sharedMetadata: Record<string, string> = {
       offerSlug,
@@ -80,7 +81,7 @@ export const handleCreatePaymentIntent = async (req: Request, res: Response) => 
           ],
           payment_behavior: "default_incomplete",
           payment_settings: { payment_method_types: ["card"], save_default_payment_method: "on_subscription" },
-          application_fee_percent: 5,
+          application_fee_percent: platformFeePercent,
           metadata: sharedMetadata,
           expand: ["latest_invoice.confirmation_secret"],
         },
@@ -343,7 +344,9 @@ export const handleOneClickUpsell = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: "Configuração de preço inválida para este Upsell." });
     }
 
-    const applicationFee = Math.round(amountToCharge * 0.05);
+    const owner = await User.findById(offer.ownerId).select("platformFeePercent").lean();
+    const feePercent = owner?.platformFeePercent ?? 3;
+    const applicationFee = Math.round(amountToCharge * (feePercent / 100));
 
     const paymentIntent = await stripe.paymentIntents.create(
       {

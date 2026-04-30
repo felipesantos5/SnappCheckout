@@ -18,6 +18,13 @@ export const es = {
     remove: "Eliminar",
     youSave: "Ahorras",
     couponApplied: "Cupón aplicado",
+    subscriptionBadge: "Suscripción",
+    interval: {
+      day: "/día",
+      week: "/semana",
+      month: "/mes",
+      year: "/año",
+    },
   },
 
   // Payment Methods

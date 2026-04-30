@@ -59,7 +59,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
   const isSubscription = offerData.paymentType === "subscription";
   const effectivePaypalEnabled = isSubscription ? false : offerData.paypalEnabled;
-  const effectivePixEnabled = isSubscription ? false : offerData.pagarme_pix_enabled;
+  const effectivePixEnabled = false; // Pagar.me PIX — OCULTO TEMPORARIAMENTE
 
   const [method, setMethod] = useState<"creditCard" | "pix" | "wallet" | "paypal">(() => {
     if (offerData.stripe_card_enabled === false && !isSubscription) {
@@ -654,6 +654,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                 currency={offerData.currency}
                 originalPriceInCents={offerData.mainProduct.compareAtPriceInCents}
                 discountPercentage={offerData.mainProduct.discountPercentage}
+                paymentType={offerData.paymentType}
+                subscriptionInterval={offerData.subscriptionInterval}
               />
             </div>
 
@@ -746,6 +748,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                     currency={offerData.currency}
                     originalPriceInCents={offerData.mainProduct.compareAtPriceInCents}
                     discountPercentage={offerData.mainProduct.discountPercentage}
+                    paymentType={offerData.paymentType}
+                    subscriptionInterval={offerData.subscriptionInterval}
                   />
 
                   {/* Order Bumps aparecem aqui em desktop */}

@@ -61,6 +61,7 @@ export interface ISale extends Document {
   integrationsFacebookSent?: boolean; // Se o evento foi enviado para Facebook CAPI
   integrationsHuskySent?: boolean; // Se o webhook foi enviado para Husky/área de membros
   integrationsUtmfySent?: boolean; // Se o webhook foi enviado para UTMfy
+  integrationsGenericWebhookSent?: boolean; // Se o webhook genérico foi enviado
   integrationsLastAttempt?: Date; // Última tentativa de envio das integrações
 
   // UTM Tracking fields
@@ -166,6 +167,7 @@ const saleSchema = new Schema<ISale>(
     integrationsFacebookSent: { type: Boolean, default: false },
     integrationsHuskySent: { type: Boolean, default: false },
     integrationsUtmfySent: { type: Boolean, default: false },
+    integrationsGenericWebhookSent: { type: Boolean, default: false },
     integrationsLastAttempt: { type: Date, default: null },
 
     // UTM Tracking fields

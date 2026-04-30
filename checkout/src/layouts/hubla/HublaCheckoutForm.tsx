@@ -143,7 +143,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
   // Payment method
   const isSubscription = offerData.paymentType === "subscription";
   const effectivePaypalEnabled = isSubscription ? false : offerData.paypalEnabled;
-  const effectivePixEnabled = isSubscription ? false : offerData.pagarme_pix_enabled;
+  const effectivePixEnabled = false; // Pagar.me PIX — OCULTO TEMPORARIAMENTE
 
   const [method, setMethod] = useState<"creditCard" | "pix" | "wallet" | "paypal">(() => {
     if (offerData.stripe_card_enabled === false && !isSubscription) {
@@ -787,9 +787,19 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                           className="w-10 h-10 rounded object-cover shrink-0"
                         />
                       )}
-                      <p className="flex-1 text-xs leading-snug line-clamp-2" style={{ color: foregroundColor }}>
-                        {offerData.mainProduct.name}
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs leading-snug line-clamp-2" style={{ color: foregroundColor }}>
+                          {offerData.mainProduct.name}
+                        </p>
+                        {offerData.paymentType === "subscription" && offerData.subscriptionInterval && (
+                          <span
+                            className="inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5"
+                            style={{ backgroundColor: `${foregroundColor}10`, color: foregroundColor }}
+                          >
+                            {t.orderSummary.subscriptionBadge}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-right shrink-0 ml-2">
                         {mainOriginal > mainPrice && (
                           <p className="text-[10px] line-through" style={{ color: `${foregroundColor}60` }}>
@@ -798,6 +808,11 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                         )}
                         <p className="text-xs font-semibold" style={{ color: foregroundColor }}>
                           {formatCurrency(mainPrice, offerData.currency)}
+                          {offerData.paymentType === "subscription" && offerData.subscriptionInterval && (
+                            <span className="text-[10px] font-medium" style={{ opacity: 0.7 }}>
+                              {t.orderSummary.interval[offerData.subscriptionInterval]}
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -904,6 +919,11 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                       </span>
                       <span className="text-sm font-bold" style={{ color: foregroundColor }}>
                         {formatCurrency(totalAmount, offerData.currency)}
+                        {offerData.paymentType === "subscription" && offerData.subscriptionInterval && (
+                          <span className="text-xs font-medium" style={{ opacity: 0.7 }}>
+                            {t.orderSummary.interval[offerData.subscriptionInterval]}
+                          </span>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -940,6 +960,11 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                         )}
                         <p className="text-sm font-bold" style={{ color: primary }}>
                           {formatCurrency(totalAmount, offerData.currency)}
+                          {offerData.paymentType === "subscription" && offerData.subscriptionInterval && (
+                            <span className="text-xs font-medium" style={{ opacity: 0.7 }}>
+                              {t.orderSummary.interval[offerData.subscriptionInterval]}
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>

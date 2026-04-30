@@ -197,7 +197,7 @@ export default function PaymentsPage() {
   const totalSales = metrics ? metrics.stripe.totalSales + metrics.paypal.totalSales + metrics.pagarme.totalSales : 0;
   const stripePercentage = totalRevenue > 0 ? (metrics!.stripe.totalRevenue / totalRevenue) * 100 : 0;
   const paypalPercentage = totalRevenue > 0 ? (metrics!.paypal.totalRevenue / totalRevenue) * 100 : 0;
-  const pagarmePercentage = totalRevenue > 0 ? (metrics!.pagarme.totalRevenue / totalRevenue) * 100 : 0;
+
 
   if (loading) {
     return (
@@ -278,10 +278,7 @@ export default function PaymentsPage() {
                   <div className="w-3 h-3 rounded-full bg-[#003087]" />
                   <span className="text-sm">{paypalPercentage.toFixed(0)}%</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-[#32BCAD]" />
-                  <span className="text-sm">{pagarmePercentage.toFixed(0)}%</span>
-                </div>
+                {/* Pagar.me percentage — OCULTO TEMPORARIAMENTE */}
               </div>
             )}
           </div>
@@ -403,55 +400,7 @@ export default function PaymentsPage() {
             )}
           </CardContent>
         </Card>
-        {/* Card Pagarme */}
-        <Card className="border-[#32BCAD]/30 hover:border-[#32BCAD]/50 transition-colors">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <PixIcon className="w-6 h-6" />
-                <span className="font-bold text-[#32BCAD]">PIX (Pagar.me)</span>
-              </div>
-              <Wallet className="h-5 w-5 text-[#32BCAD]" />
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Vendas e Receita */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Vendido</p>
-                <p className="text-2xl font-bold">{formatCurrency(metrics?.pagarme.totalRevenue || 0)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Vendas</p>
-                <p className="text-2xl font-bold">{metrics?.pagarme.totalSales || 0}</p>
-              </div>
-            </div>
-
-            {/* Nota sobre saldo */}
-            <div className="border-t pt-4">
-              <p className="text-sm font-medium text-muted-foreground mb-3">Saldo na Conta</p>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-sm text-muted-foreground">
-                  O saldo do Pagar.me cai diretamente na sua conta bancária configurada no{" "}
-                  <a href="https://dash.pagar.me/" target="_blank" rel="noopener noreferrer" className="text-[#32BCAD] hover:underline font-medium">
-                    painel do Pagar.me
-                  </a>
-                  .
-                </p>
-              </div>
-            </div>
-
-            {/* Taxas */}
-            {metrics && metrics.pagarme.totalFees > 0 && (
-              <div className="border-t pt-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Taxas da Plataforma</span>
-                  <span className="font-medium">{formatCurrency(metrics.pagarme.totalFees)}</span>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Card Pagarme — OCULTO TEMPORARIAMENTE */}
       </div>
 
       {/* Gráfico + Transações recentes */}
@@ -475,10 +424,7 @@ export default function PaymentsPage() {
                       <stop offset="5%" stopColor="#003087" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="#003087" stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="pagarmeGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#32BCAD" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#32BCAD" stopOpacity={0} />
-                    </linearGradient>
+                    {/* pagarmeGradient — OCULTO TEMPORARIAMENTE */}
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis
@@ -503,13 +449,13 @@ export default function PaymentsPage() {
                     labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
                     formatter={(value: number, name: string) => [
                       formatTooltipValue(value),
-                      name === "stripe" ? "Stripe" : name === "paypal" ? "PayPal" : "Pagar.me (PIX)",
+                      name === "stripe" ? "Stripe" : "PayPal",
                     ]}
                   />
                   <Legend
                     verticalAlign="top"
                     height={36}
-                    formatter={(value) => (value === "stripe" ? "Stripe" : value === "paypal" ? "PayPal" : "Pagar.me (PIX)")}
+                    formatter={(value) => (value === "stripe" ? "Stripe" : "PayPal")}
                   />
                   <Area
                     type="monotone"
@@ -529,15 +475,7 @@ export default function PaymentsPage() {
                     dot={false}
                     activeDot={{ r: 6, fill: "#003087" }}
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="pagarme"
-                    stroke="#32BCAD"
-                    strokeWidth={2}
-                    fill="url(#pagarmeGradient)"
-                    dot={false}
-                    activeDot={{ r: 6, fill: "#32BCAD" }}
-                  />
+                  {/* Area pagarme — OCULTO TEMPORARIAMENTE */}
                 </AreaChart>
               </ResponsiveContainer>
             </div>

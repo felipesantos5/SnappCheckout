@@ -6,6 +6,7 @@ import connectDB from "./lib/db";
 import { initializeCurrencyService } from "./services/currency-conversion.service";
 import { startFacebookPurchaseJob, stopFacebookPurchaseJob } from "./jobs/facebook-purchase.job";
 import { startCartAbandonmentJob, stopCartAbandonmentJob } from "./jobs/cart-abandonment.job";
+import { startPaypalBillingJob, stopPaypalBillingJob } from "./jobs/paypal-billing.job";
 
 // Flag para evitar múltiplos shutdowns
 let isShuttingDown = false;
@@ -70,6 +71,7 @@ const gracefulShutdown = async (signal: string) => {
     // 0. Para jobs em background
     stopFacebookPurchaseJob();
     stopCartAbandonmentJob();
+    stopPaypalBillingJob();
 
     // 1. Para de aceitar novas conexões HTTP
     if (server) {
@@ -128,6 +130,9 @@ async function startServer() {
 
     // Inicia job de email de abandono de carrinho
     startCartAbandonmentJob();
+
+    // Inicia job de cobrança PayPal (taxa 3%)
+    startPaypalBillingJob();
 
     // Cria servidor HTTP e guarda referência para graceful shutdown
     server = http.createServer(app);

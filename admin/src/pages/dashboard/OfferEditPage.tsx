@@ -105,6 +105,11 @@ interface ApiOfferData {
     url: string;
     authToken: string;
   };
+  genericWebhook?: {
+    enabled: boolean;
+    url: string;
+    authToken: string;
+  };
   autoNotifications?: {
     enabled: boolean;
     genderFilter: 'all' | 'male' | 'female';
@@ -157,6 +162,18 @@ const transformDataForForm = (data: ApiOfferData): OfferFormData => {
         enabled: data.membershipWebhook.enabled,
         url: data.membershipWebhook.url,
         authToken: data.membershipWebhook.authToken,
+      }
+      : {
+        enabled: false,
+        url: "",
+        authToken: "",
+      },
+
+    genericWebhook: data.genericWebhook
+      ? {
+        enabled: data.genericWebhook.enabled,
+        url: data.genericWebhook.url,
+        authToken: data.genericWebhook.authToken,
       }
       : {
         enabled: false,
