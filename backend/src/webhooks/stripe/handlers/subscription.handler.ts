@@ -68,7 +68,6 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, _st
             );
             if (matchingPi) {
               piId = matchingPi.id;
-              console.log(`[Subscription] PI resolvido via API: ${piId} para invoice ${invoice.id}`);
             }
           }
         } catch (err: any) {
@@ -79,7 +78,6 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, _st
       // Fallback: usar chave única baseada no invoice ID
       if (!piId) {
         piId = "sub_inv_" + invoice.id;
-        console.log(`[Subscription] Usando fallback piId: ${piId} para invoice ${invoice.id}`);
       }
     }
 
