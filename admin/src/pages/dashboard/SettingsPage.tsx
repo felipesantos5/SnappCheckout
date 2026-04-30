@@ -1,15 +1,28 @@
 // src/pages/dashboard/SettingsPage.tsx
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
 import { API_URL } from "@/config/BackendUrl";
-import { Loader2, Save, Key, Eye, EyeOff, Wallet, Mail } from "lucide-react";
+import { Loader2, Save, Key, Eye, EyeOff, Wallet, Mail, AlertTriangle } from "lucide-react";
+import PayPalBillingRulesDialog from "@/components/dialogs/PayPalBillingRulesDialog";
+
+interface PaypalBilling {
+  status: "trial" | "active" | "blocked";
+  trialStartDate: string | null;
+  currentCycleStart: string | null;
+  currentCycleEnd: string | null;
+  pendingFeeInCents: number;
+  lastPaymentDate: string | null;
+}
 
 export default function SettingsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [paypalClientId, setPaypalClientId] = useState("");
@@ -25,10 +38,40 @@ export default function SettingsPage() {
   const [smtpFromEmail, setSmtpFromEmail] = useState("");
   const [smtpFromName, setSmtpFromName] = useState("");
   const [showSmtpPass, setShowSmtpPass] = useState(false);
+  const [paypalBilling, setPaypalBilling] = useState<PaypalBilling | null>(null);
+  const [showBillingRules, setShowBillingRules] = useState(false);
+  const [payingFee, setPayingFee] = useState(false);
 
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  // Trata retorno do Stripe Checkout
+  useEffect(() => {
+    const billingStatus = searchParams.get("paypal_billing");
+    const sessionId = searchParams.get("session_id");
+
+    if (billingStatus === "success" && sessionId) {
+      handleConfirmPayment(sessionId);
+    } else if (billingStatus === "cancelled") {
+      toast.error("Pagamento cancelado.");
+      setSearchParams({});
+    }
+  }, []);
+
+  const handleConfirmPayment = async (sessionId: string) => {
+    try {
+      await axios.post(`${API_URL}/paypal-billing/confirm`, { session_id: sessionId });
+      toast.success("Pagamento confirmado! PayPal reativado.");
+      setSearchParams({});
+      fetchSettings();
+    } catch (error: any) {
+      toast.error("Erro ao confirmar pagamento", {
+        description: error.response?.data?.error || error.message,
+      });
+      setSearchParams({});
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -45,6 +88,9 @@ export default function SettingsPage() {
       setSmtpPass(response.data.smtpPass || "");
       setSmtpFromEmail(response.data.smtpFromEmail || "");
       setSmtpFromName(response.data.smtpFromName || "");
+      if (response.data.paypalBilling) {
+        setPaypalBilling(response.data.paypalBilling);
+      }
     } catch (error: any) {
       toast.error("Erro ao carregar configurações", {
         description: error.response?.data?.error || error.message,
@@ -57,7 +103,7 @@ export default function SettingsPage() {
   const handleSave = async () => {
     try {
       setLoading(true);
-      await axios.put(`${API_URL}/settings`, {
+      const response = await axios.put(`${API_URL}/settings`, {
         paypalClientId,
         paypalClientSecret,
         pagarme_api_key: pagarmeApiKey,
@@ -71,6 +117,10 @@ export default function SettingsPage() {
         smtpFromName,
       });
       toast.success("Configurações salvas com sucesso!");
+      if (response.data.isFirstPaypalSetup) {
+        setShowBillingRules(true);
+        fetchSettings();
+      }
     } catch (error: any) {
       toast.error("Erro ao salvar configurações", {
         description: error.response?.data?.error || error.message,
@@ -79,6 +129,28 @@ export default function SettingsPage() {
       setLoading(false);
     }
   };
+
+  const handlePayFee = async () => {
+    try {
+      setPayingFee(true);
+      const response = await axios.post(`${API_URL}/paypal-billing/pay`);
+      window.location.href = response.data.checkoutUrl;
+    } catch (error: any) {
+      toast.error("Erro ao iniciar pagamento", {
+        description: error.response?.data?.error || error.message,
+      });
+      setPayingFee(false);
+    }
+  };
+
+  const getDaysRemaining = (endDate: string | null): number => {
+    if (!endDate) return 0;
+    const diff = new Date(endDate).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  };
+
+  const formatCurrency = (cents: number) =>
+    (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   if (fetching) {
     return (
@@ -90,6 +162,8 @@ export default function SettingsPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
+      <PayPalBillingRulesDialog open={showBillingRules} onClose={() => setShowBillingRules(false)} />
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Configurações</h1>
         <p className="text-muted-foreground mt-2">Gerencie as configurações da sua conta</p>
@@ -140,11 +214,58 @@ export default function SettingsPage() {
               />
               <p className="text-sm text-muted-foreground">Mantenha seu Client Secret seguro e nunca o compartilhe</p>
             </div>
+
+            {/* Status de Billing PayPal */}
+            {paypalBilling && paypalClientId && (
+              <div className="pt-2 border-t">
+                {paypalBilling.status === "trial" && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-green-600 border-green-600">
+                      Trial gratuito — {getDaysRemaining(paypalBilling.currentCycleEnd)} dias restantes
+                    </Badge>
+                  </div>
+                )}
+                {paypalBilling.status === "active" && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-green-600 border-green-600">
+                      PayPal ativo — proximo ciclo em {getDaysRemaining(paypalBilling.currentCycleEnd)} dias
+                    </Badge>
+                  </div>
+                )}
+                {paypalBilling.status === "blocked" && (
+                  <div className="rounded-md border border-destructive bg-destructive/10 p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-destructive font-medium">
+                      <AlertTriangle className="h-4 w-4" />
+                      PayPal bloqueado — pagamento pendente
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Taxa devida: <strong>{formatCurrency(paypalBilling.pendingFeeInCents)}</strong>
+                    </p>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handlePayFee}
+                      disabled={payingFee}
+                      className="gap-2"
+                    >
+                      {payingFee ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Redirecionando...
+                        </>
+                      ) : (
+                        "Pagar taxa"
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Card de Credenciais Pagar.me */}
-        <Card>
+        {/* Card de Credenciais Pagar.me — OCULTO TEMPORARIAMENTE */}
+        {false && <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Wallet className="h-5 w-5 text-primary" />
@@ -200,7 +321,7 @@ export default function SettingsPage() {
               </p>
             </div>
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Card de SMTP para envio de emails */}
         <Card>
