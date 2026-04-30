@@ -28,6 +28,7 @@ export interface OfferData {
   paypalEnabled?: boolean;
   pagarme_pix_enabled?: boolean;
   stripe_card_enabled?: boolean;
+  stripe_link_enabled?: boolean;
   paymentType?: "one_time" | "subscription";
   subscriptionInterval?: "day" | "week" | "month" | "year";
   bannerImageUrl?: string;

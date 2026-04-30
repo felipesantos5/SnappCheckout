@@ -57,7 +57,11 @@ const StripeElementWrapper: React.FC<{ children: React.ReactNode; label: string;
   );
 };
 
-export const CreditCardForm: React.FC = () => {
+interface CreditCardFormProps {
+  stripeLinkEnabled?: boolean;
+}
+
+export const CreditCardForm: React.FC<CreditCardFormProps> = ({ stripeLinkEnabled = true }) => {
   const { t } = useTranslation();
   const { foregroundColor } = useTheme();
 
@@ -65,7 +69,7 @@ export const CreditCardForm: React.FC = () => {
     <div className="space-y-4 p-4 border rounded-lg" style={{ color: foregroundColor }}>
       {/* 1. Número do Cartão (Real) */}
       <StripeElementWrapper label={t.creditCard.cardNumber} id="card-number">
-        <CardNumberElement id="card-number" options={ELEMENT_OPTIONS} />
+        <CardNumberElement id="card-number" options={{ ...ELEMENT_OPTIONS, disableLink: !stripeLinkEnabled }} />
       </StripeElementWrapper>
 
       {/* 2. Nome (continua sendo um Input normal) */}

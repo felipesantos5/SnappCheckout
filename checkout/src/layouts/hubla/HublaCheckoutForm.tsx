@@ -1194,7 +1194,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                 >
                   <CardNumberElement
                     id="card-number"
-                    options={{ style: stripeStyle }}
+                    options={{ style: stripeStyle, disableLink: offerData.stripe_link_enabled === false }}
                     onFocus={() => setFocusedStripeField("card-number")}
                     onBlur={() => setFocusedStripeField(null)}
                   />

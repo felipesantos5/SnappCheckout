@@ -686,6 +686,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                   paypalEnabled={effectivePaypalEnabled}
                   pagarmePixEnabled={effectivePixEnabled}
                   stripeCardEnabled={offerData.stripe_card_enabled}
+                  stripeLinkEnabled={offerData.stripe_link_enabled}
                 />
 
                 {/* Order Bumps aparecem na esquerda em mobile, escondidos em desktop */}

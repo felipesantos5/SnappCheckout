@@ -274,6 +274,7 @@ const offerFormSchema = z.object({
   paypalEnabled: z.boolean().default(false),
   pagarme_pix_enabled: z.boolean().default(false),
   stripe_card_enabled: z.boolean().default(true),
+  stripe_link_enabled: z.boolean().default(true),
   customDomain: z
     .string()
     .optional()
@@ -386,6 +387,7 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
       paypalEnabled: false,
       pagarme_pix_enabled: false,
       stripe_card_enabled: true,
+      stripe_link_enabled: true,
       utmfyWebhookUrl: "",
       utmfyWebhookUrls: [],
       facebookPixelId: "",
@@ -954,6 +956,23 @@ export function OfferForm({ onSuccess, initialData, offerId }: OfferFormProps) {
                     <div className="space-y-1 leading-none">
                       <FormLabel>Habilitar PayPal</FormLabel>
                       <FormDescription>Permitir pagamentos via PayPal.</FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="stripe_link_enabled"
+                render={({ field }: any) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-card">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Habilitar Stripe Link</FormLabel>
+                      <FormDescription>
+                        Permite preenchimento automático dos dados do cartão via Stripe Link.
+                      </FormDescription>
                     </div>
                   </FormItem>
                 )}

@@ -122,6 +122,7 @@ export interface IOffer extends Document {
   paypalEnabled: boolean;
   pagarme_pix_enabled: boolean; // <-- NOVO: Controla se PIX da Pagar.me está ativo
   stripe_card_enabled: boolean; // <-- NOVO: Controla se Cartão de Crédito (Stripe) está ativo
+  stripe_link_enabled: boolean; // Controla se Stripe Link (preenchimento automático) está ativo
 
   mainProduct: IProductSubDocument;
   orderBumps: IProductSubDocument[];
@@ -335,6 +336,10 @@ const offerSchema = new Schema<IOffer>(
       default: false,
     },
     stripe_card_enabled: {
+      type: Boolean,
+      default: true,
+    },
+    stripe_link_enabled: {
       type: Boolean,
       default: true,
     },
