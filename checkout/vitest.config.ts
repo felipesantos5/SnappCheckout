@@ -11,6 +11,7 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
     exclude: ["tests/e2e/**", "node_modules/**", "dist/**"],
     css: true,
+    reporters: ["verbose"],
     env: {
       VITE_BACKEND_URL: "http://localhost:4242",
       VITE_STRIPE_PUBLISHABLE_KEY: "pk_test_checkout",

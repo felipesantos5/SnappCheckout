@@ -47,7 +47,7 @@ const renderPage = () =>
     </MemoryRouter>,
   );
 
-describe("CheckoutSlugPage", () => {
+describe("Pagina de Checkout - Carregamento e Tracking", () => {
   it("usa idioma detectado pelo IP do cliente acima do idioma da oferta", async () => {
     renderPage();
 

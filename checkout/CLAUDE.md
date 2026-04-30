@@ -30,3 +30,9 @@ Never hardcode user-facing strings; always use `t('key')` from `I18nContext`.
 
 ## Env Vars
 `VITE_BACKEND_URL`, `VITE_STRIPE_PUBLIC_KEY`
+
+## Build & Test (run after every code change)
+```bash
+cd checkout && npx vitest run && rtk npx tsc --noEmit && rtk npx vite build
+```
+Tests run first (unit tests via vitest), then type check, then build. If anything fails, fix before proceeding.

@@ -184,8 +184,6 @@ export function CheckoutSlugPage() {
         data = await response.json();
         setOfferData(data);
 
-        console.log("data", data);
-
         // Só dispara o tracking se o slug atual for diferente do último rastreado
         if (trackedSlugRef.current !== slug) {
           trackedSlugRef.current = slug; // Marca como rastreado imediatamente

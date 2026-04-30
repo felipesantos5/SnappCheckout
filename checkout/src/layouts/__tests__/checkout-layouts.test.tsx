@@ -61,7 +61,7 @@ beforeEach(() => {
   }) as typeof fetch;
 });
 
-describe("classic checkout layout", () => {
+describe("Layout Classic - Renderizacao e Pagamento", () => {
   it("renderiza campos, metodos de pagamento, PayPal e order bump sem crashar", async () => {
     renderClassic();
 
@@ -151,7 +151,7 @@ describe("classic checkout layout", () => {
   });
 });
 
-describe("hubla checkout layout", () => {
+describe("Layout Hubla - Renderizacao e Pagamento", () => {
   it("renderiza campos compactos, cartao, PayPal e botao de compra", async () => {
     renderHubla();
 
