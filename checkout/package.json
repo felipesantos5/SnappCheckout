@@ -8,6 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
@@ -33,6 +35,10 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
@@ -43,10 +49,12 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "jsdom": "^29.1.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.3",
     "vite": "^7.2.2",
     "vite-plugin-compression2": "^2.3.1",
-    "vite-plugin-css-injected-by-js": "^3.5.2"
+    "vite-plugin-css-injected-by-js": "^3.5.2",
+    "vitest": "^4.1.5"
   }
 }
