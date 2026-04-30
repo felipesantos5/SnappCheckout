@@ -9,21 +9,40 @@ interface ContactInfoProps {
   showDocument?: boolean;
   offerID: string;
   abTestId?: string | null;
+  initialEmail?: string;
+  showValidationErrors?: boolean;
   onEmailChange?: (email: string) => void;
   onNameChange?: (name: string) => void;
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, showDocument = false, offerID, abTestId, onEmailChange, onNameChange }) => {
+export const ContactInfo: React.FC<ContactInfoProps> = ({
+  showPhone = true,
+  showDocument = false,
+  offerID,
+  abTestId,
+  initialEmail = "",
+  showValidationErrors = false,
+  onEmailChange,
+  onNameChange,
+}) => {
   const { t, language } = useTranslation();
   const { foregroundColor } = useTheme();
   const [phone, setPhone] = useState("");
   const [document, setDocument] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerEmail, setCustomerEmail] = useState(initialEmail);
   const [customerName, setCustomerName] = useState("");
   const checkoutStartedSent = useRef(false); // Flag para evitar múltiplas chamadas
   const nameUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    const normalizedEmail = initialEmail.trim();
+    if (!normalizedEmail) return;
+
+    setCustomerEmail(normalizedEmail);
+    onEmailChange?.(normalizedEmail);
+  }, [initialEmail]);
 
   const handleEmailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const email = e.target.value;
@@ -131,6 +150,8 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, show
           type="email"
           required
           placeholder={t.contact.emailPlaceholder}
+          value={customerEmail}
+          error={showValidationErrors && !EMAIL_REGEX.test(customerEmail.trim())}
           onChange={handleEmailChange}
         />
         <Input
@@ -139,6 +160,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, show
           type="text"
           required
           placeholder={t.contact.namePlaceholder}
+          error={showValidationErrors && customerName.trim().length < 2}
           onChange={(e) => {
             const name = e.target.value;
             setCustomerName(name);
@@ -171,6 +193,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, show
             type="tel"
             maxLength={15}
             placeholder={t.contact.phonePlaceholder || "(00) 00000-0000"}
+            error={showValidationErrors && phone.trim().length === 0}
           />
         )}
         {showDocument && (
@@ -183,6 +206,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, show
             maxLength={18}
             placeholder="000.000.000-00"
             required
+            error={showValidationErrors && document.trim().length === 0}
           />
         )}
       </div>

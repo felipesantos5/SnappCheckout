@@ -31,6 +31,8 @@ interface CheckoutFormProps {
   abTestId: string | null;
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutSessionId, abTestId }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -41,6 +43,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   // Estado de Sucesso
   const [paymentSucceeded, setPaymentSucceeded] = useState(false);
@@ -75,13 +78,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
   const [paypalClientId, setPaypalClientId] = useState<string | null>(null);
 
   // Estados para validação dos campos de contato (obrigatórios)
-  const [contactEmail, setContactEmail] = useState("");
+  const initialEmail = useMemo(() => new URLSearchParams(window.location.search).get("email")?.trim() || "", []);
+  const [contactEmail, setContactEmail] = useState(initialEmail);
   const [contactName, setContactName] = useState("");
 
   // Verifica se os campos obrigatórios estão preenchidos
   const isContactValid = useMemo(() => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return contactName.trim().length >= 2 && emailRegex.test(contactEmail.trim());
+    return contactName.trim().length >= 2 && EMAIL_REGEX.test(contactEmail.trim());
   }, [contactEmail, contactName]);
 
   // Armazena event_ids gerados para cada evento
@@ -412,6 +415,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
   const handleCardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitAttempted(true);
     if (!stripe || !elements) {
       setErrorMessage(t.messages.stripeNotLoaded);
       return;
@@ -446,9 +450,35 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
         }
       : null;
 
+    const requiredAddressMissing =
+      offerData.collectAddress &&
+      (!addressData?.zipCode ||
+        !addressData.street ||
+        !addressData.number ||
+        !addressData.neighborhood ||
+        !addressData.city ||
+        !addressData.state ||
+        !addressData.country);
+
     // Validações básicas
-    if (!email || !fullName) {
+    if (
+      !EMAIL_REGEX.test((email || "").trim()) ||
+      !fullName?.trim() ||
+      (offerData.collectPhone && !phone.trim()) ||
+      (offerData.collectDocument && !documentValue.trim()) ||
+      (method === "creditCard" && !cardName.trim()) ||
+      requiredAddressMissing
+    ) {
       setErrorMessage(t.messages.requiredFields);
+      const firstInvalid = [
+        !EMAIL_REGEX.test((email || "").trim()) ? emailInput : null,
+        !fullName?.trim() ? nameInput : null,
+        offerData.collectPhone && !phone.trim() ? phoneInput : null,
+        offerData.collectDocument && !documentValue.trim() ? documentInput : null,
+        requiredAddressMissing ? document.getElementById("address-zipCode") : null,
+        method === "creditCard" && !cardName.trim() ? cardNameInput : null,
+      ].find(Boolean) as HTMLElement | null;
+      firstInvalid?.focus();
       return;
     }
 
@@ -668,13 +698,15 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                   showDocument={offerData.collectDocument}
                   offerID={offerData._id}
                   abTestId={abTestId}
+                  initialEmail={initialEmail}
+                  showValidationErrors={submitAttempted}
                   onEmailChange={setContactEmail}
                   onNameChange={setContactName}
                 />
 
                 {offerData.collectAddress && (
                   <Suspense fallback={<div className="animate-pulse bg-gray-100 h-40 rounded-lg"></div>}>
-                    <AddressInfo />
+                    <AddressInfo showValidationErrors={submitAttempted} />
                   </Suspense>
                 )}
 
@@ -687,6 +719,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                   pagarmePixEnabled={effectivePixEnabled}
                   stripeCardEnabled={offerData.stripe_card_enabled}
                   stripeLinkEnabled={offerData.stripe_link_enabled}
+                  showValidationErrors={submitAttempted}
                 />
 
                 {/* Order Bumps aparecem na esquerda em mobile, escondidos em desktop */}
@@ -805,12 +838,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
                 {method !== "wallet" && method !== "paypal" && (
                   <button
                     type="submit"
-                    disabled={!stripe || loading || paymentSucceeded || !isContactValid}
+                    onClick={() => setSubmitAttempted(true)}
+                    disabled={!stripe || loading || paymentSucceeded}
                     className="w-full font-bold py-[12px] px-6 rounded-md text-lg transition-all duration-300 disabled:opacity-50 hover:opacity-90 cursor-pointer shadow-lg hover:shadow-xl relative overflow-hidden group"
                     style={{
-                      backgroundColor: loading || paymentSucceeded || !isContactValid ? "#ccc" : button,
+                      backgroundColor: loading || paymentSucceeded ? "#ccc" : button,
                       color: buttonForeground,
-                      opacity: loading || paymentSucceeded || !isContactValid ? 0.7 : 1,
+                      opacity: loading || paymentSucceeded ? 0.7 : 1,
                     }}
                   >
                     <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-linear-to-r from-transparent via-white/20 to-transparent"></div>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { CardNumberElement, CardExpiryElement, CardCvcElement } from "@stripe/react-stripe-js";
 import { Input } from "../ui/Input"; // Ainda usamos para o "Nome"
 import type { StripeElementStyle } from "@stripe/stripe-js";
@@ -32,7 +32,7 @@ const ELEMENT_OPTIONS = {
 };
 
 // Wrapper customizado para aplicar o estilo do Tailwind
-const StripeElementWrapper: React.FC<{ children: React.ReactNode; label: string; id: string }> = ({ children, label, id }) => {
+const StripeElementWrapper: React.FC<{ children: React.ReactNode; label: string; id: string; error?: boolean }> = ({ children, label, id, error = false }) => {
   const { primary, foregroundColor } = useTheme();
 
   return (
@@ -43,7 +43,9 @@ const StripeElementWrapper: React.FC<{ children: React.ReactNode; label: string;
       <div className="mt-1">
         <div
           // AQUI: Usamos a variável CSS definida no style para o ring e o border
-          className="w-full px-3 py-[10px] border border-gray-300 rounded-md shadow-sm transition-all duration-200 focus-within:ring-1 focus-within:ring-(--theme-primary) focus-within:border-(--theme-primary) hover:border-(--theme-primary)"
+          className={`w-full px-3 py-[10px] border rounded-md shadow-sm transition-all duration-200 focus-within:ring-1 focus-within:ring-(--theme-primary) focus-within:border-(--theme-primary) hover:border-(--theme-primary) ${
+            error ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+          }`}
           style={
             {
               "--theme-primary": primary,
@@ -59,36 +61,59 @@ const StripeElementWrapper: React.FC<{ children: React.ReactNode; label: string;
 
 interface CreditCardFormProps {
   stripeLinkEnabled?: boolean;
+  showValidationErrors?: boolean;
 }
 
-export const CreditCardForm: React.FC<CreditCardFormProps> = ({ stripeLinkEnabled = true }) => {
+export const CreditCardForm: React.FC<CreditCardFormProps> = ({ stripeLinkEnabled = true, showValidationErrors = false }) => {
   const { t } = useTranslation();
   const { foregroundColor } = useTheme();
+  const [cardName, setCardName] = useState("");
+  const [cardFields, setCardFields] = useState({
+    number: false,
+    expiry: false,
+    cvc: false,
+  });
 
   return (
     <div className="space-y-4 p-4 border rounded-lg" style={{ color: foregroundColor }}>
       {/* 1. Número do Cartão (Real) */}
-      <StripeElementWrapper label={t.creditCard.cardNumber} id="card-number">
-        <CardNumberElement id="card-number" options={{ ...ELEMENT_OPTIONS, disableLink: !stripeLinkEnabled }} />
+      <StripeElementWrapper label={t.creditCard.cardNumber} id="card-number" error={showValidationErrors && !cardFields.number}>
+        <CardNumberElement
+          id="card-number"
+          options={{ ...ELEMENT_OPTIONS, disableLink: !stripeLinkEnabled }}
+          onChange={(event) => setCardFields((prev) => ({ ...prev, number: event.complete }))}
+        />
       </StripeElementWrapper>
 
       {/* 2. Nome (continua sendo um Input normal) */}
       {/* O Stripe não coleta nome no elemento do cartão,
           ele é passado como 'billing_details' */}
-      <Input label={t.creditCard.cardholderName} id="card-name" placeholder={t.creditCard.cardholderNamePlaceholder} />
+      <Input
+        label={t.creditCard.cardholderName}
+        id="card-name"
+        placeholder={t.creditCard.cardholderNamePlaceholder}
+        value={cardName}
+        onChange={(event) => setCardName(event.target.value)}
+        error={showValidationErrors && cardName.trim().length === 0}
+      />
 
       <div className="flex space-x-4">
         {/* 3. Validade (Real) */}
         <div className="w-1/2">
-          <StripeElementWrapper label={t.creditCard.expiry} id="card-expiry">
-            <CardExpiryElement id="card-expiry" options={ELEMENT_OPTIONS} className="" />
+          <StripeElementWrapper label={t.creditCard.expiry} id="card-expiry" error={showValidationErrors && !cardFields.expiry}>
+            <CardExpiryElement
+              id="card-expiry"
+              options={ELEMENT_OPTIONS}
+              className=""
+              onChange={(event) => setCardFields((prev) => ({ ...prev, expiry: event.complete }))}
+            />
           </StripeElementWrapper>
         </div>
 
         {/* 4. CVV (Real) */}
         <div className="w-1/2">
-          <StripeElementWrapper label={t.creditCard.cvc} id="card-cvv">
-            <CardCvcElement id="card-cvv" options={ELEMENT_OPTIONS} />
+          <StripeElementWrapper label={t.creditCard.cvc} id="card-cvv" error={showValidationErrors && !cardFields.cvc}>
+            <CardCvcElement id="card-cvv" options={ELEMENT_OPTIONS} onChange={(event) => setCardFields((prev) => ({ ...prev, cvc: event.complete }))} />
           </StripeElementWrapper>
         </div>
       </div>

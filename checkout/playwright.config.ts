@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const PORT = process.env.PLAYWRIGHT_PORT || '5173';
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || `https://localhost:${PORT}`;
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false, // Testes de pagamento devem rodar sequencialmente
@@ -12,7 +15,8 @@ export default defineConfig({
     ['json', { outputFile: 'test-results.json' }],
   ],
   use: {
-    baseURL: process.env.VITE_BACKEND_URL || 'http://localhost:5173',
+    baseURL: BASE_URL,
+    ignoreHTTPSErrors: true,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -27,8 +31,9 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
+    command: `npm run dev -- --host 127.0.0.1 --port ${PORT} --strictPort`,
+    url: BASE_URL,
+    ignoreHTTPSErrors: true,
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },

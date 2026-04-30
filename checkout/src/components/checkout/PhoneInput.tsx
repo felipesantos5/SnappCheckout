@@ -235,6 +235,7 @@ interface PhoneInputProps {
   borderColor?: string;
   focusBorderColor?: string;
   className?: string;
+  invalid?: boolean;
 }
 
 export const PhoneInput: React.FC<PhoneInputProps> = ({
@@ -249,6 +250,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
   borderColor = "#e5e7eb",
   focusBorderColor,
   className = "",
+  invalid = false,
 }) => {
   const [open, setOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -307,7 +309,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
     <div
       ref={containerRef}
       className={`relative flex border rounded-md overflow-visible transition-colors duration-150 ${className}`}
-      style={{ borderColor: isFocused ? (focusBorderColor ?? primary) : borderColor, height: "48px" } as React.CSSProperties}
+      style={{ borderColor: invalid ? "#ef4444" : isFocused ? (focusBorderColor ?? primary) : borderColor, height: "48px" } as React.CSSProperties}
     >
       {/* Country selector trigger */}
       <button
