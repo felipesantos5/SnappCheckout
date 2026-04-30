@@ -1,10 +1,18 @@
 import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { API_URL } from "@/config/BackendUrl";
-import { DollarSign, Users, Eye, TrendingUp, LogOut, RefreshCw, ChevronUp, ChevronDown, Percent, Check, X } from "lucide-react";
-import { subDays, startOfDay, endOfDay } from "date-fns";
+import { DollarSign, Users, Eye, TrendingUp, LogOut, RefreshCw, ChevronUp, ChevronDown, Percent, Check, X, CreditCard, ShieldCheck, ShieldOff, CalendarPlus, Ban, Unlock } from "lucide-react";
+import { subDays, startOfDay, endOfDay, format, formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 const TOKEN_KEY = "superadmin_token";
 
@@ -23,6 +31,24 @@ interface UserRow {
   platformFeePercent: number;
   offersCount: number;
   totalRevenue: number;
+}
+
+interface PaypalBillingUser {
+  _id: string;
+  name: string;
+  email: string;
+  hasPaypalConfigured: boolean;
+  billing: {
+    status: "trial" | "active" | "blocked";
+    trialStartDate: string | null;
+    currentCycleStart: string | null;
+    currentCycleEnd: string | null;
+    lastPaymentDate: string | null;
+    lastChargeAmountInCents: number;
+    pendingFeeInCents: number;
+  };
+  paypalRevenueInCents: number;
+  paidCycles: number;
 }
 
 type SortKey = "name" | "offersCount" | "totalRevenue";
@@ -137,6 +163,280 @@ function periodLabel(period: string) {
   }
 }
 
+// ---------- PayPal Billing Modal ----------
+
+function statusBadge(status: string) {
+  switch (status) {
+    case "blocked":
+      return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 border border-red-500/20"><Ban className="w-3 h-3" />Bloqueado</span>;
+    case "trial":
+      return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20"><ShieldCheck className="w-3 h-3" />Trial</span>;
+    case "active":
+      return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20"><Check className="w-3 h-3" />Ativo</span>;
+    default:
+      return <span className="text-xs text-muted-foreground">{status}</span>;
+  }
+}
+
+function PaypalBillingModal({
+  open,
+  onClose,
+  token,
+}: {
+  open: boolean;
+  onClose: () => void;
+  token: string;
+}) {
+  const [users, setUsers] = useState<PaypalBillingUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [extendDays, setExtendDays] = useState<Record<string, string>>({});
+  const [filter, setFilter] = useState<"all" | "blocked" | "trial" | "active">("all");
+
+  const headers = { Authorization: `Bearer ${token}` };
+
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API_URL}/superadmin/paypal-billing`, { headers });
+      setUsers(res.data);
+    } catch (err) {
+      console.error("Erro ao buscar PayPal billing:", err);
+    } finally {
+      setLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  useEffect(() => {
+    if (open) fetchUsers();
+  }, [open, fetchUsers]);
+
+  const handleAction = async (userId: string, action: string, extraDays?: number) => {
+    setActionLoading(`${userId}-${action}`);
+    try {
+      await axios.patch(
+        `${API_URL}/superadmin/users/${userId}/paypal-billing`,
+        { action, extraDays },
+        { headers }
+      );
+      await fetchUsers();
+    } catch (err) {
+      console.error("Erro ao executar acao:", err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const filtered = users.filter((u) => filter === "all" || u.billing.status === filter);
+
+  const counts = {
+    all: users.length,
+    blocked: users.filter((u) => u.billing.status === "blocked").length,
+    trial: users.filter((u) => u.billing.status === "trial").length,
+    active: users.filter((u) => u.billing.status === "active").length,
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CreditCard className="w-5 h-5 text-yellow-500" />
+            Gerenciamento PayPal Billing
+          </DialogTitle>
+          <DialogDescription>
+            Gerencie taxas, isenções e acesso ao PayPal dos clientes.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Filter Tabs */}
+        <div className="flex gap-1 border-b border-border pb-2">
+          {(["all", "blocked", "trial", "active"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
+                filter === f
+                  ? "bg-yellow-400/20 text-yellow-600 border border-yellow-400/40"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {f === "all" ? "Todos" : f === "blocked" ? "Bloqueados" : f === "trial" ? "Trial" : "Ativos"}
+              <span className="ml-1 opacity-60">({counts[f]})</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Table */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {loading ? (
+            <div className="space-y-3 py-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground text-sm">
+              Nenhum usuario com PayPal configurado encontrado.
+            </div>
+          ) : (
+            <div className="space-y-2 py-2">
+              {filtered.map((user) => {
+                const b = user.billing;
+                const isExpired = b.currentCycleEnd ? new Date(b.currentCycleEnd) < new Date() : false;
+                const daysLeft = b.currentCycleEnd
+                  ? Math.max(0, Math.ceil((new Date(b.currentCycleEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+                  : 0;
+                const isExempt = b.currentCycleEnd
+                  ? new Date(b.currentCycleEnd).getFullYear() > new Date().getFullYear() + 5
+                  : false;
+
+                return (
+                  <div
+                    key={user._id}
+                    className={`rounded-lg border p-4 space-y-3 ${
+                      b.status === "blocked"
+                        ? "border-red-500/30 bg-red-500/5"
+                        : "border-border bg-card"
+                    }`}
+                  >
+                    {/* User Header */}
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm truncate">{user.name}</span>
+                          {statusBadge(b.status)}
+                          {isExempt && (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 border border-purple-500/20">
+                              <ShieldOff className="w-3 h-3" />Isento
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{user.email}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        {b.pendingFeeInCents > 0 && (
+                          <p className="text-sm font-semibold text-red-500">
+                            Taxa pendente: {formatBRL(b.pendingFeeInCents)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      <div>
+                        <p className="text-muted-foreground">Receita PayPal (ciclo)</p>
+                        <p className="font-medium">{formatBRL(user.paypalRevenueInCents)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Dias restantes</p>
+                        <p className={`font-medium ${isExpired ? "text-red-500" : daysLeft <= 5 ? "text-yellow-500" : ""}`}>
+                          {isExempt ? "Isento" : isExpired ? "Expirado" : `${daysLeft} dias`}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Ciclos pagos</p>
+                        <p className="font-medium">{user.paidCycles}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Ultimo pagamento</p>
+                        <p className="font-medium">
+                          {b.lastPaymentDate
+                            ? formatDistanceToNow(new Date(b.lastPaymentDate), { addSuffix: true, locale: ptBR })
+                            : "Nunca"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Cycle dates */}
+                    {b.currentCycleStart && b.currentCycleEnd && !isExempt && (
+                      <p className="text-xs text-muted-foreground">
+                        Ciclo: {format(new Date(b.currentCycleStart), "dd/MM/yyyy")} - {format(new Date(b.currentCycleEnd), "dd/MM/yyyy")}
+                      </p>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border">
+                      {b.status === "blocked" && (
+                        <button
+                          onClick={() => handleAction(user._id, "unblock")}
+                          disabled={actionLoading === `${user._id}-unblock`}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-green-500/10 text-green-600 border border-green-500/20 hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                        >
+                          <Unlock className="w-3 h-3" />
+                          {actionLoading === `${user._id}-unblock` ? "..." : "Desbloquear (+30d)"}
+                        </button>
+                      )}
+
+                      {!isExempt && (
+                        <button
+                          onClick={() => handleAction(user._id, "exempt")}
+                          disabled={actionLoading === `${user._id}-exempt`}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-purple-500/10 text-purple-600 border border-purple-500/20 hover:bg-purple-500/20 transition-colors disabled:opacity-50"
+                        >
+                          <ShieldOff className="w-3 h-3" />
+                          {actionLoading === `${user._id}-exempt` ? "..." : "Isentar taxa"}
+                        </button>
+                      )}
+
+                      {isExempt && (
+                        <button
+                          onClick={() => handleAction(user._id, "block")}
+                          disabled={actionLoading === `${user._id}-block`}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-red-500/10 text-red-600 border border-red-500/20 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                        >
+                          <Ban className="w-3 h-3" />
+                          {actionLoading === `${user._id}-block` ? "..." : "Remover isencao"}
+                        </button>
+                      )}
+
+                      <div className="inline-flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="1"
+                          max="365"
+                          placeholder="dias"
+                          value={extendDays[user._id] || ""}
+                          onChange={(e) => setExtendDays((prev) => ({ ...prev, [user._id]: e.target.value }))}
+                          className="w-16 text-xs rounded border border-input bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                        />
+                        <button
+                          onClick={() => {
+                            const days = parseInt(extendDays[user._id] || "30", 10);
+                            handleAction(user._id, "extend", days);
+                          }}
+                          disabled={actionLoading === `${user._id}-extend`}
+                          className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-md bg-blue-500/10 text-blue-600 border border-blue-500/20 hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+                        >
+                          <CalendarPlus className="w-3 h-3" />
+                          {actionLoading === `${user._id}-extend` ? "..." : "Estender"}
+                        </button>
+                      </div>
+
+                      {b.status !== "blocked" && !isExempt && (
+                        <button
+                          onClick={() => handleAction(user._id, "block")}
+                          disabled={actionLoading === `${user._id}-block`}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-colors disabled:opacity-50 ml-auto"
+                        >
+                          <Ban className="w-3 h-3" />
+                          {actionLoading === `${user._id}-block` ? "..." : "Bloquear"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ---------- Dashboard Screen ----------
 
 function Dashboard({ token, onLogout }: { token: string; onLogout: () => void }) {
@@ -149,6 +449,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(undefined);
   const [editingFeeUserId, setEditingFeeUserId] = useState<string | null>(null);
   const [editingFeeValue, setEditingFeeValue] = useState("");
+  const [paypalModalOpen, setPaypalModalOpen] = useState(false);
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -267,6 +568,13 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                 <DateRangePicker value={customDateRange} onChange={setCustomDateRange} />
               </div>
             )}
+            <button
+              onClick={() => setPaypalModalOpen(true)}
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted border border-border"
+            >
+              <CreditCard className="w-4 h-4" />
+              PayPal
+            </button>
             <button
               onClick={fetchData}
               disabled={loading}
@@ -427,6 +735,12 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
           </div>
         </div>
       </main>
+
+      <PaypalBillingModal
+        open={paypalModalOpen}
+        onClose={() => setPaypalModalOpen(false)}
+        token={token}
+      />
     </div>
   );
 }

@@ -5,7 +5,8 @@
   "scripts": {
     "build": "npx tsc",
     "start": "node --max-old-space-size=10240 dist/server.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "test": "jest --runInBand --forceExit"
   },
   "keywords": [],
   "author": "",
@@ -45,9 +46,11 @@
     "@types/node": "^24.10.1",
     "@types/nodemailer": "^8.0.0",
     "@types/streamifier": "^0.1.2",
+    "@types/supertest": "^7.2.0",
     "eslint": "^9.39.1",
     "jest": "^30.2.0",
     "supertest": "^7.1.4",
+    "ts-jest": "^29.4.9",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   }

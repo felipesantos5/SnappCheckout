@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 const JOB_INTERVAL_MS = 60 * 60 * 1000; // 1 hora
 const FEE_RATE = 0.03;
 
-const processPaypalBilling = async (): Promise<void> => {
+export const processPaypalBilling = async (): Promise<void> => {
   try {
     const now = new Date();
 
