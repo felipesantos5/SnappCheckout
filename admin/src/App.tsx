@@ -21,6 +21,7 @@ import ABTestAnalyticsPage from "./pages/dashboard/ABTestAnalyticsPage";
 import PaymentsPage from "./pages/dashboard/PaymentsPage";
 import { AllSalesPage } from "./pages/dashboard/AllSalesPage";
 import { EmailsPage } from "./pages/dashboard/EmailsPage";
+import { EventsPage } from "./pages/dashboard/EventsPage";
 import { SuperAdminPage } from "./pages/superadmin/SuperAdminPage";
 
 function App() {
@@ -58,6 +59,9 @@ function App() {
 
         {/* Página de Emails */}
         <Route path="emails" element={<EmailsPage />} />
+
+        {/* Página de Eventos */}
+        <Route path="events" element={<EventsPage />} />
 
         {/* 2. ADICIONE AS ROTAS DE CALLBACK DO STRIPE */}
         {/* (Elas batem com as URLs do backend stripe.controller.ts) */}

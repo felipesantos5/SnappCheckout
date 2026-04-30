@@ -1,4 +1,4 @@
-import { ChartNoAxesCombined, User, ChartColumnIncreasing, Moon, Sun, Settings, FlaskConical, Wallet, Receipt, MailOpen } from "lucide-react";
+import { ChartNoAxesCombined, User, ChartColumnIncreasing, Moon, Sun, Settings, FlaskConical, Wallet, Receipt, MailOpen, Webhook } from "lucide-react";
 import logo from "../assets/logo.png";
 import logoWhite from "../assets/logo-white.png";
 import { useEffect, useState } from "react";
@@ -58,6 +58,11 @@ const items = [
     title: "Emails",
     url: "/emails",
     icon: MailOpen,
+  },
+  {
+    title: "Eventos",
+    url: "/events",
+    icon: Webhook,
   },
 
   {
