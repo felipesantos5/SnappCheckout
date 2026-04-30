@@ -1,6 +1,6 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { superAdminLogin, getSuperAdminStats, getSuperAdminUsers, updateUserFee } from "../controllers/superadmin.controller";
+import { superAdminLogin, getSuperAdminStats, getSuperAdminUsers, updateUserFee, getPaypalBillingUsers, updatePaypalBilling } from "../controllers/superadmin.controller";
 import { protectSuperAdmin } from "../middleware/superadmin.middleware";
 
 const router = Router();
@@ -18,5 +18,7 @@ router.post("/auth", loginLimiter, superAdminLogin);
 router.get("/stats", protectSuperAdmin, getSuperAdminStats);
 router.get("/users", protectSuperAdmin, getSuperAdminUsers);
 router.patch("/users/:userId/fee", protectSuperAdmin, updateUserFee);
+router.get("/paypal-billing", protectSuperAdmin, getPaypalBillingUsers);
+router.patch("/users/:userId/paypal-billing", protectSuperAdmin, updatePaypalBilling);
 
 export default router;

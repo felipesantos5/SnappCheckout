@@ -4,6 +4,7 @@ import Sale from "../models/sale.model";
 import User from "../models/user.model";
 import Offer from "../models/offer.model";
 import CheckoutMetric from "../models/checkout-metric.model";
+import PaypalBillingCycle from "../models/paypal-billing-cycle.model";
 import { getExchangeRates } from "../services/currency-conversion.service";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -158,6 +159,137 @@ export const updateUserFee = async (req: Request, res: Response) => {
     return res.json({ _id: user._id, name: user.name, email: user.email, platformFeePercent: user.platformFeePercent });
   } catch (err) {
     console.error("[SuperAdmin] updateUserFee error:", err);
+    return res.status(500).json({ error: "Erro interno." });
+  }
+};
+
+export const getPaypalBillingUsers = async (req: Request, res: Response) => {
+  try {
+    const users = await User.find({
+      $or: [
+        { "paypalBilling.status": { $in: ["trial", "active", "blocked"] } },
+        { paypalClientId: { $nin: [null, ""] } },
+      ],
+    })
+      .select("name email paypalClientId paypalBilling")
+      .lean();
+
+    const usersWithPaypal = users.filter(
+      (u) => u.paypalClientId || u.paypalBilling?.currentCycleStart
+    );
+
+    const result = await Promise.all(
+      usersWithPaypal.map(async (user) => {
+        const billing = user.paypalBilling || {};
+        const userId = (user._id as { toString(): string }).toString();
+
+        let paypalRevenueInCents = 0;
+        if (billing.currentCycleStart && billing.currentCycleEnd) {
+          const agg = await Sale.aggregate([
+            {
+              $match: {
+                ownerId: user._id,
+                paymentMethod: "paypal",
+                status: "succeeded",
+                createdAt: { $gte: billing.currentCycleStart, $lte: billing.currentCycleEnd },
+              },
+            },
+            { $group: { _id: null, total: { $sum: "$totalAmountInCents" } } },
+          ]);
+          paypalRevenueInCents = agg[0]?.total || 0;
+        }
+
+        const paidCycles = await PaypalBillingCycle.countDocuments({ userId });
+
+        return {
+          _id: userId,
+          name: user.name,
+          email: user.email,
+          hasPaypalConfigured: !!user.paypalClientId,
+          billing: {
+            status: billing.status || "trial",
+            trialStartDate: billing.trialStartDate || null,
+            currentCycleStart: billing.currentCycleStart || null,
+            currentCycleEnd: billing.currentCycleEnd || null,
+            lastPaymentDate: billing.lastPaymentDate || null,
+            lastChargeAmountInCents: billing.lastChargeAmountInCents || 0,
+            pendingFeeInCents: billing.pendingFeeInCents || 0,
+          },
+          paypalRevenueInCents,
+          paidCycles,
+        };
+      })
+    );
+
+    result.sort((a, b) => {
+      const order = { blocked: 0, trial: 1, active: 2 };
+      return (order[a.billing.status] ?? 3) - (order[b.billing.status] ?? 3);
+    });
+
+    return res.json(result);
+  } catch (err) {
+    console.error("[SuperAdmin] getPaypalBillingUsers error:", err);
+    return res.status(500).json({ error: "Erro interno." });
+  }
+};
+
+export const updatePaypalBilling = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { action, extraDays } = req.body as {
+      action: "exempt" | "extend" | "unblock" | "block";
+      extraDays?: number;
+    };
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: "Usuario nao encontrado." });
+
+    switch (action) {
+      case "exempt": {
+        const now = new Date();
+        const farFuture = new Date(now.getTime() + 365 * 10 * 24 * 60 * 60 * 1000);
+        user.paypalBilling.status = "active";
+        user.paypalBilling.pendingFeeInCents = 0;
+        user.paypalBilling.currentCycleStart = now;
+        user.paypalBilling.currentCycleEnd = farFuture;
+        break;
+      }
+      case "extend": {
+        const days = extraDays && extraDays > 0 ? extraDays : 30;
+        const currentEnd = user.paypalBilling.currentCycleEnd || new Date();
+        const base = currentEnd > new Date() ? currentEnd : new Date();
+        user.paypalBilling.currentCycleEnd = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+        if (user.paypalBilling.status === "blocked") {
+          user.paypalBilling.status = "active";
+          user.paypalBilling.pendingFeeInCents = 0;
+        }
+        break;
+      }
+      case "unblock": {
+        const now = new Date();
+        user.paypalBilling.status = "active";
+        user.paypalBilling.pendingFeeInCents = 0;
+        user.paypalBilling.currentCycleStart = now;
+        user.paypalBilling.currentCycleEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        break;
+      }
+      case "block": {
+        user.paypalBilling.status = "blocked";
+        break;
+      }
+      default:
+        return res.status(400).json({ error: "Acao invalida. Use: exempt, extend, unblock ou block." });
+    }
+
+    await user.save();
+
+    return res.json({
+      _id: user._id,
+      action,
+      paypalBilling: user.paypalBilling,
+    });
+  } catch (err) {
+    console.error("[SuperAdmin] updatePaypalBilling error:", err);
     return res.status(500).json({ error: "Erro interno." });
   }
 };

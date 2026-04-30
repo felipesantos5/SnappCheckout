@@ -2,6 +2,7 @@
 import { ISale } from "../models/sale.model";
 import { IOffer } from "../models/offer.model";
 import { fetchWithTimeout } from "../lib/http-client";
+import IntegrationEventLog, { IntegrationEventType } from "../models/integration-event-log.model";
 
 interface ProductItem {
   id: string;
@@ -28,12 +29,12 @@ export const sendGenericWebhook = async (
     return;
   }
 
-  try {
-    const payload = {
-      email: sale.customerEmail,
-      status: "approved",
-    };
+  const payload = {
+    email: sale.customerEmail,
+    status: "approved",
+  };
 
+  try {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -52,9 +53,13 @@ export const sendGenericWebhook = async (
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`❌ Erro no Webhook Genérico: ${response.status} - ${errorText}`);
+      await logIntegrationEvent("generic_webhook", "GENERIC_WEBHOOK", "failed", offer, sale, payload, offer.genericWebhook.url, response.status, errorText);
+    } else {
+      await logIntegrationEvent("generic_webhook", "GENERIC_WEBHOOK", "success", offer, sale, payload, offer.genericWebhook.url, response.status);
     }
   } catch (error: any) {
     console.error(`❌ Falha ao enviar webhook genérico: ${error.message}`);
+    await logIntegrationEvent("generic_webhook", "GENERIC_WEBHOOK", "failed", offer, sale, payload, offer.genericWebhook.url, undefined, error.message);
   }
 };
 
@@ -68,32 +73,27 @@ export const sendAccessWebhook = async (
     return;
   }
 
+  const productsPayload: ProductItem[] = items.map((item) => ({
+    id: item.customId || item._id || "product-no-id",
+    name: item.name,
+  }));
+
+  const mainItem = items[0];
+  const subscriptionId = mainItem?.customId || null;
+
+  const payload: MembershipPayload = {
+    event: "ACCESS_GRANTED",
+    customer: {
+      email: sale.customerEmail,
+      name: sale.customerName,
+      phone: customerPhone || (sale as any).customerPhone || "",
+    },
+    products: productsPayload,
+    transactionId: sale.stripePaymentIntentId,
+    subscriptionId: subscriptionId,
+  };
+
   try {
-    const productsPayload: ProductItem[] = items.map((item) => ({
-      id: item.customId || item._id || "product-no-id",
-      name: item.name,
-    }));
-
-    // 3. Define o subscriptionId usando o customId do produto principal (item 0)
-    // Se não tiver customId, enviamos null ou vazio
-    const mainItem = items[0];
-    const subscriptionId = mainItem?.customId || null;
-
-    // 4. Monta o Payload
-    const payload: MembershipPayload = {
-      event: "ACCESS_GRANTED",
-      customer: {
-        email: sale.customerEmail,
-        name: sale.customerName,
-        phone: customerPhone || (sale as any).customerPhone || "",
-      },
-      products: productsPayload,
-      transactionId: sale.stripePaymentIntentId,
-      subscriptionId: subscriptionId,
-    };
-
-    // console.log(`🚀 [Husky/Membership Webhook] Sending payload to ${offer.membershipWebhook.url}:`, JSON.stringify(payload, null, 2));
-
     const response = await fetchWithTimeout(offer.membershipWebhook.url, {
       method: "POST",
       headers: {
@@ -107,8 +107,44 @@ export const sendAccessWebhook = async (
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`❌ Erro no Webhook de Integração: ${response.status} - ${errorText}`);
+      await logIntegrationEvent("membership_webhook", "ACCESS_GRANTED", "failed", offer, sale, payload, offer.membershipWebhook.url, response.status, errorText);
+    } else {
+      await logIntegrationEvent("membership_webhook", "ACCESS_GRANTED", "success", offer, sale, payload, offer.membershipWebhook.url, response.status);
     }
   } catch (error: any) {
     console.error(`❌ Falha ao enviar integração: ${error.message}`);
+    await logIntegrationEvent("membership_webhook", "ACCESS_GRANTED", "failed", offer, sale, payload, offer.membershipWebhook.url, undefined, error.message);
   }
 };
+
+async function logIntegrationEvent(
+  type: IntegrationEventType,
+  event: string,
+  status: "success" | "failed",
+  offer: IOffer,
+  sale: ISale,
+  payload: any,
+  destinationUrl?: string,
+  responseStatus?: number,
+  errorMessage?: string,
+) {
+  try {
+    await IntegrationEventLog.create({
+      ownerId: sale.ownerId,
+      offerId: offer._id,
+      saleId: sale._id,
+      type,
+      event,
+      status,
+      destinationUrl,
+      payload: JSON.stringify(payload),
+      responseStatus,
+      errorMessage,
+      customerEmail: sale.customerEmail,
+      customerName: sale.customerName,
+      sentAt: new Date(),
+    });
+  } catch (err) {
+    console.error("Falha ao salvar log de evento de integracao:", err);
+  }
+}
