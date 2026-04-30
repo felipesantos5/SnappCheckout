@@ -28,7 +28,7 @@ interface OrderBumpProps {
 // Componente individual de bump memoizado
 const BumpItem = memo<{ bump: Bump; isSelected: boolean; onToggle: () => void; currency: string; primary: string; t: any }>(
   ({ bump, isSelected, onToggle, currency, primary, t }) => {
-    const { foregroundColor } = useTheme();
+    const { foregroundColor, textColor } = useTheme();
 
     const handleCheckboxClick = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
