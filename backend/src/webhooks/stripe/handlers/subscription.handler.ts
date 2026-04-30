@@ -2,6 +2,7 @@
 import { Stripe } from "stripe";
 import Sale from "../../../models/sale.model";
 import Offer from "../../../models/offer.model";
+import User from "../../../models/user.model";
 import { getCountryFromIP } from "../../../helper/getCountryFromIP";
 import stripe from "../../../lib/stripe";
 
@@ -114,6 +115,9 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, _st
       const clientIp = meta.ip || "";
       const countryCode = clientIp ? getCountryFromIP(clientIp) : "BR";
 
+      const ownerUser = await User.findById(offer.ownerId).select("platformFeePercent").lean();
+      const feePercent = ownerUser?.platformFeePercent ?? 3;
+
       await Sale.create({
         ownerId: offer.ownerId,
         offerId: offer._id,
@@ -126,7 +130,7 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, _st
         ip: clientIp,
         country: countryCode,
         totalAmountInCents: invoice.amount_paid,
-        platformFeeInCents: Math.round(invoice.amount_paid * 0.05),
+        platformFeeInCents: Math.round(invoice.amount_paid * (feePercent / 100)),
         currency: invoice.currency || "brl",
         status: "succeeded",
         paymentMethod: "stripe",
@@ -193,7 +197,7 @@ export const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice, _st
       ip: previousSale.ip || "",
       country: previousSale.country || "BR",
       totalAmountInCents: invoice.amount_paid,
-      platformFeeInCents: Math.round(invoice.amount_paid * 0.05),
+      platformFeeInCents: Math.round(invoice.amount_paid * ((owner.platformFeePercent ?? 3) / 100)),
       currency: invoice.currency || "brl",
       status: "succeeded",
       paymentMethod: "stripe",

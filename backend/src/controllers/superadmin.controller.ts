@@ -98,7 +98,7 @@ export const getSuperAdminUsers = async (req: Request, res: Response) => {
     const rates = await getExchangeRates();
 
     const [users, offersByUser, periodSales] = await Promise.all([
-      User.find().select("name email createdAt").lean(),
+      User.find().select("name email createdAt platformFeePercent").lean(),
       Offer.aggregate([{ $group: { _id: "$ownerId", count: { $sum: 1 } } }]),
       Sale.aggregate([
         { $match: periodMatch },
@@ -121,6 +121,7 @@ export const getSuperAdminUsers = async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         createdAt: (user as unknown as { createdAt: Date }).createdAt,
+        platformFeePercent: (user as any).platformFeePercent ?? 3,
         offersCount: offersMap.get(id) ?? 0,
         totalRevenue: salesMap.get(id) ?? 0,
       };
@@ -131,6 +132,32 @@ export const getSuperAdminUsers = async (req: Request, res: Response) => {
     return res.json(result);
   } catch (err) {
     console.error("[SuperAdmin] getSuperAdminUsers error:", err);
+    return res.status(500).json({ error: "Erro interno." });
+  }
+};
+
+export const updateUserFee = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { platformFeePercent } = req.body;
+
+    if (platformFeePercent == null || platformFeePercent < 0 || platformFeePercent > 100) {
+      return res.status(400).json({ error: "platformFeePercent deve ser entre 0 e 100." });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { platformFeePercent },
+      { new: true }
+    ).select("name email platformFeePercent");
+
+    if (!user) {
+      return res.status(404).json({ error: "Usuário não encontrado." });
+    }
+
+    return res.json({ _id: user._id, name: user.name, email: user.email, platformFeePercent: user.platformFeePercent });
+  } catch (err) {
+    console.error("[SuperAdmin] updateUserFee error:", err);
     return res.status(500).json({ error: "Erro interno." });
   }
 };

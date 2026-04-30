@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { API_URL } from "@/config/BackendUrl";
-import { DollarSign, Users, Eye, TrendingUp, LogOut, RefreshCw, ChevronUp, ChevronDown } from "lucide-react";
+import { DollarSign, Users, Eye, TrendingUp, LogOut, RefreshCw, ChevronUp, ChevronDown, Percent, Check, X } from "lucide-react";
 import { subDays, startOfDay, endOfDay } from "date-fns";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
@@ -20,6 +20,7 @@ interface UserRow {
   name: string;
   email: string;
   createdAt: string;
+  platformFeePercent: number;
   offersCount: number;
   totalRevenue: number;
 }
@@ -146,6 +147,8 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [period, setPeriod] = useState("all");
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(undefined);
+  const [editingFeeUserId, setEditingFeeUserId] = useState<string | null>(null);
+  const [editingFeeValue, setEditingFeeValue] = useState("");
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -212,6 +215,18 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
     } else {
       setSortKey(key);
       setSortDir("desc");
+    }
+  };
+
+  const handleUpdateFee = async (userId: string) => {
+    const value = parseFloat(editingFeeValue);
+    if (isNaN(value) || value < 0 || value > 100) return;
+    try {
+      await axios.patch(`${API_URL}/superadmin/users/${userId}/fee`, { platformFeePercent: value }, { headers });
+      setUsers((prev) => prev.map((u) => (u._id === userId ? { ...u, platformFeePercent: value } : u)));
+      setEditingFeeUserId(null);
+    } catch (err) {
+      console.error("Erro ao atualizar taxa:", err);
     }
   };
 
@@ -289,7 +304,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
               accent
             />
             <StatCard
-              title="Nossa Comissão (5%)"
+              title="Nossa Comissão"
               value={formatBRL(stats.totalPlatformFee)}
               sub="taxa da plataforma"
               icon={TrendingUp}
@@ -327,6 +342,9 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                     Nome <SortIcon col="name" />
                   </th>
                   <th className="text-left px-5 py-3 font-medium text-muted-foreground whitespace-nowrap">E-mail</th>
+                  <th className="text-right px-5 py-3 font-medium text-muted-foreground whitespace-nowrap">
+                    Taxa %
+                  </th>
                   <th
                     className="text-right px-5 py-3 font-medium text-muted-foreground cursor-pointer select-none whitespace-nowrap hover:text-foreground"
                     onClick={() => handleSort("offersCount")}
@@ -346,7 +364,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                 {loading && users.length === 0
                   ? [...Array(5)].map((_, i) => (
                       <tr key={i} className="border-b border-border">
-                        {[...Array(5)].map((_, j) => (
+                        {[...Array(6)].map((_, j) => (
                           <td key={j} className="px-5 py-4">
                             <div className="h-4 bg-muted rounded animate-pulse" />
                           </td>
@@ -357,6 +375,41 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                       <tr key={user._id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                         <td className="px-5 py-3.5 font-medium whitespace-nowrap">{user.name}</td>
                         <td className="px-5 py-3.5 text-muted-foreground">{user.email}</td>
+                        <td className="px-5 py-3.5 text-right tabular-nums">
+                          {editingFeeUserId === user._id ? (
+                            <span className="inline-flex items-center gap-1">
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                value={editingFeeValue}
+                                onChange={(e) => setEditingFeeValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleUpdateFee(user._id);
+                                  if (e.key === "Escape") setEditingFeeUserId(null);
+                                }}
+                                className="w-16 text-right rounded border border-input bg-background px-1.5 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                                autoFocus
+                              />
+                              <button onClick={() => handleUpdateFee(user._id)} className="text-green-500 hover:text-green-400">
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => setEditingFeeUserId(null)} className="text-muted-foreground hover:text-destructive">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => { setEditingFeeUserId(user._id); setEditingFeeValue(String(user.platformFeePercent ?? 3)); }}
+                              className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                              title="Clique para editar a taxa"
+                            >
+                              {user.platformFeePercent ?? 3}%
+                              <Percent className="w-3 h-3" />
+                            </button>
+                          )}
+                        </td>
                         <td className="px-5 py-3.5 text-right tabular-nums">{user.offersCount}</td>
                         <td className="px-5 py-3.5 text-right tabular-nums font-medium">{formatBRL(user.totalRevenue)}</td>
                         <td className="px-5 py-3.5 text-right">

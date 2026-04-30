@@ -34,6 +34,7 @@ export interface IUser extends Document {
   smtpFromName?: string;
   // PayPal Billing
   paypalBilling: IPaypalBilling;
+  platformFeePercent: number;
   // Métodos
   comparePassword(password: string): Promise<boolean>;
 }
@@ -112,6 +113,9 @@ const userSchema = new Schema<IUser>(
     smtpPass: { type: String, default: "", select: false },
     smtpFromEmail: { type: String, default: "" },
     smtpFromName: { type: String, default: "" },
+
+    // --- TAXA DA PLATAFORMA ---
+    platformFeePercent: { type: Number, default: 3, min: 0, max: 100 },
 
     // --- PAYPAL BILLING ---
     paypalBilling: {

@@ -197,7 +197,7 @@ export default function PaymentsPage() {
   const totalSales = metrics ? metrics.stripe.totalSales + metrics.paypal.totalSales + metrics.pagarme.totalSales : 0;
   const stripePercentage = totalRevenue > 0 ? (metrics!.stripe.totalRevenue / totalRevenue) * 100 : 0;
   const paypalPercentage = totalRevenue > 0 ? (metrics!.paypal.totalRevenue / totalRevenue) * 100 : 0;
-  const pagarmePercentage = totalRevenue > 0 ? (metrics!.pagarme.totalRevenue / totalRevenue) * 100 : 0;
+
 
   if (loading) {
     return (
