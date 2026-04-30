@@ -35,7 +35,7 @@ const getAllOfferIds = async (ownerId: string): Promise<mongoose.Types.ObjectId[
  * Público: Não requer autenticação (pois é chamado pelo checkout do cliente)
  */
 export const handleTrackMetric = async (req: Request, res: Response) => {
-  const { offerId, type, fbc, fbp, email, phone, name, eventId, totalAmount, contentIds } = req.body;
+  const { offerId, type, fbc, fbp, email, phone, name, language, eventId, totalAmount, contentIds } = req.body;
 
   // Resposta imediata para não travar o cliente (Fire and Forget)
   res.status(200).send();
@@ -184,6 +184,7 @@ export const handleTrackMetric = async (req: Request, res: Response) => {
               $set: {
                 ownerId: offerForCart.ownerId,
                 ...(name ? { customerName: name } : {}),
+                ...(language ? { visitorLanguage: language } : {}),
                 emailSent: false,
                 emailSentAt: null,
                 convertedAt: null,

@@ -10,6 +10,7 @@ import { SkeletonLoader } from "../components/ui/SkeletonLoader";
 import { useFacebookPixel } from "../hooks/useFacebookPixel";
 import { PurchaseNotification } from "../components/ui/PurchaseNotification";
 import { getCookie } from "../helper/getCookie";
+import { getLanguageFromIP } from "../service/getLanguageFromIP";
 
 export type LayoutType = "classic" | "modern" | "minimal" | "hubla";
 
@@ -87,6 +88,13 @@ export function CheckoutSlugPage() {
   const [abTestId, setAbTestId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [ipLanguage, setIpLanguage] = useState<Language | null>(null);
+
+  useEffect(() => {
+    getLanguageFromIP().then((lang) => {
+      if (lang) setIpLanguage(lang);
+    });
+  }, []);
 
   // REF DE CONTROLE: Guarda o slug da última oferta rastreada para evitar duplicação
   const trackedSlugRef = useRef<string | null>(null);
@@ -346,7 +354,7 @@ export function CheckoutSlugPage() {
   }
 
   return (
-    <I18nProvider language={offerData.language || "pt"}>
+    <I18nProvider language={ipLanguage ?? offerData.language ?? "pt"}>
       <ThemeContext.Provider value={themeValues}>
         <PurchaseNotification config={offerData.autoNotifications} productName={offerData.mainProduct.name} />
         <LayoutLoader

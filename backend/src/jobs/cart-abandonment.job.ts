@@ -44,7 +44,7 @@ async function processReminder1(): Promise<void> {
         productName: offer.mainProduct.name,
         priceInCents: offer.mainProduct.priceInCents,
         currency: offer.currency || "BRL",
-        language: offer.language || "pt",
+        language: cart.visitorLanguage || offer.language || "pt",
         checkoutUrl,
         ownerId: cart.ownerId.toString(),
         offerId: cart.offerId.toString(),

@@ -5,6 +5,7 @@ export interface IAbandonedCart extends Document {
   ownerId: mongoose.Types.ObjectId;
   customerEmail: string;
   customerName: string;
+  visitorLanguage?: string;
   // Legacy — mantido para compatibilidade com métricas existentes
   emailSent: boolean;
   emailSentAt?: Date;
@@ -22,6 +23,7 @@ const abandonedCartSchema = new Schema<IAbandonedCart>(
     ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     customerEmail: { type: String, required: true },
     customerName: { type: String, default: "" },
+    visitorLanguage: { type: String, default: null },
     emailSent: { type: Boolean, default: false, index: true },
     emailSentAt: { type: Date, default: null },
     reminder1SentAt: { type: Date, default: null },

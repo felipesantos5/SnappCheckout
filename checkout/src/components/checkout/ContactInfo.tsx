@@ -14,7 +14,7 @@ interface ContactInfoProps {
 }
 
 export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, showDocument = false, offerID, abTestId, onEmailChange, onNameChange }) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { foregroundColor } = useTheme();
   const [phone, setPhone] = useState("");
   const [document, setDocument] = useState("");
@@ -53,6 +53,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, show
             type: "initiate_checkout",
             email,
             name: customerName,
+            language,
           }),
         }).catch((err) => console.error("Erro tracking initiate_checkout:", err));
 
@@ -154,6 +155,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({ showPhone = true, show
                     type: "initiate_checkout",
                     email: customerEmail,
                     name,
+                    language,
                   }),
                 }).catch(() => {});
               }, 1000);
