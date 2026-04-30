@@ -20,6 +20,7 @@ import { CountryFlag } from "../CountryFlag";
 import { StripeIcon } from "../icons/stripe";
 import { PaypalIcon } from "../icons/paypal";
 import { PixIcon } from "../icons/pix";
+import { SaleTypeBadge } from "@/components/sales/SaleTypeBadge";
 import type { DateRange } from "react-day-picker";
 import { useAuth } from "@/context/AuthContext";
 
@@ -265,18 +266,14 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
                           )}
 
                           {/* TAG DE ORDER BUMP */}
+                          {!sale.isUpsell && !sale.isDownsell && <SaleTypeBadge sale={sale} compact />}
+
                           {hasOrderBump && (
                             <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700 text-[10px] px-1 py-0 h-5">
                               + Bump
                             </Badge>
                           )}
 
-                          {/* TAG PADRÃO (Só aparece se não for upsell/downsell nem bump) */}
-                          {!hasOrderBump && !sale.isUpsell && !sale.isDownsell && (
-                            <Badge variant="secondary" className="text-[10px] h-5">
-                              Padrão
-                            </Badge>
-                          )}
                         </div>
                       </TableCell>
 

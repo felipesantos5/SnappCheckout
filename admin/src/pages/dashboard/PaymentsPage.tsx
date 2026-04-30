@@ -19,6 +19,7 @@ import { TrendingUp, CreditCard, Wallet, ArrowUpRight, ArrowDownRight } from "lu
 import stripeIconMini from "@/assets/stripe-icon-mini.webp";
 import paypalIconMini from "@/assets/paypal-icon-mini.png";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { SaleTypeBadge } from "@/components/sales/SaleTypeBadge";
 
 interface PaymentPlatformMetrics {
   totalSales: number;
@@ -55,6 +56,12 @@ interface RecentSale {
   paymentMethod: string;
   paymentMethodType?: string;
   createdAt: string;
+  stripeSubscriptionId?: string;
+  subscriptionCycle?: number | null;
+  offerId?: {
+    paymentType?: "one_time" | "subscription" | string;
+    subscriptionInterval?: "day" | "week" | "month" | "year" | string;
+  } | null;
 }
 
 export default function PaymentsPage() {
@@ -504,7 +511,10 @@ export default function PaymentsPage() {
                       <PlatformAvatar method={sale.paymentMethod} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate leading-tight">{platformLabel(sale)}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{formatSaleDate(sale.createdAt)}</p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <SaleTypeBadge sale={sale} compact />
+                          <span className="text-xs text-muted-foreground">{formatSaleDate(sale.createdAt)}</span>
+                        </div>
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-sm font-semibold">{formatCurrency(sale.totalAmountInCents, sale.currency)}</p>

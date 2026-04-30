@@ -15,7 +15,6 @@ import {
   RefreshCw,
   Zap,
   ArrowUpCircle,
-  ShoppingBag,
   DollarSign,
   ShoppingCart,
   TrendingUp,
@@ -29,6 +28,7 @@ import { formatDate } from "@/helper/formatDate";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CountryFlag } from "@/components/CountryFlag";
 import { Label } from "@/components/ui/label";
+import { SaleTypeBadge } from "@/components/sales/SaleTypeBadge";
 
 interface Sale {
   _id: string;
@@ -36,6 +36,8 @@ interface Sale {
     _id: string;
     name: string;
     slug: string;
+    paymentType?: "one_time" | "subscription" | string;
+    subscriptionInterval?: "day" | "week" | "month" | "year" | string;
   } | null;
   totalAmountInCents: number;
   currency: string;
@@ -124,22 +126,13 @@ const convertToBRL = (amountInCents: number, currency: string | undefined): numb
 // Helper para determinar o tipo de venda
 const getSaleTypeIcon = (sale: Sale) => {
   // Renovação de assinatura (ciclo 2+)
-  if (sale.stripeSubscriptionId && sale.subscriptionCycle && sale.subscriptionCycle > 1) {
-    const label = `Renovação (${sale.subscriptionCycle}º mês)`;
-    return (
-      <Badge variant="outline" className="border-teal-200 text-teal-700 bg-teal-50">
-        <RefreshCw className="w-3 h-3 mr-1" /> {label}
-      </Badge>
-    );
+  if ((sale.stripeSubscriptionId || sale.offerId?.paymentType === "subscription") && sale.subscriptionCycle && sale.subscriptionCycle > 1) {
+    return <SaleTypeBadge sale={sale} />;
   }
 
   // Venda inicial de assinatura (ciclo 1)
-  if (sale.stripeSubscriptionId && (!sale.subscriptionCycle || sale.subscriptionCycle === 1)) {
-    return (
-      <Badge variant="outline" className="border-teal-200 text-teal-700 bg-teal-50">
-        <RefreshCw className="w-3 h-3 mr-1" /> Plano (1º mês)
-      </Badge>
-    );
+  if ((sale.stripeSubscriptionId || sale.offerId?.paymentType === "subscription") && (!sale.subscriptionCycle || sale.subscriptionCycle === 1)) {
+    return <SaleTypeBadge sale={sale} />;
   }
 
   if (sale.isUpsell) {
@@ -175,33 +168,34 @@ const getSaleTypeIcon = (sale: Sale) => {
   const bumpItems = sale.items?.filter((i) => i.isOrderBump) || [];
   if (bumpItems.length > 0) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 cursor-help">
-              <ArrowUpCircle className="w-3 h-3 mr-1" /> + Bump
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent className="p-3 w-56 bg-card border shadow-lg text-card-foreground">
-            <div className="space-y-2">
-              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground pb-1 border-b">Order Bumps</div>
-              {bumpItems.map((item, i) => (
-                <div key={i} className="flex justify-between gap-2">
-                  <span className="text-xs truncate">{item.name}</span>
-                  <span className="text-xs font-medium shrink-0">{formatCurrency(item.priceInCents, sale.currency)}</span>
-                </div>
-              ))}
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <div className="inline-flex items-center gap-1">
+        <SaleTypeBadge sale={sale} />
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="outline" className="cursor-help border-blue-200 text-blue-700 bg-blue-50">
+                <ArrowUpCircle className="w-3 h-3 mr-1" /> + Bump
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent className="p-3 w-56 bg-card border shadow-lg text-card-foreground">
+              <div className="space-y-2">
+                <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground pb-1 border-b">Order Bumps</div>
+                {bumpItems.map((item, i) => (
+                  <div key={i} className="flex justify-between gap-2">
+                    <span className="text-xs truncate">{item.name}</span>
+                    <span className="text-xs font-medium shrink-0">{formatCurrency(item.priceInCents, sale.currency)}</span>
+                  </div>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
     );
   }
 
   return (
-    <Badge variant="outline" className="text-muted-foreground">
-      <ShoppingBag className="w-3 h-3 mr-1" /> Venda
-    </Badge>
+    <SaleTypeBadge sale={sale} />
   );
 };
 
@@ -395,8 +389,7 @@ export function AllSalesPage() {
         ["Data", "Cliente", "Email", "Oferta", "Tipo", "Status", "Valor", "Moeda", "País", "Método", "UTM Source", "UTM Medium", "UTM Campaign"].join(","),
         ...sales.map((sale) => {
           let tipo = "Venda";
-          if (sale.stripeSubscriptionId && sale.subscriptionCycle && sale.subscriptionCycle > 1) tipo = `Renovação (${sale.subscriptionCycle}º mês)`;
-          else if (sale.stripeSubscriptionId) tipo = "Plano (1º mês)";
+          if (sale.stripeSubscriptionId || sale.offerId?.paymentType === "subscription") tipo = "Plano";
           else if (sale.isUpsell) tipo = "Upsell";
           else if (sale.items?.some((i) => i.isOrderBump)) tipo = "+ Bump";
 

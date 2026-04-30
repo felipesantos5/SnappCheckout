@@ -11,6 +11,7 @@ import { getCountryFromIP } from "../../../helper/getCountryFromIP";
 import { getUpsellSteps } from "../../../helper/getUpsellSteps";
 import User from "../../../models/user.model";
 import { sendPurchaseConfirmationEmail } from "../../../services/email.service";
+import { dispatchSubscriptionSaleIntegrations } from "../../../services/subscription-sale-integration.service";
 
 /**
  * Helper: Extrai informações sobre o método de pagamento do Stripe
@@ -64,7 +65,7 @@ const handleSubscriptionInitialPaymentFromSub = async (
     const offerSlug = meta.offerSlug;
     if (!offerSlug) return;
 
-    const offer = await Offer.findOne({ slug: offerSlug });
+    const offer = await Offer.findOne({ slug: offerSlug }).populate("ownerId");
     if (!offer) {
       console.error(`❌ [Stripe/Sub] Oferta '${offerSlug}' não encontrada`);
       return;
@@ -76,8 +77,16 @@ const handleSubscriptionInitialPaymentFromSub = async (
     const clientIp = meta.ip || "";
     const countryCode = clientIp ? getCountryFromIP(clientIp) : "BR";
     const { paymentMethodType, walletType } = extractPaymentMethodDetails(paymentIntent);
+    const items = [{
+      _id: (offer.mainProduct as any)?._id?.toString(),
+      name: offer.mainProduct?.name || offer.name || "Assinatura",
+      priceInCents: paymentIntent.amount,
+      compareAtPriceInCents: offer.mainProduct?.compareAtPriceInCents,
+      isOrderBump: false,
+      customId: offer.mainProduct?.customId,
+    }];
 
-    await Sale.create({
+    const sale = await Sale.create({
       ownerId: offer.ownerId,
       offerId: offer._id,
       stripePaymentIntentId: paymentIntentId,
@@ -98,17 +107,22 @@ const handleSubscriptionInitialPaymentFromSub = async (
       walletType,
       isUpsell: false,
       isDownsell: false,
-      items: [{
-        name: offer.mainProduct?.name || offer.name || "Assinatura",
-        priceInCents: paymentIntent.amount,
-        isOrderBump: false,
-      }],
+      items,
       utm_source: meta.utm_source || "",
       utm_medium: meta.utm_medium || "",
       utm_campaign: meta.utm_campaign || "",
       utm_term: meta.utm_term || "",
       utm_content: meta.utm_content || "",
       facebookPurchaseSendAfter: new Date(Date.now() + 10 * 60 * 1000),
+    });
+
+    await dispatchSubscriptionSaleIntegrations({
+      offer: offer as any,
+      sale,
+      items,
+      paymentIntent,
+      metadata: meta,
+      customerPhone,
     });
 
     console.log(`✅ [Stripe/Sub] Venda inicial (via subscription) registrada: sub ${subscription.id}, pi ${paymentIntentId}`);
@@ -155,7 +169,7 @@ const handleSubscriptionInitialPayment = async (
       return;
     }
 
-    const offer = await Offer.findOne({ slug: offerSlug });
+    const offer = await Offer.findOne({ slug: offerSlug }).populate("ownerId");
     if (!offer) {
       console.error(`❌ [Stripe/Sub] Oferta '${offerSlug}' não encontrada`);
       return;
@@ -167,8 +181,16 @@ const handleSubscriptionInitialPayment = async (
     const clientIp = meta.ip || "";
     const countryCode = clientIp ? getCountryFromIP(clientIp) : "BR";
     const { paymentMethodType, walletType } = extractPaymentMethodDetails(paymentIntent);
+    const items = [{
+      _id: (offer.mainProduct as any)?._id?.toString(),
+      name: offer.mainProduct?.name || offer.name || "Assinatura",
+      priceInCents: paymentIntent.amount,
+      compareAtPriceInCents: offer.mainProduct?.compareAtPriceInCents,
+      isOrderBump: false,
+      customId: offer.mainProduct?.customId,
+    }];
 
-    await Sale.create({
+    const sale = await Sale.create({
       ownerId: offer.ownerId,
       offerId: offer._id,
       stripePaymentIntentId: paymentIntentId,
@@ -189,13 +211,7 @@ const handleSubscriptionInitialPayment = async (
       walletType,
       isUpsell: false,
       isDownsell: false,
-      items: [
-        {
-          name: offer.mainProduct?.name || offer.name || "Assinatura",
-          priceInCents: paymentIntent.amount,
-          isOrderBump: false,
-        },
-      ],
+      items,
       utm_source: meta.utm_source || "",
       utm_medium: meta.utm_medium || "",
       utm_campaign: meta.utm_campaign || "",
@@ -205,6 +221,15 @@ const handleSubscriptionInitialPayment = async (
     });
 
     console.log(`✅ [Stripe/Sub] Venda inicial de assinatura registrada: sub ${subscriptionId}, pi ${paymentIntentId}`);
+    await dispatchSubscriptionSaleIntegrations({
+      offer: offer as any,
+      sale,
+      items,
+      paymentIntent,
+      metadata: meta,
+      customerPhone,
+    });
+
   } catch (error: any) {
     console.error(`❌ [Stripe/Sub] Erro ao processar pagamento inicial de assinatura: ${error.message}`);
   }
