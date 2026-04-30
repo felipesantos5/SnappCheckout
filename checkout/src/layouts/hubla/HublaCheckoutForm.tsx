@@ -21,6 +21,7 @@ import { PhoneInput } from "../../components/checkout/PhoneInput";
 
 const PayPalPayment = lazy(() => import("../../components/checkout/PayPalPayment").then((m) => ({ default: m.PayPalPayment })));
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const PixIcon: React.FC<{ color?: string }> = ({ color = "#6b7280" }) => (
   <svg className="h-5 w-5" viewBox="0 0 512 512" fill={color}>
@@ -33,14 +34,16 @@ const HublaInput: React.FC<
     primary: string;
     borderColor?: string;
     focusBorderColor?: string;
+    invalid?: boolean;
   }
-> = ({ primary, borderColor = "#e5e7eb", focusBorderColor, className = "", style, onFocus, onBlur, ...props }) => (
+> = ({ primary, borderColor = "#e5e7eb", focusBorderColor, invalid = false, className = "", style, onFocus, onBlur, ...props }) => (
   <input
     {...props}
+    aria-invalid={invalid || undefined}
     className={`w-full px-4 border rounded-md text-sm outline-none transition-colors duration-150 focus:relative focus:z-10 placeholder:text-[#6b7280] ${className}`}
-    style={{ borderColor, height: "48px", ...style } as React.CSSProperties}
-    onFocus={(e) => { e.currentTarget.style.borderColor = focusBorderColor ?? primary; onFocus?.(e); }}
-    onBlur={(e) => { e.currentTarget.style.borderColor = borderColor; onBlur?.(e); }}
+    style={{ borderColor: invalid ? "#ef4444" : borderColor, height: "48px", ...style } as React.CSSProperties}
+    onFocus={(e) => { e.currentTarget.style.borderColor = invalid ? "#ef4444" : focusBorderColor ?? primary; onFocus?.(e); }}
+    onBlur={(e) => { e.currentTarget.style.borderColor = invalid ? "#ef4444" : borderColor; onBlur?.(e); }}
   />
 );
 
@@ -54,11 +57,12 @@ const StripeFieldWrapper: React.FC<{
   borderColor?: string;
   focusBorderColor?: string;
   labelColor?: string;
-}> = ({ label, children, primary, right, className = "", isFocused = false, borderColor = "#e5e7eb", focusBorderColor, labelColor = "#9ca3af" }) => (
+  invalid?: boolean;
+}> = ({ label, children, primary, right, className = "", isFocused = false, borderColor = "#e5e7eb", focusBorderColor, labelColor = "#9ca3af", invalid = false }) => (
   <div
     className={`border rounded-md mb-0 px-4 transition-colors duration-150 ${className}`}
     style={{
-      borderColor: isFocused ? (focusBorderColor ?? primary) : borderColor,
+      borderColor: invalid ? "#ef4444" : isFocused ? (focusBorderColor ?? primary) : borderColor,
       minHeight: "48px",
       paddingTop: label || right ? "6px" : "0px",
       paddingBottom: label || right ? "6px" : "0px",
@@ -110,6 +114,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
   // Payment state
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [paymentSucceeded, setPaymentSucceeded] = useState(false);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [saleId, setSaleId] = useState<string | null>(null);
@@ -124,10 +129,16 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
 
   // Contact state
   const [contactName, setContactName] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
+  const [contactEmail, setContactEmail] = useState(() => new URLSearchParams(window.location.search).get("email")?.trim() || "");
   const [phone, setPhone] = useState("");
   const [phoneDialCode, setPhoneDialCode] = useState("+55");
   const [docValue, setDocValue] = useState("");
+  const [cardName, setCardName] = useState("");
+  const [cardFields, setCardFields] = useState({
+    number: false,
+    expiry: false,
+    cvc: false,
+  });
   const checkoutStartedSent = useRef(false);
   const nameUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -418,7 +429,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
     const email = e.target.value;
     setContactEmail(email);
 
-    if (email.length >= 4 && email.includes("@") && !checkoutStartedSent.current) {
+    if (EMAIL_REGEX.test(email.trim()) && !checkoutStartedSent.current) {
       checkoutStartedSent.current = true;
 
       fetch(`${API_URL}/offers/checkout-started`, {
@@ -435,6 +446,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
           type: "initiate_checkout",
           email,
           name: contactName,
+          language: offerData.language || "pt",
         }),
       }).catch(() => {});
 
@@ -462,6 +474,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
             type: "initiate_checkout",
             email: contactEmail,
             name,
+            language: offerData.language || "pt",
           }),
         }).catch(() => {});
       }, 1000);
@@ -546,16 +559,12 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitAttempted(true);
     if (!stripe || !elements) {
       setErrorMessage(t.messages.stripeNotLoaded);
       return;
     }
     setErrorMessage(null);
-
-    if (!contactEmail || !contactName) {
-      setErrorMessage(t.messages.requiredFields);
-      return;
-    }
 
     const cardElement = elements.getElement(CardNumberElement);
     if (method === "creditCard" && !cardElement) {
@@ -563,8 +572,24 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
       return;
     }
 
-    const cardNameInput = window.document.getElementById("hubla-card-name") as HTMLInputElement;
-    const cardName = cardNameInput?.value || "";
+    if (
+      !EMAIL_REGEX.test(contactEmail.trim()) ||
+      contactName.trim().length < 2 ||
+      (offerData.collectPhone && !phone.trim()) ||
+      (offerData.collectDocument && !docValue.trim()) ||
+      (method === "creditCard" && !cardName.trim())
+    ) {
+      setErrorMessage(t.messages.requiredFields);
+      const firstInvalid = [
+        contactName.trim().length < 2 ? window.document.getElementById("name") : null,
+        !EMAIL_REGEX.test(contactEmail.trim()) ? window.document.getElementById("email") : null,
+        offerData.collectPhone && !phone.trim() ? window.document.getElementById("phone") : null,
+        method === "creditCard" && !cardName.trim() ? window.document.getElementById("hubla-card-name") : null,
+        offerData.collectDocument && !docValue.trim() ? window.document.getElementById("document") : null,
+      ].find(Boolean) as HTMLElement | null;
+      firstInvalid?.focus();
+      return;
+    }
 
     setLoading(true);
 
@@ -996,6 +1021,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                   primary={primary}
                   borderColor={inputBorder}
                   focusBorderColor={inputFocusBorder}
+                  invalid={submitAttempted && contactName.trim().length < 2}
                 />
                 <HublaInput
                   id="email"
@@ -1008,6 +1034,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                   primary={primary}
                   borderColor={inputBorder}
                   focusBorderColor={inputFocusBorder}
+                  invalid={submitAttempted && !EMAIL_REGEX.test(contactEmail.trim())}
                 />
                 {offerData.collectPhone && (
                   <PhoneInput
@@ -1022,6 +1049,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                     inputBackground={backgroundColor}
                     borderColor={inputBorder}
                     focusBorderColor={inputFocusBorder}
+                    invalid={submitAttempted && phone.trim().length === 0}
                   />
                 )}
               </div>
@@ -1127,6 +1155,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                   borderColor={inputBorder}
                   focusBorderColor={inputFocusBorder}
                   labelColor={mutedColor}
+                  invalid={submitAttempted && !cardFields.number}
                   right={
                     <div className="flex items-center gap-1.5">
                       <svg xmlns="http://www.w3.org/2000/svg" width="25" height="8" viewBox="0 0 25 8">
@@ -1194,9 +1223,10 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                 >
                   <CardNumberElement
                     id="card-number"
-                    options={{ style: stripeStyle }}
+                    options={{ style: stripeStyle, disableLink: offerData.stripe_link_enabled === false }}
                     onFocus={() => setFocusedStripeField("card-number")}
                     onBlur={() => setFocusedStripeField(null)}
+                    onChange={(event) => setCardFields((prev) => ({ ...prev, number: event.complete }))}
                   />
                 </StripeFieldWrapper>
 
@@ -1208,12 +1238,14 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                     isFocused={focusedStripeField === "card-expiry"}
                     borderColor={inputBorder}
                     focusBorderColor={inputFocusBorder}
+                    invalid={submitAttempted && !cardFields.expiry}
                   >
                     <CardExpiryElement
                       id="card-expiry"
                       options={{ style: stripeStyleCentered }}
                       onFocus={() => setFocusedStripeField("card-expiry")}
                       onBlur={() => setFocusedStripeField(null)}
+                      onChange={(event) => setCardFields((prev) => ({ ...prev, expiry: event.complete }))}
                     />
                   </StripeFieldWrapper>
                   <StripeFieldWrapper
@@ -1222,12 +1254,14 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                     isFocused={focusedStripeField === "card-cvv"}
                     borderColor={inputBorder}
                     focusBorderColor={inputFocusBorder}
+                    invalid={submitAttempted && !cardFields.cvc}
                   >
                     <CardCvcElement
                       id="card-cvv"
                       options={{ style: stripeStyleCentered }}
                       onFocus={() => setFocusedStripeField("card-cvv")}
                       onBlur={() => setFocusedStripeField(null)}
+                      onChange={(event) => setCardFields((prev) => ({ ...prev, cvc: event.complete }))}
                     />
                   </StripeFieldWrapper>
                 </div>
@@ -1239,7 +1273,17 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                 >
                   {t.creditCard.cardholderName}
                 </h2>
-                <HublaInput id="hubla-card-name" type="text" placeholder={t.creditCard.cardholderNamePlaceholder} primary={primary} borderColor={inputBorder} focusBorderColor={inputFocusBorder} />
+                <HublaInput
+                  id="hubla-card-name"
+                  type="text"
+                  placeholder={t.creditCard.cardholderNamePlaceholder}
+                  value={cardName}
+                  onChange={(event) => setCardName(event.target.value)}
+                  primary={primary}
+                  borderColor={inputBorder}
+                  focusBorderColor={inputFocusBorder}
+                  invalid={submitAttempted && cardName.trim().length === 0}
+                />
 
                 {/* Document */}
                 {offerData.collectDocument && (
@@ -1260,6 +1304,7 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
                       primary={primary}
                       borderColor={inputBorder}
                       focusBorderColor={inputFocusBorder}
+                      invalid={submitAttempted && docValue.trim().length === 0}
                     />
                   </div>
                 )}
@@ -1381,11 +1426,12 @@ export const HublaCheckoutForm: React.FC<LayoutProps> = ({ offerData, checkoutSe
               <>
                 <button
                   type="submit"
-                  disabled={!stripe || loading || paymentSucceeded || !isContactValid}
+                  onClick={() => setSubmitAttempted(true)}
+                  disabled={!stripe || loading || paymentSucceeded}
                   className="inline-flex items-center w-full justify-center whitespace-nowrap font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60 dark:ring-offset-zinc-950 dark:focus-visible:ring-zinc-300 bg-zinc-900 text-zinc-50 hover:bg-zinc-900/90 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-50/90 h-11 rounded-md px-8 text-lg md:text-base relative overflow-hidden"
                   style={{
-                    backgroundColor: loading || paymentSucceeded || !isContactValid ? "#d1d5db" : button,
-                    color: loading || paymentSucceeded || !isContactValid ? "#9ca3af" : buttonForeground,
+                    backgroundColor: loading || paymentSucceeded ? "#d1d5db" : button,
+                    color: loading || paymentSucceeded ? "#9ca3af" : buttonForeground,
                   }}
                 >
                   <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent" />

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { loadStripe } from "@stripe/stripe-js";
@@ -38,6 +38,7 @@ const metricCalls = () =>
 const input = (id: string) => document.getElementById(id) as HTMLInputElement;
 
 beforeEach(() => {
+  window.history.pushState({}, "", "/");
   global.fetch = vi.fn(async (input) => {
     const url = String(input);
 
@@ -62,6 +63,13 @@ beforeEach(() => {
 });
 
 describe("Layout Classic - Renderizacao e Pagamento", () => {
+  it("preenche o email quando ele vem pela URL", async () => {
+    window.history.pushState({}, "", "/ebook-avancado?email=barbeiro%40teste.com");
+    renderClassic();
+
+    expect(await screen.findByLabelText(/e-mail/i)).toHaveValue("barbeiro@teste.com");
+  });
+
   it("renderiza campos, metodos de pagamento, PayPal e order bump sem crashar", async () => {
     renderClassic();
 
@@ -72,8 +80,8 @@ describe("Layout Classic - Renderizacao e Pagamento", () => {
     expect(screen.getByText(/m[eé]todo de pagamento/i)).toBeVisible();
     expect(screen.getByText(/cart[aã]o de cr[eé]dito/i)).toBeVisible();
     expect(screen.getByText("PayPal")).toBeVisible();
-    expect((await screen.findAllByText(/adicione o checklist/i))[0]).toBeVisible();
-    expect(screen.getByRole("button", { name: /concluir pagamento/i })).toBeDisabled();
+    expect((await screen.findAllByText(/adicione o checklist/i, {}, { timeout: 5000 }))[0]).toBeVisible();
+    expect(screen.getByRole("button", { name: /concluir pagamento/i })).toBeEnabled();
 
     expect(loadStripe).toHaveBeenCalledWith("pk_test_checkout", {
       stripeAccount: "acct_test_checkout",
@@ -93,10 +101,11 @@ describe("Layout Classic - Renderizacao e Pagamento", () => {
   });
 
   it("dispara carrinho abandonado quando o cliente informa email", async () => {
-    const user = userEvent.setup();
     renderClassic();
 
-    await user.type(await screen.findByLabelText(/e-mail/i), "abc@");
+    fireEvent.change(await screen.findByLabelText(/e-mail/i), {
+      target: { value: "cliente@example.com" },
+    });
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(
@@ -111,7 +120,7 @@ describe("Layout Classic - Renderizacao e Pagamento", () => {
     await waitFor(() => {
       const initiateCheckout = metricCalls().find(([, init]) => {
         const body = JSON.parse(String(init?.body));
-        return body.type === "initiate_checkout" && body.email === "abc@" && body.language === "pt";
+        return body.type === "initiate_checkout" && body.email === "cliente@example.com" && body.language === "pt";
       });
 
       expect(initiateCheckout).toBeTruthy();
@@ -124,7 +133,14 @@ describe("Layout Classic - Renderizacao e Pagamento", () => {
 
     await user.type(await screen.findByLabelText(/e-mail/i), "cliente@example.com");
     await user.type(screen.getByLabelText(/nome completo/i), "Cliente Teste");
+    await user.type(screen.getByLabelText(/celular/i), "11999999999");
     await user.type(screen.getByLabelText(/cpf/i), "12345678901");
+    await user.type(screen.getByLabelText(/cep/i), "01001000");
+    await user.type(input("address-street"), "Rua Teste");
+    await user.type(input("address-number"), "123");
+    await user.type(input("address-neighborhood"), "Centro");
+    await user.type(input("address-city"), "Sao Paulo");
+    await user.type(input("address-state"), "SP");
     await user.type(screen.getByLabelText(/titular do cart[aã]o/i), "Cliente Teste");
     await screen.findAllByText(/adicione o checklist/i);
     await user.click(screen.getAllByRole("checkbox")[0]);
@@ -152,6 +168,14 @@ describe("Layout Classic - Renderizacao e Pagamento", () => {
 });
 
 describe("Layout Hubla - Renderizacao e Pagamento", () => {
+  it("preenche o email quando ele vem pela URL", async () => {
+    window.history.pushState({}, "", "/ebook-avancado?email=barbeiro%40teste.com");
+    renderHubla();
+
+    await screen.findByRole("button", { name: /concluir pagamento/i });
+    expect(input("email")).toHaveValue("barbeiro@teste.com");
+  });
+
   it("renderiza campos compactos, cartao, PayPal e botao de compra", async () => {
     renderHubla();
 
@@ -164,7 +188,7 @@ describe("Layout Hubla - Renderizacao e Pagamento", () => {
     expect(screen.getByTestId("stripe-card-number")).toBeVisible();
     expect(screen.getByTestId("stripe-card-expiry")).toBeVisible();
     expect(screen.getByTestId("stripe-card-cvc")).toBeVisible();
-    expect(screen.getByRole("button", { name: /concluir pagamento/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /concluir pagamento/i })).toBeEnabled();
   });
 
   it("calcula total com order bump e cupom aplicado", async () => {
@@ -202,6 +226,9 @@ describe("Layout Hubla - Renderizacao e Pagamento", () => {
     await screen.findByRole("button", { name: /concluir pagamento/i });
     await user.type(input("name"), "Cliente Teste");
     await user.type(input("email"), "cliente@example.com");
+    await user.type(input("phone"), "11999999999");
+    await user.type(input("hubla-card-name"), "Cliente Teste");
+    await user.type(input("document"), "12345678901");
 
     const summary = screen.getAllByText("Ebook Dominando Checkout")[0].closest("div");
     await user.click(within(summary!).getByRole("button"));

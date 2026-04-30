@@ -53,7 +53,7 @@ describe("Pagina de Checkout - Carregamento e Tracking", () => {
 
     expect(await screen.findByText(/personal information/i, {}, { timeout: 5000 })).toBeVisible();
     expect(screen.getByText(/payment method/i)).toBeVisible();
-    expect(screen.getByRole("button", { name: /complete payment/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /complete payment/i })).toBeEnabled();
   });
 
   it("injeta Facebook Pixel e dispara PageView, InitiateCheckout e CAPI", async () => {

@@ -19,6 +19,8 @@ interface PaymentMethodsProps {
   paypalEnabled?: boolean;
   pagarmePixEnabled?: boolean;
   stripeCardEnabled?: boolean;
+  stripeLinkEnabled?: boolean;
+  showValidationErrors?: boolean;
 }
 
 export const PaymentMethods: React.FC<PaymentMethodsProps> = ({
@@ -29,6 +31,8 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({
   paypalEnabled,
   pagarmePixEnabled,
   stripeCardEnabled = true,
+  stripeLinkEnabled = true,
+  showValidationErrors = false,
 }) => {
   const { t } = useTranslation();
   const { foregroundColor, backgroundColor, primary } = useTheme();
@@ -130,7 +134,9 @@ export const PaymentMethods: React.FC<PaymentMethodsProps> = ({
       </div>
 
       {/* Formulário do Cartão */}
-      <div className="mt-6">{method === "creditCard" && <CreditCardForm />}</div>
+      <div className="mt-6">
+        {method === "creditCard" && <CreditCardForm stripeLinkEnabled={stripeLinkEnabled} showValidationErrors={showValidationErrors} />}
+      </div>
     </div>
   );
 };

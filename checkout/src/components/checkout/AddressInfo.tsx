@@ -12,10 +12,27 @@ interface ViaCepResponse {
   erro?: boolean;
 }
 
-export const AddressInfo: React.FC = () => {
+interface AddressInfoProps {
+  showValidationErrors?: boolean;
+}
+
+export const AddressInfo: React.FC<AddressInfoProps> = ({ showValidationErrors = false }) => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [zipCode, setZipCode] = useState("");
+  const [addressValues, setAddressValues] = useState({
+    street: "",
+    number: "",
+    complement: "",
+    neighborhood: "",
+    city: "",
+    state: "",
+    country: "Brasil",
+  });
+
+  const setAddressValue = (field: keyof typeof addressValues, value: string) => {
+    setAddressValues((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleZipCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
@@ -58,6 +75,13 @@ export const AddressInfo: React.FC = () => {
           if (neighborhoodInput) neighborhoodInput.value = data.bairro;
           if (cityInput) cityInput.value = data.localidade;
           if (stateInput) stateInput.value = data.uf;
+          setAddressValues((prev) => ({
+            ...prev,
+            street: data.logradouro || prev.street,
+            neighborhood: data.bairro || prev.neighborhood,
+            city: data.localidade || prev.city,
+            state: data.uf || prev.state,
+          }));
 
           // Foca no campo número para o usuário continuar
           const numberInput = document.getElementById("address-number") as HTMLInputElement;
@@ -85,6 +109,7 @@ export const AddressInfo: React.FC = () => {
             type="text"
             placeholder={t.address.zipCode}
             onChange={handleZipCodeChange}
+            error={showValidationErrors && zipCode.trim().length === 0}
           />
           {loading && (
             <div className="absolute right-3 top-9">
@@ -95,23 +120,78 @@ export const AddressInfo: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-2">
-            <Input label={t.address.street} id="address-street" type="text" placeholder={t.address.streetPlaceholder} />
+            <Input
+              label={t.address.street}
+              id="address-street"
+              type="text"
+              placeholder={t.address.streetPlaceholder}
+              value={addressValues.street}
+              onChange={(e) => setAddressValue("street", e.target.value)}
+              error={showValidationErrors && addressValues.street.trim().length === 0}
+            />
           </div>
           <div>
-            <Input label={t.address.number} id="address-number" type="text" placeholder={t.address.numberPlaceholder} />
+            <Input
+              label={t.address.number}
+              id="address-number"
+              type="text"
+              placeholder={t.address.numberPlaceholder}
+              value={addressValues.number}
+              onChange={(e) => setAddressValue("number", e.target.value)}
+              error={showValidationErrors && addressValues.number.trim().length === 0}
+            />
           </div>
         </div>
 
-        <Input label={t.address.complement} id="address-complement" type="text" placeholder={t.address.complementPlaceholder} />
+        <Input
+          label={t.address.complement}
+          id="address-complement"
+          type="text"
+          placeholder={t.address.complementPlaceholder}
+          value={addressValues.complement}
+          onChange={(e) => setAddressValue("complement", e.target.value)}
+        />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input label={t.address.neighborhood} id="address-neighborhood" type="text" placeholder={t.address.neighborhoodPlaceholder} />
-          <Input label={t.address.city} id="address-city" type="text" placeholder={t.address.cityPlaceholder} />
+          <Input
+            label={t.address.neighborhood}
+            id="address-neighborhood"
+            type="text"
+            placeholder={t.address.neighborhoodPlaceholder}
+            value={addressValues.neighborhood}
+            onChange={(e) => setAddressValue("neighborhood", e.target.value)}
+            error={showValidationErrors && addressValues.neighborhood.trim().length === 0}
+          />
+          <Input
+            label={t.address.city}
+            id="address-city"
+            type="text"
+            placeholder={t.address.cityPlaceholder}
+            value={addressValues.city}
+            onChange={(e) => setAddressValue("city", e.target.value)}
+            error={showValidationErrors && addressValues.city.trim().length === 0}
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input label={t.address.state} id="address-state" type="text" placeholder={t.address.statePlaceholder} />
-          <Input label={t.address.country} id="address-country" type="text" placeholder={t.address.countryPlaceholder} defaultValue="Brasil" />
+          <Input
+            label={t.address.state}
+            id="address-state"
+            type="text"
+            placeholder={t.address.statePlaceholder}
+            value={addressValues.state}
+            onChange={(e) => setAddressValue("state", e.target.value)}
+            error={showValidationErrors && addressValues.state.trim().length === 0}
+          />
+          <Input
+            label={t.address.country}
+            id="address-country"
+            type="text"
+            placeholder={t.address.countryPlaceholder}
+            value={addressValues.country}
+            onChange={(e) => setAddressValue("country", e.target.value)}
+            error={showValidationErrors && addressValues.country.trim().length === 0}
+          />
         </div>
       </div>
     </div>
