@@ -59,7 +59,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ offerData, checkoutS
 
   const isSubscription = offerData.paymentType === "subscription";
   const effectivePaypalEnabled = isSubscription ? false : offerData.paypalEnabled;
-  const effectivePixEnabled = isSubscription ? false : offerData.pagarme_pix_enabled;
+  const effectivePixEnabled = false; // Pagar.me PIX — OCULTO TEMPORARIAMENTE
 
   const [method, setMethod] = useState<"creditCard" | "pix" | "wallet" | "paypal">(() => {
     if (offerData.stripe_card_enabled === false && !isSubscription) {
