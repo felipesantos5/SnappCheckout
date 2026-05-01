@@ -18,7 +18,8 @@ export const getSales = async (req: Request, res: Response) => {
       email,
       name,
       startDate,
-      endDate
+      endDate,
+      chargeType,
     } = req.query;
     const userId = req.userId!; // ID do usuário vem do middleware protectRoute
 
@@ -102,7 +103,28 @@ export const getSales = async (req: Request, res: Response) => {
       query.customerName = { $regex: name, $options: "i" };
     }
 
-    // 7. Filtro por Data
+    // 7. Filtro por Tipo de Cobrança (assinatura)
+    if (chargeType && chargeType !== "all") {
+      switch (chargeType) {
+        case "unique":
+          query.stripeSubscriptionId = { $in: [null, ""] };
+          break;
+        case "initial":
+          query.stripeSubscriptionId = { $nin: [null, ""] };
+          query.subscriptionCycle = 1;
+          break;
+        case "renewal":
+          query.isRenewalAttempt = true;
+          query.status = "succeeded";
+          break;
+        case "failed_renewal":
+          query.isRenewalAttempt = true;
+          query.status = "failed";
+          break;
+      }
+    }
+
+    // 8. Filtro por Data
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) {

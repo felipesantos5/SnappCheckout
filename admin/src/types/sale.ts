@@ -17,7 +17,10 @@ export interface Sale {
   isUpsell?: boolean;
   isDownsell?: boolean;
   stripeSubscriptionId?: string;
+  stripeInvoiceId?: string;
   subscriptionCycle?: number | null;
+  subscriptionStatus?: "active" | "past_due" | "canceled" | "unpaid";
+  isRenewalAttempt?: boolean;
   country?: string; // Código do país (ex: BR, US, FR)
   paymentMethod?: "stripe" | "paypal" | "pagarme"; // Plataforma de pagamento usada
   offerId: {

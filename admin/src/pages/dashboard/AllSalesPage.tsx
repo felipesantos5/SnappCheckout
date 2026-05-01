@@ -58,7 +58,10 @@ interface Sale {
   createdAt: string;
   isUpsell?: boolean;
   stripeSubscriptionId?: string;
+  stripeInvoiceId?: string;
   subscriptionCycle?: number;
+  subscriptionStatus?: "active" | "past_due" | "canceled" | "unpaid";
+  isRenewalAttempt?: boolean;
   items?: Array<{
     name: string;
     priceInCents: number;
@@ -227,6 +230,7 @@ export function AllSalesPage() {
   const [periodFilter, setPeriodFilter] = useState<"all" | "today" | "yesterday" | "week" | "month" | "year" | "custom">("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [chargeType, setChargeType] = useState<"all" | "unique" | "initial" | "renewal" | "failed_renewal">("all");
 
   // Salva estado do filtro no localStorage
   useEffect(() => {
@@ -269,6 +273,8 @@ export function AllSalesPage() {
 
     if (searchEmail) params.append("email", searchEmail);
     if (searchName) params.append("name", searchName);
+
+    if (chargeType !== "all") params.append("chargeType", chargeType);
 
     // Calcular datas baseado no filtro de período
     if (periodFilter !== "all") {
@@ -356,7 +362,7 @@ export function AllSalesPage() {
     fetchAllSalesForMetrics();
     setPage(1); // Voltar para página 1 quando filtros mudarem
     fetchSales(true); // true = reset serverTotalRevenue para evitar valor desatualizado
-  }, [selectedStatuses, selectedOffers, selectedPaymentMethods, selectedWallets, periodFilter, startDate, endDate, searchEmail, searchName]);
+  }, [selectedStatuses, selectedOffers, selectedPaymentMethods, selectedWallets, periodFilter, startDate, endDate, searchEmail, searchName, chargeType]);
 
   // Métricas calculadas (sempre em BRL) - baseadas em TODAS as vendas do filtro
   const metrics = useMemo(() => {
@@ -721,9 +727,40 @@ export function AllSalesPage() {
               </div>
             </div>
 
-            {/* <Button className="w-full bg-[#fdbf08] hover:bg-[#fdd049] text-black" onClick={() => fetchSales()}>
-            Aplicar Filtros
-          </Button> */}
+            {/* Tipo de Cobrança */}
+            <div className="space-y-3 border-t pt-4">
+              <h3 className="text-sm font-semibold">Tipo de Cobrança</h3>
+              <div className="space-y-2">
+                {(
+                  [
+                    { value: "all", label: "Todas" },
+                    { value: "unique", label: "Venda única" },
+                    { value: "initial", label: "Cobrança inicial (plano)" },
+                    { value: "renewal", label: "Renovação (ciclo 2+)" },
+                    { value: "failed_renewal", label: "Falha de renovação" },
+                  ] as const
+                ).map(({ value, label }) => (
+                  <div key={value} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      id={`charge-type-${value}`}
+                      name="chargeType"
+                      value={value}
+                      checked={chargeType === value}
+                      onChange={() => {
+                        setChargeType(value);
+                        setPage(1);
+                      }}
+                      className="h-3.5 w-3.5 accent-[#fdbf08]"
+                    />
+                    <label htmlFor={`charge-type-${value}`} className="text-sm cursor-pointer">
+                      {label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
         </div>
       </aside>

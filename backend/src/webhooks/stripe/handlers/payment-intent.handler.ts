@@ -48,10 +48,8 @@ const extractPaymentMethodDetails = (paymentIntent: Stripe.PaymentIntent): {
   }
 };
 
-/**
- * Processa venda inicial de assinatura usando o objeto Subscription diretamente.
- * Fallback quando payment_details.order_reference não está disponível no webhook.
- */
+// TODO: remover handleSubscriptionInitialPaymentFromSub — substituído por invoice.paid handler
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const handleSubscriptionInitialPaymentFromSub = async (
   paymentIntent: Stripe.PaymentIntent,
   paymentIntentId: string,
@@ -131,13 +129,8 @@ const handleSubscriptionInitialPaymentFromSub = async (
   }
 };
 
-/**
- * Processa o pagamento inicial de uma assinatura.
- * Chamado pelo handlePaymentIntentSucceeded quando o PI não tem offerSlug,
- * mas tem payment_details.order_reference com o ID do invoice da subscription.
- * A partir da API 2025-03-31, invoice.payment_intent foi removido do Invoice object,
- * então fazemos o caminho inverso: PI → invoice → subscription metadata.
- */
+// TODO: remover handleSubscriptionInitialPayment — substituído por invoice.paid handler
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const handleSubscriptionInitialPayment = async (
   paymentIntent: Stripe.PaymentIntent,
   paymentIntentId: string,
@@ -594,49 +587,9 @@ export const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.Payment
     const isUpsell = metadata.isUpsell === "true";
 
     if (!offerSlug) {
-      // PI sem offerSlug = possivelmente assinatura (Stripe gera PI interno sem metadata)
-      const piAny = paymentIntent as any;
-
-      // event.account pode ser undefined em webhooks diretos da conta conectada.
-      // Fallback: o próprio objeto PI tem um campo "account" com o ID da conta conectada.
-      const resolvedAccountId: string | undefined = stripeAccountId ?? piAny.account;
-
-      console.log(`[Stripe/Sub] PI ${paymentIntentId} sem offerSlug | account=${resolvedAccountId} | description="${paymentIntent.description}" | payment_details=${JSON.stringify(piAny.payment_details ?? null)}`);
-
-      if (!resolvedAccountId) {
-        console.warn(`[Stripe/Sub] stripeAccountId não disponível — não é possível processar PI de assinatura`);
-        return;
-      }
-
-      // Tentativa 1: payment_details.order_reference (campo direto no PI — nova API)
-      const invoiceRef: string | undefined = piAny.payment_details?.order_reference;
-      if (invoiceRef?.startsWith("in_")) {
-        await handleSubscriptionInitialPayment(paymentIntent, paymentIntentId, invoiceRef, resolvedAccountId);
-        return;
-      }
-
-      // Tentativa 2: buscar subscription do customer na conta conectada
-      const customerId = typeof paymentIntent.customer === "string"
-        ? paymentIntent.customer
-        : (paymentIntent.customer as any)?.id;
-
-      if (customerId) {
-        try {
-          const subs = await stripe.subscriptions.list(
-            { customer: customerId, limit: 5, status: "active" },
-            { stripeAccount: resolvedAccountId }
-          );
-          const matchingSub = subs.data.find(s => s.metadata?.offerSlug);
-          if (matchingSub) {
-            await handleSubscriptionInitialPaymentFromSub(paymentIntent, paymentIntentId, matchingSub);
-            return;
-          }
-          console.warn(`[Stripe/Sub] Nenhuma subscription com offerSlug encontrada para customer ${customerId}`);
-        } catch (err: any) {
-          console.error(`[Stripe/Sub] Erro ao buscar subscriptions: ${err.message}`);
-        }
-      }
-
+      // PI de assinatura gerado automaticamente pela Stripe (sem metadata.offerSlug).
+      // A Sale é criada pelo handler invoice.paid — não processar aqui para evitar corrida.
+      console.log(`[Stripe/Sub] PI ${paymentIntentId} sem offerSlug — Sale registrada via invoice.paid`);
       return;
     }
 

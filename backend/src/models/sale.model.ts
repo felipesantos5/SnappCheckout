@@ -16,8 +16,11 @@ export interface ISale extends Document {
   offerId: Schema.Types.ObjectId; // A oferta usada
   abTestId?: Schema.Types.ObjectId; // O teste A/B (se aplicável)
   stripePaymentIntentId: string; // O ID do pagamento no Stripe (pi_...)
+  stripeInvoiceId?: string; // ID do invoice no Stripe (in_...) — chave de idempotência para cobranças recorrentes
   stripeSubscriptionId?: string; // ID da assinatura no Stripe (sub_...) — preenchido em cobranças recorrentes
   subscriptionCycle?: number; // Número do ciclo da assinatura (1 = inicial, 2 = 2ª cobrança, etc.)
+  subscriptionStatus?: "active" | "past_due" | "canceled" | "unpaid"; // Estado atual da assinatura
+  isRenewalAttempt?: boolean; // True para cobranças recorrentes (ciclo 2+) e tentativas falhas de renovação
 
   customerName: string;
   customerEmail: string;
@@ -91,8 +94,15 @@ const saleSchema = new Schema<ISale>(
     abTestId: { type: Schema.Types.ObjectId, ref: "ABTest", default: null },
 
     stripePaymentIntentId: { type: String, required: true, unique: true, index: true },
+    stripeInvoiceId: { type: String, default: null, sparse: true, unique: true, index: true },
     stripeSubscriptionId: { type: String, default: "", index: true },
     subscriptionCycle: { type: Number, default: null },
+    subscriptionStatus: {
+      type: String,
+      enum: ["active", "past_due", "canceled", "unpaid"],
+      default: null,
+    },
+    isRenewalAttempt: { type: Boolean, default: false },
 
     customerName: { type: String, required: true },
     customerEmail: { type: String, required: true, index: true },

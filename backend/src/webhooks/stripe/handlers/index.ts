@@ -2,7 +2,7 @@
 import { Stripe } from "stripe";
 import { handlePaymentIntentSucceeded, handlePaymentIntentFailed, handlePaymentIntentCreated, handleChargeRefunded } from "./payment-intent.handler";
 import { handleAccountUpdated } from "./account.handler";
-import { handleInvoicePaymentSucceeded } from "./subscription.handler";
+import { handleInvoicePaid, handleInvoicePaymentFailed, handleSubscriptionDeleted } from "./subscription.handler";
 
 /**
  * Router de eventos do Stripe
@@ -31,8 +31,16 @@ export const handleStripeEvent = async (event: Stripe.Event): Promise<void> => {
       await handleChargeRefunded(event.data.object as Stripe.Charge);
       break;
 
-    case "invoice.payment_succeeded":
-      await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice, event.account);
+    case "invoice.paid":
+      await handleInvoicePaid(event.data.object as Stripe.Invoice, event.account);
+      break;
+
+    case "invoice.payment_failed":
+      await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
+      break;
+
+    case "customer.subscription.deleted":
+      await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
       break;
 
     default:
