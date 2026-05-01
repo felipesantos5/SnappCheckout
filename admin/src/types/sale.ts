@@ -25,6 +25,10 @@ export interface Sale {
     name: string;
     currency?: string; // Moeda da oferta (para fallback)
     isUpsell?: boolean;
+    bannerImageUrl?: string;
+    mainProduct?: {
+      imageUrl?: string;
+    };
     paymentType?: "one_time" | "subscription" | string;
     subscriptionInterval?: "day" | "week" | "month" | "year" | string;
   } | null; // Pode ser null se a oferta foi deletada

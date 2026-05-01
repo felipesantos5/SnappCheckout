@@ -27,9 +27,9 @@ const formatNumber = (num: number) => {
 export function TopOffersChart({ data }: TopOffersChartProps) {
   if (!data || data.length === 0) {
     return (
-      <Card className="h-full">
-        <CardHeader>
-          <CardTitle className="text-lg">Top Ofertas</CardTitle>
+      <Card className="h-full border-0 bg-white py-0 shadow-sm">
+        <CardHeader className="border-b border-neutral-200 px-4 py-3 sm:px-5">
+          <CardTitle className="text-base font-semibold">Top Ofertas</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground text-center py-8 pt-4 lg:pt-36">Nenhum dado disponível</p>
@@ -39,12 +39,12 @@ export function TopOffersChart({ data }: TopOffersChartProps) {
   }
 
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-2 sm:pb-4">
-        <CardTitle className="text-base sm:text-lg">Top Ofertas</CardTitle>
+    <Card className="h-full border-0 bg-white py-0 shadow-sm">
+      <CardHeader className="border-b border-neutral-200 px-4 py-3 sm:px-5">
+        <CardTitle className="text-base font-semibold">Top Ofertas</CardTitle>
         {/* <CardDescription className="text-xs sm:text-sm">Receita por oferta</CardDescription> */}
       </CardHeader>
-      <CardContent className="pb-3 sm:pb-4">
+      <CardContent className="px-4 pb-3 pt-3 sm:px-5 sm:pb-4">
         <div className="h-[180px] sm:h-[280px] flex items-center justify-center">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>

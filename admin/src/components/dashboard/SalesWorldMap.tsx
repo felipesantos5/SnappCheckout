@@ -161,13 +161,13 @@ export function SalesWorldMap({ data }: SalesWorldMapProps) {
   const formatCurrency = (val: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(val);
 
   return (
-    <Card className="overflow-hidden flex flex-col h-full">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-base sm:text-lg">Vendas por Região</CardTitle>
+    <Card className="overflow-hidden flex flex-col h-full border-0 bg-white py-0 shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between border-b border-neutral-200 px-4 py-3 sm:px-5">
+        <CardTitle className="text-base font-semibold">Vendas por Região</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2 sm:gap-3 flex-1 p-3 sm:p-6 pt-0 pb-0!">
+      <CardContent className="flex flex-col gap-2 sm:gap-3 flex-1 px-4 pb-3 pt-3 sm:px-5 sm:pb-4">
         {/* --- MAPA MUNDI --- */}
-        <div className="w-full h-[180px] sm:h-[280px] bg-slate-50/50 dark:bg-slate-800/20 rounded-lg border border-slate-100 dark:border-slate-700 relative overflow-hidden flex items-center justify-center">
+        <div className="w-full h-[180px] sm:h-[280px] bg-[#f6f5f5] rounded-2xl border border-neutral-100 relative overflow-hidden flex items-center justify-center">
           {mounted && (
             <>
               <ComposableMap projectionConfig={{ rotate: [-10, 0, 0], scale: 120 }} width={1000} height={850} >
@@ -231,7 +231,7 @@ export function SalesWorldMap({ data }: SalesWorldMapProps) {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {/* Mobile: 6 países (2 cols x 3 rows) | Desktop: 9 países (3 cols x 3 rows) */}
           {data.slice(0, isDesktop ? 9 : 6).map((country, idx) => (
-            <div key={idx} className="flex items-center gap-2 p-1.5 sm:p-2 rounded-md bg-muted/30">
+            <div key={idx} className="flex items-center gap-2 p-1.5 sm:p-2 rounded-xl bg-[#f6f5f5]">
               <img src={`https://flagcdn.com/w40/${country.name.toLowerCase()}.png`} alt={country.name} className="w-5 h-3.5 sm:w-7 sm:h-5 rounded object-contain shrink-0" />
               <div className="flex flex-col min-w-0 flex-1">
                 <span className="text-[10px] sm:text-xs font-semibold text-foreground uppercase">{country.name}</span>

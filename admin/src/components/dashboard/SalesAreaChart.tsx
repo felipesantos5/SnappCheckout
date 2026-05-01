@@ -146,13 +146,13 @@ export function SalesAreaChart({ chartData }: SalesChartProps) {
   }, [chartData]);
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="pb-2 sm:pb-4">
-        <CardTitle className="text-base sm:text-lg">Histórico de Vendas</CardTitle>
+    <Card className="h-full flex flex-col border-0 bg-white py-0 shadow-sm">
+      <CardHeader className="border-b border-neutral-200 px-4 py-3 sm:px-5">
+        <CardTitle className="text-base font-semibold">Histórico de Vendas</CardTitle>
         {/* <CardDescription className="text-xs sm:text-sm">Receita no período selecionado</CardDescription> */}
       </CardHeader>
 
-      <CardContent className="flex-1 pb-3 sm:pb-4">
+      <CardContent className="flex-1 px-4 pb-3 pt-3 sm:px-5 sm:pb-4">
         <ChartContainer config={chartConfig} className="h-full min-h-[300px] w-full">
           <BarChart
             accessibilityLayer

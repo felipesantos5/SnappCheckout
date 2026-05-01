@@ -168,6 +168,9 @@ export function DashboardOverview() {
       } else if (days === "90") {
         // Últimos 3 meses
         startDate = startOfDay(subDays(now, 89)).toISOString();
+      } else if (days === "365") {
+        // Últimos 12 meses
+        startDate = startOfDay(subDays(now, 364)).toISOString();
       } else {
         // Últimos 30 dias (padrão): inclui hoje
         startDate = startOfDay(subDays(now, 29)).toISOString();
@@ -238,10 +241,19 @@ export function DashboardOverview() {
         return "Últimos 30 dias";
       case "90":
         return "Últimos 3 meses";
+      case "365":
+        return "Últimos 12 meses";
       default:
         return "Últimos 30 dias";
     }
   };
+
+  const periodOptions = [
+    { value: "1", label: "Dia" },
+    { value: "7", label: "Semana" },
+    { value: "30", label: "Mês" },
+    { value: "365", label: "Ano" },
+  ];
 
   const getRevenueBreakdown = () => {
     if (!metrics) return null;
@@ -271,72 +283,72 @@ export function DashboardOverview() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="min-h-screen space-y-4 bg-[#eceaec] p-4 sm:space-y-6 sm:p-6">
         <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-          <Skeleton className="h-[140px] sm:h-32" />
-          <Skeleton className="h-[140px] sm:h-32" />
-          <Skeleton className="h-[140px] sm:h-32" />
-          <Skeleton className="h-[140px] sm:h-32" />
+          <Skeleton className="h-[116px] rounded-3xl sm:h-32" />
+          <Skeleton className="h-[116px] rounded-3xl sm:h-32" />
+          <Skeleton className="h-[116px] rounded-3xl sm:h-32" />
+          <Skeleton className="h-[116px] rounded-3xl sm:h-32" />
         </div>
-        <Skeleton className="h-48 sm:h-64" />
+        <Skeleton className="h-48 rounded-3xl sm:h-64" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-8 flex-1 mx-auto p-0 animate-in fade-in duration-500">
-      <ConnectStripeCard />
+    <div className="min-h-screen flex-1 bg-[#eceaec] p-3 text-[#20211f] animate-in fade-in duration-500 sm:p-6">
+      <div className="mx-auto flex max-w-[1500px] flex-col gap-4 sm:gap-5">
+        <ConnectStripeCard />
 
-      {/* Header Responsivo */}
-      <div className="flex flex-col gap-3 lg:gap-0">
-        {/* Desktop (lg+): Título à esquerda + Filtros à direita | Mobile/Tablet: Empilhado */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4">
-          {/* Título */}
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight whitespace-nowrap">Visão Geral</h1>
+        {/* Header Responsivo */}
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Visão Geral</h1>
+            <p className="mt-1 text-xs text-neutral-500 sm:text-sm">{getPeriodLabel()} de performance do checkout</p>
+          </div>
 
-          {/* Container direito: Filtros */}
-          <div className="flex flex-wrap items-center gap-2 lg:gap-3">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:w-auto xl:justify-end">
+            <div className="flex h-10 items-center gap-1 rounded-full bg-white p-1 shadow-sm">
+              {periodOptions.map((option) => (
+                <Button
+                  key={option.value}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPeriod(option.value)}
+                  className={`h-8 rounded-full px-4 text-xs font-semibold transition-all ${period === option.value
+                    ? "bg-[#5d5d5d] text-white shadow-sm hover:bg-[#4f4f4f] hover:text-white"
+                    : "text-neutral-500 hover:bg-[#fdbf08]/15 hover:text-neutral-900"
+                    }`}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
 
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={fetchData}
-              disabled={loading}
-              className="h-[36px] w-[36px]"
-              title="Atualizar métricas"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            {/* Filtro de Período */}
             <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger className="w-[155px] h-9">
-                <SelectValue placeholder="Período" />
+              <SelectTrigger className="h-10 w-full rounded-full border-white bg-white px-4 text-xs font-semibold shadow-sm sm:w-[150px]">
+                <SelectValue placeholder="Mais períodos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">Hoje</SelectItem>
                 <SelectItem value="yesterday">Ontem</SelectItem>
-                <SelectItem value="7">Últimos 7 dias</SelectItem>
-                <SelectItem value="30">Últimos 30 dias</SelectItem>
                 <SelectItem value="90">Últimos 3 meses</SelectItem>
                 <SelectItem value="all">Tempo Total</SelectItem>
                 <SelectItem value="custom">Personalizado</SelectItem>
               </SelectContent>
             </Select>
 
-            {/* DateRangePicker (só aparece quando period === "custom") */}
             {period === "custom" && (
-              <div className="w-[220px]">
+              <div className="w-full sm:w-[240px]">
                 <DateRangePicker value={customDateRange} onChange={setCustomDateRange} />
               </div>
             )}
 
-            {/* Filtro de Oferta */}
             <Select value={selectedOfferId} onValueChange={setSelectedOfferId}>
-              <SelectTrigger className="w-[145px] h-9">
+              <SelectTrigger className="h-10 w-full rounded-full border-white bg-white px-4 text-xs font-semibold shadow-sm sm:w-[180px]">
                 <SelectValue placeholder="Oferta" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="all">Todas as ofertas</SelectItem>
                 {offers.map((offer) => (
                   <SelectItem key={offer._id} value={offer._id}>
                     {offer.name}
@@ -344,11 +356,21 @@ export function DashboardOverview() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={fetchData}
+              disabled={loading}
+              className="h-10 w-10 rounded-full border-white bg-white shadow-sm hover:bg-white"
+              title="Atualizar métricas"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            </Button>
           </div>
         </div>
-      </div>
       {/* Cards de KPIs */}
-      <div className="w-full grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="w-full grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
         {/* Card 1: Total em Vendas */}
         <KpiCard
           title="Total em Vendas"
@@ -359,6 +381,7 @@ export function DashboardOverview() {
           color="#eab308"
           destaque={true}
           changePercentage={metrics?.kpis.totalRevenueChange}
+          surface="overview"
         />
 
         {/* Card 2: Total de Pedidos */}
@@ -370,6 +393,7 @@ export function DashboardOverview() {
           chartData={metrics?.charts.sales}
           color="#eab308"
           changePercentage={metrics?.kpis.totalOrdersChange}
+          surface="overview"
         />
 
         {/* Card 3: Ticket Médio */}
@@ -381,6 +405,7 @@ export function DashboardOverview() {
           chartData={metrics?.charts.ticket}
           color="#eab308"
           changePercentage={metrics?.kpis.averageTicketChange}
+          surface="overview"
         />
 
         {/* Card 4: Conversão do Checkout */}
@@ -392,11 +417,12 @@ export function DashboardOverview() {
           chartData={metrics?.charts.conversionRate}
           color="#eab308"
           changePercentage={metrics?.kpis.conversionRateChange}
+          surface="overview"
         />
       </div>
 
       {/* Seção Inferior: Gráficos Circulares + Histórico de Vendas */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-3">
         {/* Histórico de Vendas */}
         <div className="col-span-1">
           <SalesAreaChart chartData={metrics?.charts.revenue || []} />
@@ -421,6 +447,7 @@ export function DashboardOverview() {
           onAcknowledge={handleAcknowledgeMilestone}
         />
       )}
+      </div>
     </div>
   );
 }

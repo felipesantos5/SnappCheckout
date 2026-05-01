@@ -112,10 +112,10 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
   }, [sales]);
 
   return (
-    <Card className="w-full shadow-md border-gray-200 dark:border-gray-700 gap-0">
-      <CardHeader className="pb-0 px-3 sm:px-6 sm:pt-6 pt-0!">
+    <Card className="w-full gap-0 border-0 bg-white py-0 shadow-sm">
+      <CardHeader className="border-b border-neutral-200 px-4 py-3 sm:px-5">
         <div className="min-w-0">
-          <CardTitle className="text-base sm:text-xl font-bold text-foreground">Vendas Recentes</CardTitle>
+          <CardTitle className="text-base font-semibold text-foreground">Vendas Recentes</CardTitle>
           <CardDescription className="text-xs sm:text-sm">
             {isLoading ? (
               "Carregando..."
@@ -143,10 +143,10 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
         </div>
       </CardHeader>
 
-      <CardContent className="p-3 sm:p-6 pt-0">
-        <div className="rounded-lg border overflow-x-auto">
+      <CardContent className="px-0 pb-0 pt-0">
+        <div className="overflow-x-auto">
           <Table className="min-w-[700px]">
-            <TableHeader className="bg-muted/50">
+            <TableHeader className="bg-white">
               <TableRow>
                 <TableHead>Data</TableHead>
                 <TableHead className="text-center w-16">País</TableHead>
@@ -176,9 +176,10 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
                 paginatedSales.map((sale) => {
                   const hasOrderBump = sale.items.some((i) => i.isOrderBump);
                   const itemsCount = sale.items.length;
+                  const offerImageUrl = sale.offerId?.bannerImageUrl || sale.offerId?.mainProduct?.imageUrl;
 
                   return (
-                    <TableRow key={sale._id} className="hover:bg-muted/50 transition-colors">
+                    <TableRow key={sale._id} className="border-neutral-100 hover:bg-[#f8f7f7] transition-colors">
                       <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(sale.createdAt)}</TableCell>
 
                       <TableCell className="text-center">
@@ -202,9 +203,21 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
                           {sale.offerId ? (
                             <Link
                               to={`/offers/${sale.offerId._id}`}
-                              className="font-medium text-yellow-500 hover:underline flex items-center gap-1 w-fit"
+                              className="flex w-fit items-center gap-2 font-medium text-yellow-500 transition-colors hover:underline"
                             >
-                              {sale.offerId.name}
+                              {offerImageUrl ? (
+                                <img
+                                  src={offerImageUrl}
+                                  alt=""
+                                  className="h-8 w-8 shrink-0 rounded-md border border-neutral-200 object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-[#f6f5f5]">
+                                  <ShoppingBag className="h-3.5 w-3.5 text-neutral-400" />
+                                </span>
+                              )}
+                              <span className="truncate">{sale.offerId.name}</span>
                             </Link>
                           ) : (
                             <span className="text-muted-foreground italic">Oferta Removida</span>
@@ -332,7 +345,7 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
 
         {/* Paginação */}
         {filteredSales.length > 0 && totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 mt-3 sm:mt-4 border-t pt-3 sm:pt-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 border-t px-4 py-3 sm:px-5">
             <div className="text-xs sm:text-sm text-muted-foreground">
               {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredSales.length)} de {filteredSales.length}
             </div>

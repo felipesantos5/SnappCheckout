@@ -119,7 +119,7 @@ export const getSales = async (req: Request, res: Response) => {
         .select("-updatedAt -__v") // Performance: remove campos inúteis
         .populate({
           path: "offerId",
-          select: "name slug isActive paymentType subscriptionInterval",
+          select: "name slug isActive paymentType subscriptionInterval bannerImageUrl mainProduct.imageUrl",
           // Removido filtro match: { isActive: true } para mostrar vendas de todas as ofertas
         })
         .sort({ createdAt: -1 })

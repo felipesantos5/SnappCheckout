@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import axios from "axios";
 import { API_URL } from "@/config/BackendUrl";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,10 @@ interface Sale {
     _id: string;
     name: string;
     slug: string;
+    bannerImageUrl?: string;
+    mainProduct?: {
+      imageUrl?: string;
+    };
     paymentType?: "one_time" | "subscription" | string;
     subscriptionInterval?: "day" | "week" | "month" | "year" | string;
   } | null;
@@ -194,9 +198,7 @@ const getSaleTypeIcon = (sale: Sale) => {
     );
   }
 
-  return (
-    <SaleTypeBadge sale={sale} />
-  );
+  return <SaleTypeBadge sale={sale} />;
 };
 
 export function AllSalesPage() {
@@ -210,7 +212,7 @@ export function AllSalesPage() {
   // Carrega estado do filtro do localStorage
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     const saved = localStorage.getItem("allSalesFilterOpen");
-    return saved !== null ? JSON.parse(saved) : true;
+    return saved !== null ? JSON.parse(saved) : false;
   });
 
   // Filtros
@@ -222,7 +224,7 @@ export function AllSalesPage() {
   const [selectedOffers, setSelectedOffers] = useState<string[]>([]);
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
   const [selectedWallets, setSelectedWallets] = useState<string[]>([]);
-  const [periodFilter, setPeriodFilter] = useState<"all" | "today" | "yesterday" | "week" | "month" | "custom">("all");
+  const [periodFilter, setPeriodFilter] = useState<"all" | "today" | "yesterday" | "week" | "month" | "year" | "custom">("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -289,6 +291,10 @@ export function AllSalesPage() {
       } else if (periodFilter === "month") {
         const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         calculatedStartDate = monthAgo.toISOString();
+        calculatedEndDate = now.toISOString();
+      } else if (periodFilter === "year") {
+        const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        calculatedStartDate = yearAgo.toISOString();
         calculatedEndDate = now.toISOString();
       }
 
@@ -358,12 +364,13 @@ export function AllSalesPage() {
 
     // Usa o totalRevenue do servidor (mesmas taxas do dashboard) se disponível,
     // caso contrário faz o cálculo local como fallback
-    const totalRevenue = serverTotalRevenue !== null
-      ? serverTotalRevenue
-      : succeededSales.reduce((acc, sale) => {
-          const amountInBRL = convertToBRL(sale.totalAmountInCents, sale.currency);
-          return acc + amountInBRL;
-        }, 0);
+    const totalRevenue =
+      serverTotalRevenue !== null
+        ? serverTotalRevenue
+        : succeededSales.reduce((acc, sale) => {
+            const amountInBRL = convertToBRL(sale.totalAmountInCents, sale.currency);
+            return acc + amountInBRL;
+          }, 0);
 
     const totalSales = succeededSales.length;
     const averageTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
@@ -386,7 +393,9 @@ export function AllSalesPage() {
 
     try {
       const csvContent = [
-        ["Data", "Cliente", "Email", "Oferta", "Tipo", "Status", "Valor", "Moeda", "País", "Método", "UTM Source", "UTM Medium", "UTM Campaign"].join(","),
+        ["Data", "Cliente", "Email", "Oferta", "Tipo", "Status", "Valor", "Moeda", "País", "Método", "UTM Source", "UTM Medium", "UTM Campaign"].join(
+          ",",
+        ),
         ...sales.map((sale) => {
           let tipo = "Venda";
           if (sale.stripeSubscriptionId || sale.offerId?.paymentType === "subscription") tipo = "Plano";
@@ -438,15 +447,28 @@ export function AllSalesPage() {
   };
 
   const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
+  const periodOptions: Array<{ value: typeof periodFilter; label: string }> = [
+    { value: "today", label: "Dia" },
+    { value: "week", label: "Semana" },
+    { value: "month", label: "Mês" },
+    { value: "year", label: "Ano" },
+  ];
+
+  const setQuickPeriod = (value: typeof periodFilter) => {
+    setPeriodFilter(value);
+    setStartDate("");
+    setEndDate("");
+    setPage(1);
+  };
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-[#eceaec] text-[#20211f]">
       {/* Botão Toggle Sidebar - Fora do aside quando fechado */}
       {!isSidebarOpen && (
         <Button
           variant="outline"
           size="icon"
-          className="fixed w-8 h-8 top-[60px] left-0 md:left-[210px] z-50 shadow-md hover:shadow-lg bg-background"
+          className="fixed left-3 top-[68px] z-50 h-9 w-9 border-white/70 bg-white/90 shadow-sm backdrop-blur hover:bg-white"
           onClick={() => setIsSidebarOpen(true)}
         >
           <ChevronRight className="h-4 w-4" />
@@ -454,19 +476,13 @@ export function AllSalesPage() {
       )}
 
       {/* Overlay para mobile quando o filtro está aberto */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/20 z-40 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
+      {isSidebarOpen && <div className="fixed inset-0 bg-black/20 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)} />}
 
       {/* Sidebar de Filtros */}
       <aside
-        className={`fixed lg:relative top-0 left-0 h-full lg:h-auto z-50 bg-card border-r shadow-xl lg:shadow-none transition-all duration-300 ease-in-out ${isSidebarOpen
-          ? "w-[280px] sm:w-72 px-4 opacity-100 translate-x-0"
-          : "w-0 px-0 opacity-0 -translate-x-full lg:translate-x-0 lg:w-0 lg:px-0 lg:border-r-0"
-          }`}
+        className={`fixed top-0 left-0 z-50 h-full border-r border-white/60 bg-white/95 shadow-2xl backdrop-blur transition-all duration-300 ease-in-out ${
+          isSidebarOpen ? "w-[280px] sm:w-72 px-4 opacity-100 translate-x-0" : "w-0 px-0 opacity-0 -translate-x-full"
+        }`}
       >
         <div className="py-4 overflow-y-auto h-full lg:h-auto">
           {/* Botão Toggle Sidebar - Dentro do aside quando aberto */}
@@ -474,14 +490,16 @@ export function AllSalesPage() {
             <Button
               variant="outline"
               size="icon"
-              className="absolute top-[13px] left-0 z-10 shadow-md hover:shadow-lg"
+              className="absolute left-3 top-3 z-10 h-8 w-8 bg-white shadow-sm"
               onClick={() => setIsSidebarOpen(false)}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
           )}
 
-          <div className={`space-y-4 ${isSidebarOpen ? "opacity-100 mt-0" : "opacity-0 pointer-events-none h-0 overflow-hidden"} transition-opacity duration-200`}>
+          <div
+            className={`space-y-4 ${isSidebarOpen ? "opacity-100 mt-0" : "opacity-0 pointer-events-none h-0 overflow-hidden"} transition-opacity duration-200`}
+          >
             <div className="flex items-center justify-between pl-14">
               <h2 className="text-lg font-semibold">Filtros</h2>
               <Button variant="ghost" size="sm" onClick={clearAllFilters}>
@@ -550,8 +568,7 @@ export function AllSalesPage() {
                   variant={periodFilter === "custom" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setPeriodFilter("custom")}
-                  className={`col-span-2 ${periodFilter === "custom" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""
-                    }`}
+                  className={`col-span-2 ${periodFilter === "custom" ? "bg-[#fdbf08] hover:bg-[#fdd049] text-black" : ""}`}
                 >
                   Personalizado
                 </Button>
@@ -712,21 +729,63 @@ export function AllSalesPage() {
       </aside>
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 min-w-0">
-        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+      <main className="min-w-0 flex-1">
+        <div className="mx-auto max-w-[1500px] space-y-4 p-3 sm:space-y-5 sm:p-6 bg-white">
           {/* Cabeçalho */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Todas as Vendas</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">{isLoading ? "Carregando..." : `${total} ${total === 1 ? "venda" : "vendas"} encontradas`}</p>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Todas as Vendas</h1>
+              <p className="mt-1 text-xs text-neutral-500 sm:text-sm">
+                {isLoading ? "Carregando..." : `${total} ${total === 1 ? "venda" : "vendas"} encontradas`}
+              </p>
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button variant="outline" size="sm" className="flex-1 sm:flex-none h-9" onClick={() => fetchSales()} disabled={isLoading}>
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center xl:w-auto">
+              <div className="flex h-10 items-center gap-1 rounded-full bg-white p-1 shadow-sm">
+                {periodOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setQuickPeriod(option.value)}
+                    className={`h-8 rounded-full px-4 text-xs font-semibold transition-all ${
+                      periodFilter === option.value
+                        ? "bg-[#5d5d5d] text-white shadow-sm hover:bg-[#4f4f4f] hover:text-white"
+                        : "text-neutral-500 hover:bg-[#fdbf08]/15 hover:text-neutral-900"
+                    }`}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 rounded-full border-white bg-white px-4 shadow-sm hover:bg-white"
+                onClick={() => setIsSidebarOpen(true)}
+              >
+                <ChevronRight className="h-4 w-4 mr-2" />
+                Filtros
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 flex-1 rounded-full border-white bg-white shadow-sm hover:bg-white sm:flex-none"
+                onClick={() => fetchSales()}
+                disabled={isLoading}
+              >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                 <span className="hidden sm:inline">Atualizar</span>
                 <span className="sm:hidden">Atualizar</span>
               </Button>
-              <Button variant="outline" size="sm" className="flex-1 sm:flex-none h-9" onClick={handleExport} disabled={sales.length === 0}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 flex-1 rounded-full border-white bg-white shadow-sm hover:bg-white sm:flex-none"
+                onClick={handleExport}
+                disabled={sales.length === 0}
+              >
                 <Download className="h-4 w-4 mr-2" />
                 <span className="hidden sm:inline">Exportar CSV</span>
                 <span className="sm:hidden">Exportar</span>
@@ -735,58 +794,79 @@ export function AllSalesPage() {
           </div>
 
           {/* Cards de Métricas */}
-          <div className="grid gap-2 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-            <Card className="border-[#fdbf08]/20">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
-                <CardTitle className="text-[10px] sm:text-sm font-medium text-muted-foreground uppercase tracking-wider">Total de Vendas</CardTitle>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Card className="relative overflow-hidden border-0 bg-[#20211f] py-0 text-white shadow-sm">
+              <div className="pointer-events-none absolute inset-0 opacity-30 [background:linear-gradient(135deg,transparent_0%,transparent_35%,#fdbf08_36%,transparent_37%,transparent_62%,#fdbf08_63%,transparent_64%)]" />
+              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
+                <CardTitle className="text-[10px] sm:text-sm font-medium uppercase tracking-wider text-white/75">Total de Vendas</CardTitle>
                 <ShoppingCart className="h-4 w-4 text-[#fdbf08] hidden sm:block" />
               </CardHeader>
-              <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
+              <CardContent className="relative p-3 sm:p-4 pt-0 sm:pt-0">
                 <div className="text-lg sm:text-2xl font-bold">{metrics.totalSales}</div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Vendas aprovadas</p>
+                <p className="text-[10px] sm:text-xs text-emerald-300">↗ vendas aprovadas</p>
               </CardContent>
             </Card>
 
-            <Card className="border-[#fdbf08]/20">
+            <Card className="border-0 bg-white py-0 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
-                <CardTitle className="text-[10px] sm:text-sm font-medium text-muted-foreground uppercase tracking-wider">Valor Total</CardTitle>
+                <CardTitle className="text-[10px] sm:text-sm font-medium text-neutral-500 uppercase tracking-wider">Valor Total</CardTitle>
                 <DollarSign className="h-4 w-4 text-[#fdbf08] hidden sm:block" />
               </CardHeader>
               <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0 pb-0">
                 <div className="text-lg sm:text-2xl font-bold">{formatCurrency(metrics.totalRevenue)}</div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Receita total aprovada</p>
+                <p className="text-[10px] sm:text-xs text-emerald-600 whitespace-nowrap overflow-hidden text-ellipsis">↗ receita aprovada</p>
               </CardContent>
             </Card>
 
-            <Card className="border-[#fdbf08]/20">
+            <Card className="border-0 bg-white py-0 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
-                <CardTitle className="text-[10px] sm:text-sm font-medium text-muted-foreground uppercase tracking-wider">Ticket Médio</CardTitle>
+                <CardTitle className="text-[10px] sm:text-sm font-medium text-neutral-500 uppercase tracking-wider">Ticket Médio</CardTitle>
                 <TrendingUp className="h-4 w-4 text-[#fdbf08] hidden sm:block" />
               </CardHeader>
               <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
                 <div className="text-lg sm:text-2xl font-bold">{formatCurrency(metrics.averageTicket)}</div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Por venda aprovada</p>
+                <p className="text-[10px] sm:text-xs text-neutral-500">por venda aprovada</p>
               </CardContent>
             </Card>
 
-            <Card className="border-[#fdbf08]/20">
+            <Card className="border-0 bg-white py-0 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
-                <CardTitle className="text-[10px] sm:text-sm font-medium text-muted-foreground uppercase tracking-wider">Aprovação</CardTitle>
+                <CardTitle className="text-[10px] sm:text-sm font-medium text-neutral-500 uppercase tracking-wider">Aprovação</CardTitle>
                 <Percent className="h-4 w-4 text-[#fdbf08] hidden sm:block" />
               </CardHeader>
               <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
                 <div className="text-lg sm:text-2xl font-bold">{metrics.approvalRate.toFixed(1)}%</div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Vendas aprovadas</p>
+                <p className="text-[10px] sm:text-xs text-neutral-500">vendas aprovadas</p>
               </CardContent>
             </Card>
           </div>
 
           {/* Tabela */}
-          <Card className="overflow-hidden border-none sm:border shadow-none sm:shadow-sm">
+          <Card className="overflow-hidden border-0 bg-white py-0 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-neutral-200 px-4 py-3 sm:px-5">
+              <div>
+                <CardTitle className="text-base font-semibold">Vendas</CardTitle>
+                <CardDescription className="text-xs">Histórico completo de compras, planos e tentativas.</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-[#eceaec]" onClick={() => fetchSales()} disabled={isLoading}>
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full bg-[#eceaec]"
+                  onClick={handleExport}
+                  disabled={sales.length === 0}
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
             <div className="overflow-x-auto overflow-y-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/50">
+                  <TableRow className="border-neutral-200 bg-white hover:bg-white">
                     <TableHead className="w-[120px]">Data</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Oferta</TableHead>
@@ -801,19 +881,19 @@ export function AllSalesPage() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="h-48 text-center">
+                      <TableCell colSpan={9} className="h-48 text-center">
                         <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                       </TableCell>
                     </TableRow>
                   ) : !sales || sales.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="h-48 text-center text-muted-foreground">
+                      <TableCell colSpan={9} className="h-48 text-center text-muted-foreground">
                         Nenhuma venda encontrada com os filtros aplicados.
                       </TableCell>
                     </TableRow>
                   ) : (
                     sales.map((sale) => (
-                      <TableRow key={sale._id} className="hover:bg-muted/50">
+                      <TableRow key={sale._id} className="border-neutral-100 hover:bg-[#f8f7f7]">
                         <TableCell>
                           <div className="text-sm">{sale.createdAt ? formatDate(sale.createdAt) : "N/A"}</div>
                         </TableCell>
@@ -865,7 +945,9 @@ export function AllSalesPage() {
                                 </TooltipTrigger>
                                 <TooltipContent className="p-3 w-64 bg-card border shadow-lg text-card-foreground">
                                   <div className="space-y-2">
-                                    <div className="text-xs font-bold border-bottom pb-1 mb-1 uppercase tracking-wider text-muted-foreground">Parâmetros UTM</div>
+                                    <div className="text-xs font-bold border-bottom pb-1 mb-1 uppercase tracking-wider text-muted-foreground">
+                                      Parâmetros UTM
+                                    </div>
                                     {sale.utm_source && (
                                       <div className="flex justify-between gap-2 overflow-hidden">
                                         <span className="text-muted-foreground shrink-0 text-[10px]">Source:</span>
