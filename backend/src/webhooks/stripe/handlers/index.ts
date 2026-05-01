@@ -31,7 +31,11 @@ export const handleStripeEvent = async (event: Stripe.Event): Promise<void> => {
       await handleChargeRefunded(event.data.object as Stripe.Charge);
       break;
 
+    // invoice.paid é o evento recomendado pela Stripe (2026) e deve ser habilitado no Dashboard.
+    // invoice.payment_succeeded é mantido como fallback enquanto a transição não for feita.
+    // A idempotência por stripeInvoiceId garante que apenas uma Sale é criada mesmo se ambos chegarem.
     case "invoice.paid":
+    case "invoice.payment_succeeded":
       await handleInvoicePaid(event.data.object as Stripe.Invoice, event.account);
       break;
 
