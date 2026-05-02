@@ -104,10 +104,11 @@ describe("Layout Classic - Renderizacao e Pagamento", () => {
       ],
     });
 
-    const firstLine = await screen.findByText("Primeira linha");
-    const paragraph = firstLine.closest("p");
+    const paragraph = await screen.findByText((_, element) => {
+      return element?.tagName === "P" && element.textContent === "Primeira linhaSegunda linha com negrito";
+    });
 
-    expect(paragraph?.querySelector("br")).toBeTruthy();
+    expect(paragraph.querySelector("br")).toBeTruthy();
     expect(screen.getByText("negrito").tagName).toBe("STRONG");
   });
 
