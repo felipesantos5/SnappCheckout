@@ -57,9 +57,10 @@ export function TopOffersChart({ data }: TopOffersChartProps) {
                 innerRadius={"40%"}
                 fill="#8884d8"
                 dataKey="value"
+                stroke="none"
               >
                 {data.map((_entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
                 ))}
               </Pie>
               <Tooltip

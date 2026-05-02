@@ -29,6 +29,40 @@ interface RecentSalesTableProps {
   customDateRange?: DateRange;
 }
 
+type OfferForThumbnail = NonNullable<Sale["offerId"]>;
+
+const getValidImageUrls = (offer: OfferForThumbnail) => {
+  const candidates = [offer.mainProduct?.imageUrl, offer.bannerImageUrl];
+
+  return candidates
+    .map((url) => url?.trim())
+    .filter((url): url is string => !!url && url !== "null" && url !== "undefined");
+};
+
+function OfferThumbnail({ offer }: { offer: OfferForThumbnail }) {
+  const imageUrls = getValidImageUrls(offer);
+  const [imageIndex, setImageIndex] = useState(0);
+  const imageUrl = imageUrls[imageIndex];
+
+  if (!imageUrl) {
+    return (
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-[#f6f5f5]">
+        <ShoppingBag className="h-3.5 w-3.5 text-neutral-400" />
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={offer.name}
+      className="h-8 w-8 shrink-0 rounded-md border border-neutral-200 object-cover"
+      loading="lazy"
+      onError={() => setImageIndex((current) => current + 1)}
+    />
+  );
+}
+
 export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesTableProps) {
   const { token } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
@@ -176,7 +210,6 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
                 paginatedSales.map((sale) => {
                   const hasOrderBump = sale.items.some((i) => i.isOrderBump);
                   const itemsCount = sale.items.length;
-                  const offerImageUrl = sale.offerId?.bannerImageUrl || sale.offerId?.mainProduct?.imageUrl;
 
                   return (
                     <TableRow key={sale._id} className="border-neutral-100 hover:bg-[#f8f7f7] transition-colors">
@@ -205,18 +238,7 @@ export function RecentSalesTable({ period = "7", customDateRange }: RecentSalesT
                               to={`/offers/${sale.offerId._id}`}
                               className="flex w-fit items-center gap-2 font-medium text-yellow-500 transition-colors hover:underline"
                             >
-                              {offerImageUrl ? (
-                                <img
-                                  src={offerImageUrl}
-                                  alt=""
-                                  className="h-8 w-8 shrink-0 rounded-md border border-neutral-200 object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-[#f6f5f5]">
-                                  <ShoppingBag className="h-3.5 w-3.5 text-neutral-400" />
-                                </span>
-                              )}
+                              <OfferThumbnail offer={sale.offerId} />
                               <span className="truncate">{sale.offerId.name}</span>
                             </Link>
                           ) : (
