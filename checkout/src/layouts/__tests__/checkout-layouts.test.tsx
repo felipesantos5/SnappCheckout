@@ -9,10 +9,10 @@ import { createOffer } from "../../test/fixtures/offers";
 import { jsonResponse, renderCheckout } from "../../test/testUtils";
 import { stripeMock } from "../../test/setup";
 
-const renderClassic = () =>
+const renderClassic = (overrides: Partial<ReturnType<typeof createOffer>> = {}) =>
   renderCheckout(
     <ClassicLayout
-      offerData={createOffer({ layoutType: "classic" })}
+      offerData={createOffer({ layoutType: "classic", ...overrides })}
       checkoutSessionId="session_test"
       generateEventId={() => "event_test"}
       abTestId="ab_test"
@@ -86,6 +86,29 @@ describe("Layout Classic - Renderizacao e Pagamento", () => {
     expect(loadStripe).toHaveBeenCalledWith("pk_test_checkout", {
       stripeAccount: "acct_test_checkout",
     });
+  });
+
+  it("preserva quebras de linha e markdown na descricao do order bump", async () => {
+    renderClassic({
+      orderBumps: [
+        {
+          _id: "bump_checklist",
+          name: "Checklist de lancamento",
+          headline: "Adicione o checklist de lancamento",
+          description: "Primeira linha\nSegunda linha com **negrito**",
+          imageUrl: "https://example.com/checklist.png",
+          priceInCents: 1990,
+          originalPriceInCents: 3990,
+          discountPercentage: 50,
+        },
+      ],
+    });
+
+    const firstLine = await screen.findByText("Primeira linha");
+    const paragraph = firstLine.closest("p");
+
+    expect(paragraph?.querySelector("br")).toBeTruthy();
+    expect(screen.getByText("negrito").tagName).toBe("STRONG");
   });
 
   it("atualiza o total quando order bump e selecionado", async () => {

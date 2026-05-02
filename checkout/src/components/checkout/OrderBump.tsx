@@ -25,6 +25,13 @@ interface OrderBumpProps {
   currency: string;
 }
 
+const preserveMarkdownLineBreaks = (markdown: string) =>
+  markdown
+    .replace(/\r\n?/g, "\n")
+    .split("\n\n")
+    .map((block) => block.replace(/\n/g, "  \n"))
+    .join("\n\n");
+
 // Componente individual de bump memoizado
 const BumpItem = memo<{ bump: Bump; isSelected: boolean; onToggle: () => void; currency: string; primary: string; t: any }>(
   ({ bump, isSelected, onToggle, currency, primary, t }) => {
@@ -75,7 +82,7 @@ const BumpItem = memo<{ bump: Bump; isSelected: boolean; onToggle: () => void; c
                         em: ({ children }) => <em className="italic">{children}</em>,
                       }}
                     >
-                      {bump.description}
+                      {preserveMarkdownLineBreaks(bump.description)}
                     </ReactMarkdown>
                   </div>
                 )}
